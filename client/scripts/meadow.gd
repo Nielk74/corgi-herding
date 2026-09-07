@@ -79,15 +79,17 @@ func _build_light() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("cad6bd")
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("fff1d8")
-	environment.ambient_light_energy = 0.65
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.ambient_light_color = Color("e8efeb")
+	environment.ambient_light_energy = 0.35
+	# Compatibility renders into an LDR buffer: keep the lighting below clipping.
+	# Linear tonemapping also preserves the authored grass/water palette on Android.
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	world_environment.environment = environment
 	add_child(world_environment)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, -25, 0)
-	sun.light_color = Color("fff1d6")
-	sun.light_energy = 1.1
+	sun.light_color = Color("fffdf6")
+	sun.light_energy = 0.65
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 65

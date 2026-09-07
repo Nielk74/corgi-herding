@@ -4,12 +4,16 @@ set -euo pipefail
 deployment_root=${1:?Usage: deploy-update-server.sh DEPLOYMENT_ROOT [--stage-only]}
 stage_only=${2:-}
 service_label="com.corgiherding.server"
-service_target="gui/$(id -u)/$service_label"
+launch_user=$(id -u)
+launch_domain="gui/$launch_user"
+[[ ! -r "$deployment_root/launch-domain" ]] || launch_domain=$(<"$deployment_root/launch-domain")
 repository=$(<"$deployment_root/repository")
 health_port=$(<"$deployment_root/port")
 
 log() { printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"; }
 fail() { log "ERROR: $*" >&2; exit 1; }
+[[ "$launch_domain" =~ ^(gui|user)/[0-9]+$ && "${launch_domain#*/}" == "$launch_user" ]] || fail "Invalid launchd domain for this user."
+service_target="$launch_domain/$service_label"
 restart_server() {
     # KeepAlive starts the replacement after the old process flushes its save.
     launchctl kill SIGTERM "$service_target" 2>/dev/null || launchctl kickstart "$service_target"

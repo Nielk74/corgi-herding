@@ -31,6 +31,7 @@ Files live under `~/Library/Application Support/Corgi Herding/`:
 | `state/` | Persistent herd checkpoints, including private reconnect credentials. |
 | `releases/` | Downloaded binaries and checksums; previous releases are retained for recovery. |
 | `current-version` | Last accepted release tag. |
+| `launch-domain` | Selected launchd domain: `gui/UID` for a graphical login or `user/UID` for a background user manager. |
 | `logs/` | Server and update logs. |
 
 The updater only reads GitHub's latest non-draft, non-prerelease release. CI
@@ -43,13 +44,17 @@ kept outside the release directories. Future incompatible save-format changes
 must include migrations and a backup strategy before they ship.
 
 `bash tools/deploy-test-updater.sh` exercises initial installation, a healthy
-update, no-op checks, checksum rejection, rollback, and cached-release retry
-using isolated service and network stand-ins. It never stops a real service.
+update, no-op checks, checksum rejection, rollback, cached-release retry, and
+both graphical/background launchd domains using isolated service and network
+stand-ins. It never stops a real service.
 
 Updates briefly disconnect players. The Android client reconnects with its saved
-credentials. User launch agents start when this macOS user logs in; the Mac must
-remain awake and on the network to serve the phones. This is a LAN development
-host, not an independently available cloud service.
+credentials. The installer uses a graphical login domain when available and
+otherwise the existing background user domain on a headless Mac. User launch
+agents run while that user manager exists; after a reboot, this macOS user must
+log in to start them again. The Mac must remain awake and on the network to
+serve the phones. This is a LAN development host, not an independently
+available cloud service.
 
 Check health or trigger an update immediately:
 
@@ -57,14 +62,18 @@ Check health or trigger an update immediately:
 curl -fsS http://127.0.0.1:8790/healthz
 "$HOME/Library/Application Support/Corgi Herding/update-server.sh" \
   "$HOME/Library/Application Support/Corgi Herding"
-launchctl print "gui/$(id -u)/com.corgiherding.server"
+deployment_root="$HOME/Library/Application Support/Corgi Herding"
+launch_domain=$(<"$deployment_root/launch-domain")
+launchctl print "$launch_domain/com.corgiherding.server"
 ```
 
 To stop this deployment without deleting its saved games:
 
 ```sh
-launchctl bootout "gui/$(id -u)/com.corgiherding.update"
-launchctl bootout "gui/$(id -u)/com.corgiherding.server"
+deployment_root="$HOME/Library/Application Support/Corgi Herding"
+launch_domain=$(<"$deployment_root/launch-domain")
+launchctl bootout "$launch_domain/com.corgiherding.update"
+launchctl bootout "$launch_domain/com.corgiherding.server"
 ```
 
 The plist files remain in `~/Library/LaunchAgents/` and will load at next login.

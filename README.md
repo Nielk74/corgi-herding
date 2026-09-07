@@ -13,6 +13,11 @@ milestone is a playable simulation prototype using procedural 3D shapes.
 · [Design and roadmap](docs/design.md)
 · [Run a server](docs/deployment.md)
 
+![Android prototype with two connected herders, two corgis and ten sheep](docs/images/ten-sheep-and-a-gate.png)
+
+Captured from the signed Android prototype in an emulator connected to the Go
+server, with a second network client in the same herd.
+
 ## Play together
 
 1. Install the APK on two Android phones with access to the same game server.

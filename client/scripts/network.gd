@@ -24,6 +24,7 @@ var snapshot_age := 0.0
 var seq := 0
 var paused := false
 var persist_config := true
+var resume_after_background := false
 
 func _ready() -> void:
 	_load_config()
@@ -193,8 +194,10 @@ func _retry() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED:
+		resume_after_background = not paused and has_saved_herd()
 		disconnect_herd()
-	elif what == NOTIFICATION_APPLICATION_RESUMED and has_saved_herd():
+	elif what == NOTIFICATION_APPLICATION_RESUMED and resume_after_background:
+		resume_after_background = false
 		reconnect()
 
 func _load_config() -> void:

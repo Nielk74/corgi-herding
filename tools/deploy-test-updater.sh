@@ -106,4 +106,18 @@ assert_version build-2
 printf '%s\n' build-none > "$test_root/fail-health"
 "$source_dir/deploy-update-server.sh" "$test_root/runtime"
 assert_version build-4
-printf 'PASS: initial stage, healthy update, no-op, checksum rejection, graceful rollback, cached retry.\nIsolated evidence: %s\n' "$test_root"
+
+# Older installations omit this file and retain the GUI default above. New
+# headless installs select the existing user domain and persist that choice.
+printf 'user/%s\n' "$(id -u)" > "$test_root/runtime/launch-domain"
+make_release build-5
+"$source_dir/deploy-update-server.sh" "$test_root/runtime"
+assert_version build-5
+[[ "$(tail -n 1 "$test_root/launchctl-calls")" == "kill SIGTERM user/$(id -u)/com.corgiherding.server" ]]
+printf '%s\n' system > "$test_root/runtime/launch-domain"
+if "$source_dir/deploy-update-server.sh" "$test_root/runtime"; then
+    printf '%s\n' 'FAIL: an invalid launch domain was accepted.' >&2
+    exit 1
+fi
+assert_version build-5
+printf 'PASS: initial stage, healthy update, no-op, checksum rejection, graceful rollback, cached retry, headless domain, invalid domain rejection.\nIsolated evidence: %s\n' "$test_root"

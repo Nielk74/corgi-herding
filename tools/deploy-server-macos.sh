@@ -30,17 +30,27 @@ gh auth status >/dev/null
 
 service_label="com.corgiherding.server"
 update_label="com.corgiherding.update"
-launch_domain="gui/$(id -u)"
+launch_user=$(id -u)
+if launchctl print "gui/$launch_user" >/dev/null 2>&1; then
+    launch_domain="gui/$launch_user"
+elif launchctl print "user/$launch_user" >/dev/null 2>&1; then
+    launch_domain="user/$launch_user"
+else
+    printf '%s\n' 'No available launchd user domain. Log in as this macOS user and retry.' >&2
+    exit 1
+fi
 agents_dir="$HOME/Library/LaunchAgents"
 service_plist="$agents_dir/$service_label.plist"
 update_plist="$agents_dir/$update_label.plist"
 
 # Installing into a live service is deliberately explicit. Normal updates use
 # the copied updater and never require rerunning this installer.
-if launchctl print "$launch_domain/$service_label" >/dev/null 2>&1 || launchctl print "$launch_domain/$update_label" >/dev/null 2>&1; then
-    printf '%s\n' "Corgi Herding is already installed. Run '$deployment_root/update-server.sh' '$deployment_root' to update it now." >&2
-    exit 1
-fi
+for existing_domain in "gui/$launch_user" "user/$launch_user"; do
+    if launchctl print "$existing_domain/$service_label" >/dev/null 2>&1 || launchctl print "$existing_domain/$update_label" >/dev/null 2>&1; then
+        printf '%s\n' "Corgi Herding is already installed in $existing_domain. Run '$deployment_root/update-server.sh' '$deployment_root' to update it now." >&2
+        exit 1
+    fi
+done
 if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
     printf 'Port %s already has a listener. Choose another --port; no process was stopped.\n' "$port" >&2
     exit 1
@@ -50,6 +60,7 @@ umask 077
 mkdir -p "$deployment_root/bin" "$deployment_root/releases" "$deployment_root/state" "$deployment_root/logs" "$agents_dir"
 printf '%s\n' "$repository" > "$deployment_root/repository"
 printf '%s\n' "$port" > "$deployment_root/port"
+printf '%s\n' "$launch_domain" > "$deployment_root/launch-domain"
 printf '%s:%s\n' "$bind_address" "$port" > "$deployment_root/address"
 cp "$source_dir/deploy-run-server.sh" "$deployment_root/run-server.sh"
 cp "$source_dir/deploy-update-server.sh" "$deployment_root/update-server.sh"
@@ -61,6 +72,7 @@ write_plist() {
     [[ ! -e "$plist" ]] || mv "$plist" "$plist.previous.$(date '+%Y%m%d%H%M%S')"
     plutil -create xml1 "$plist"
     plutil -insert Label -string "$label" "$plist"
+    plutil -insert LimitLoadToSessionType -xml '<array><string>Aqua</string><string>Background</string></array>' "$plist"
     plutil -insert ProgramArguments -xml '<array/>' "$plist"
     plutil -insert ProgramArguments.0 -string /bin/bash "$plist"
     plutil -insert ProgramArguments.1 -string "$script" "$plist"
@@ -100,4 +112,4 @@ if [[ "$healthy" != true ]]; then
     exit 1
 fi
 launchctl bootstrap "$launch_domain" "$update_plist"
-printf 'Server is healthy on %s:%s. Updates check every 5 minutes.\nState and logs: %s\n' "$bind_address" "$port" "$deployment_root"
+printf 'Server is healthy on %s:%s in launchd %s. Updates check every 5 minutes.\nState and logs: %s\n' "$bind_address" "$port" "$launch_domain" "$deployment_root"
