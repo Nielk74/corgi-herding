@@ -1,0 +1,120 @@
+name: Verify and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.6.3
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26.x'
+          cache-dependency-path: server/go.sum
+      - name: Test authoritative simulation and multiplayer
+        working-directory: server
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: Install verified Godot editor and Android templates
+        run: bash tools/install-godot.sh "$RUNNER_TEMP/godot"
+      - name: Verify server updater and rollback
+        run: |
+          for script in tools/deploy-*.sh; do bash -n "$script"; done
+          bash tools/deploy-test-updater.sh
+      - name: Import and test client
+        run: |
+          set -o pipefail
+          "$RUNNER_TEMP/godot/godot" --headless --path client --editor --quit 2>&1 | tee "$RUNNER_TEMP/import.log"
+          ! grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' "$RUNNER_TEMP/import.log"
+          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/smoke.gd
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare Android export
+        if: github.event_name != 'pull_request'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GAME_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          chmod 600 "$RUNNER_TEMP/release.jks"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.1'
+          python3 tools/configure-android.py
+          mkdir -p dist
+      - name: Export and verify signed APK
+        if: github.event_name != 'pull_request'
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/release.jks
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: corgi-herding
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          "$RUNNER_TEMP/godot/godot" --headless --path client --export-release Android "$GITHUB_WORKSPACE/dist/corgi-herding.apk"
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs dist/corgi-herding.apk
+          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging dist/corgi-herding.apk
+          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 dist/corgi-herding.apk
+      - name: Build portable servers
+        if: github.event_name != 'pull_request'
+        working-directory: server
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="$GITHUB_REF_NAME"
+          else
+            version="build-$GITHUB_RUN_NUMBER"
+          fi
+          for target in darwin/arm64 linux/amd64 linux/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w -X main.version=$version" -o "../dist/corgi-server-$os-$arch" ./cmd/server
+          done
+          cd ../dist
+          sha256sum corgi-* > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: corgi-herding-${{ github.sha }}
+          path: dist/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Publish complete release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="build-$GITHUB_RUN_NUMBER"
+          fi
+          if gh release view "$tag" --json isDraft > "$RUNNER_TEMP/existing-release.json" 2>/dev/null; then
+            jq -e '.isDraft == true' "$RUNNER_TEMP/existing-release.json"
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* --target "$GITHUB_SHA" --draft --title "Ten Sheep and a Gate · $tag" --notes-file docs/release-notes.md
+          fi
+          gh release edit "$tag" --draft=false --latest

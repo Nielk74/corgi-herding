@@ -1,0 +1,82 @@
+# Corgi Herding
+
+[![Verify and release](https://github.com/Nielk74/corgi-herding/actions/workflows/release.yml/badge.svg)](https://github.com/Nielk74/corgi-herding/actions/workflows/release.yml)
+
+Two herders. Two corgis. Ten sheep and a gate.
+
+A small cooperative Android game about caring for a flock together. No combat,
+score or timer: a wandering sheep creates another little story. The first
+milestone is a playable simulation prototype using procedural 3D shapes.
+
+[Download the latest APK](https://github.com/Nielk74/corgi-herding/releases/latest/download/corgi-herding.apk)
+· [All releases](https://github.com/Nielk74/corgi-herding/releases)
+· [Design and roadmap](docs/design.md)
+· [Run a server](docs/deployment.md)
+
+## Play together
+
+1. Install the APK on two Android phones with access to the same game server.
+2. One player creates a herd and shares its invite code. The other joins it.
+3. Tap the ground to walk. Select either corgi and give Come, Stay or Go commands.
+4. Guide the flock over the bridge. Walk to the gate to open it, then bring the sheep into the pasture.
+5. Sit in the grass, or approach a corgi to pet it. There is no deadline.
+
+The initial server runs on the developer's Mac over LAN. The server address is
+editable on the start screen, so self-hosting does not require rebuilding the APK.
+The Mac needs to be awake and on the same network. Public internet hosting is
+an optional deployment step; this release does not include a rented cloud server.
+
+## Develop
+
+Requires Go 1.26+ and Godot **4.6.3** standard edition.
+
+```sh
+cd server
+go run ./cmd/server
+```
+
+Open `client/project.godot` in Godot. Run two instances, connect both to
+`http://127.0.0.1:8790`, and create/join a herd. The Go server simulates on a 2D
+plane at 20 Hz; the Godot client renders a fixed 3D view with movement feedback
+and entity interpolation. WebSocket JSON messages are documented in
+[protocol/README.md](protocol/README.md).
+
+```sh
+cd server
+go vet ./...
+go test -race ./...
+```
+
+```sh
+godot --headless --path client --editor --quit
+godot --headless --path client --script res://tests/smoke.gd
+```
+
+## Automatic delivery
+
+Each successful `main` push builds and verifies a signed Android APK and macOS /
+Linux server binaries, then publishes a GitHub release with SHA-256 checksums.
+Version tags starting with `v` and manual workflow runs also produce releases.
+Pull requests run verification without access to the signing key.
+
+The installed Mac updater checks the latest completed release every five minutes.
+It verifies checksums, retains the previous version, restarts its own server
+service, and checks health before accepting an update. Herd checkpoints remain
+outside the release directory. See [deployment and rollback](docs/deployment.md).
+
+Repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`.
+The signing alias is `corgi-herding`. Optional repository variable:
+`GAME_SERVER_URL` sets the APK's default server. Back up the signing key: changing
+it prevents Android from installing future releases as updates.
+
+## Scope
+
+This is milestone 1, not the full journey game. It includes the networked meadow,
+shared dog commands, sheep steering, invitations, reconnection, and file
+checkpoints. Puppy adoption/training, richer animations and sound, PostgreSQL,
+camp customization and connected regions are subsequent milestones. Two-phone
+playtesting is necessary before judging the quality of the animal behavior.
+
+The art is original code-generated geometry. Godot's license is included with
+its runtime. The project source is provided for inspection; no open-source
+license grant has been selected yet.

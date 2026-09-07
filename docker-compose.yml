@@ -1,0 +1,53 @@
+services:
+  server:
+    build:
+      context: ./server
+      args:
+        VERSION: ${CORGI_VERSION:-development}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 35s
+    environment:
+      CORGI_ADDR: :8790
+      CORGI_STATE_DIR: /data
+    ports:
+      - "${CORGI_BIND:-0.0.0.0}:${CORGI_PORT:-8790}:8790"
+    volumes:
+      - corgi-state:/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=8M
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [public]
+    restart: unless-stopped
+    environment:
+      CORGI_DOMAIN: ${CORGI_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      server:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  corgi-state:
+  caddy-data:
+  caddy-config:
