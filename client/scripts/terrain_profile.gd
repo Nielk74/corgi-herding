@@ -9,16 +9,20 @@ const BRIDGE_HEIGHT := 0.23
 const PLAY_BOUNDS := Rect2(-17, -11, 34, 22)
 var landscape := "alpine"
 var samples: Dictionary = {}
+var bridge_y := 0.0
+var gate_y := 0.0
 
-func _init(kind := "alpine") -> void:
+func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 	landscape = kind
+	bridge_y = float(layout.get("bridge_y", -4.0 if kind == "larch" else 0.0))
+	gate_y = float(layout.get("gate_y", 4.0 if kind == "larch" else 0.0))
 
 func river_width(z: float) -> float:
 	# Beyond the playable meadow the stream opens into a small lake / desert wash.
-	return 1.5 + smoothstep(12.0, 28.0, z) * (5.3 if landscape == "alpine" else 2.8)
+	return 1.5 + smoothstep(12.0, 28.0, z) * (2.8 if landscape == "cactus" else (3.9 if landscape == "larch" else 5.3))
 
 func bridge_at(x: float, z: float) -> bool:
-	return absf(x) <= 1.93 and absf(z) <= 1.95
+	return absf(x) <= 1.93 and absf(z - bridge_y) <= 1.95
 
 func surface_height(x: float, z: float) -> float:
 	if bridge_at(x, z):
@@ -78,6 +82,15 @@ func raw_height(x: float, z: float) -> float:
 		rolling += 2.50 * _hill(x, z, 12, 5, 7, 6)
 		rolling += 2.95 * _hill(x, z, 15, -9, 7, 5)
 		rolling += 0.28 * pow(sin(x * 0.19 + z * 0.16), 2)
+	elif landscape == "larch":
+		# A sheltered clearing, with a diagonal rising forest shoulder on the left
+		# and a broad, quieter shelf past the offset gate on the right.
+		rolling = 0.30
+		rolling += 2.65 * _hill(x, z, -15, -5, 6, 7)
+		rolling += 1.65 * _hill(x, z, -11, 8, 8, 6)
+		rolling += 1.60 * _hill(x, z, 13, 6, 8, 6)
+		rolling += 0.90 * _hill(x, z, 15, -8, 8, 6)
+		rolling += 0.22 * pow(sin(x * 0.14 - z * 0.21), 2)
 	else:
 		rolling = 0.35
 		rolling += 2.15 * _hill(x, z, -12, -5, 7, 6)
@@ -90,17 +103,25 @@ func raw_height(x: float, z: float) -> float:
 	# and become steep shoulders beyond it. They replace a rectangular shrub rim.
 	var flank := maxf(absf(x) - 15.0, 0.0)
 	var side_strength := 0.34 if x < 0 else 0.24
+	if landscape == "larch":
+		side_strength = 0.52 if x < 0 else 0.14
 	height += rise * minf(pow(flank, 1.22) * side_strength, 13.0)
 	var back := maxf(-z - 10.0, 0.0)
-	height += rise * minf(back * 0.46, 6.5) * (0.65 + 0.35 * pow(sin(x * 0.14), 2))
+	var back_strength := 0.46
+	if landscape == "larch":
+		back_strength = 0.49 if x < -5.0 else 0.23
+	height += rise * minf(back * back_strength, 6.5) * (0.65 + 0.35 * pow(sin(x * 0.14), 2))
 	var front := maxf(z - 11.0, 0.0)
 	height += rise * minf(front * 0.08, 1.4)
 	if landscape == "cactus" and flank > 1:
 		# Erosion terraces emerge in the canyon flanks, while the walking floor stays smooth.
 		height += minf(flank * 0.08, 0.6) * smoothstep(-0.5, 0.5, sin(height * 3.4 + z * 0.20))
-	var gate_flat := (1.0 - smoothstep(0.85, 2.6, absf(x - 6.0))) * (1.0 - smoothstep(2.1, 3.9, absf(z)))
+	if landscape == "larch":
+		var rest_shelf := (1.0 - smoothstep(2.3, 5.1, absf(x - 12.5))) * (1.0 - smoothstep(1.3, 4.0, absf(z - 6.3)))
+		height = lerpf(height, 1.35, rest_shelf * 0.85)
+	var gate_flat := (1.0 - smoothstep(0.85, 2.6, absf(x - 6.0))) * (1.0 - smoothstep(2.1, 3.9, absf(z - gate_y)))
 	height = lerpf(height, 0.30, gate_flat)
-	var bridge_flat := (1.0 - smoothstep(1.93, 3.4, absf(x))) * (1.0 - smoothstep(1.95, 3.1, absf(z)))
+	var bridge_flat := (1.0 - smoothstep(1.93, 3.4, absf(x))) * (1.0 - smoothstep(1.95, 3.1, absf(z - bridge_y)))
 	height = lerpf(height, BRIDGE_HEIGHT, bridge_flat)
 	return height
 

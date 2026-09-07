@@ -6,6 +6,7 @@ const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
 const ACCENT := Color("466e59")
+const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow"}
 
 var meadow: MeadowDiorama
 var network: HerdConnection
@@ -50,7 +51,9 @@ var last_settled := 0
 var selected_landscape := "alpine"
 var alpine_button: Button
 var cactus_button: Button
+var larch_button: Button
 var region_label: Label
+var world_layout := {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 
 func _ready() -> void:
 	meadow = Meadow.new()
@@ -191,9 +194,10 @@ func _build_welcome() -> void:
 	var landscapes := _row(column, 8)
 	alpine_button = _button("Alpine valley", func() -> void: _select_landscape("alpine"))
 	cactus_button = _button("Cactus canyon", func() -> void: _select_landscape("cactus"))
-	for button in [alpine_button, cactus_button]:
+	larch_button = _button("Larch Hollow", func() -> void: _select_landscape("larch"))
+	for button in [alpine_button, cactus_button, larch_button]:
 		button.custom_minimum_size.y = 64
-		button.add_theme_font_size_override("font_size", 18)
+		button.add_theme_font_size_override("font_size", 16)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		landscapes.add_child(button)
 	_primary(alpine_button)
@@ -309,21 +313,37 @@ func _configure() -> bool:
 	menu_error.text = ""
 	return network.configure(endpoint_input.text, name_input.text)
 
-func _select_landscape(landscape: String) -> void:
-	if landscape not in ["alpine", "cactus"]:
+func _default_layout(landscape: String) -> Dictionary:
+	return {"version": 1, "bridge_y": -4.0 if landscape == "larch" else 0.0, "gate_y": 4.0 if landscape == "larch" else 0.0}
+
+func _supported_layout(landscape: String, layout: Dictionary) -> bool:
+	var expected := _default_layout(landscape)
+	if layout.size() != expected.size():
+		return false
+	for key in expected:
+		var value: Variant = layout.get(key)
+		# JSON decodes numbers as floats. Compare numeric values after checking
+		# types, not dictionary identity (which distinguishes integer versions).
+		if typeof(value) not in [TYPE_INT, TYPE_FLOAT] or float(value) != float(expected[key]):
+			return false
+	return true
+
+func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
+	if not LANDSCAPES.has(landscape):
 		return
 	selected_landscape = landscape
-	meadow.set_landscape(landscape)
-	for button in [alpine_button, cactus_button]:
+	world_layout = _default_layout(landscape) if layout.is_empty() else layout.duplicate()
+	meadow.set_landscape(landscape, world_layout)
+	for button in [alpine_button, cactus_button, larch_button]:
 		button.remove_theme_stylebox_override("normal")
 		button.remove_theme_stylebox_override("hover")
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_hover_color")
-	_primary(alpine_button if landscape == "alpine" else cactus_button)
+	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button}[landscape])
 	if region_label != null:
-		region_label.text = "Alpine valley" if landscape == "alpine" else "Cactus canyon"
+		region_label.text = LANDSCAPES[landscape]
 	if create_button != null:
-		create_button.text = "Start in the Alps" if landscape == "alpine" else "Start in the canyon"
+		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow"}[landscape]
 
 func _create() -> void:
 	if not request_busy and _configure():
@@ -349,6 +369,7 @@ func _set_busy(value: bool) -> void:
 	resume_button.disabled = value
 	alpine_button.disabled = value
 	cactus_button.disabled = value
+	larch_button.disabled = value
 	if value:
 		menu_error.text = "Opening a little world…"
 
@@ -384,7 +405,7 @@ func _on_error(message: String) -> void:
 	_set_busy(false)
 	menu_error.text = message
 	_hint(message, 7.0)
-	if not network.has_saved_herd() and not preview_mode:
+	if (not network.has_saved_herd() or network.update_required or network.auth_rejected) and not preview_mode:
 		_open_settings()
 
 func _open_settings() -> void:
@@ -472,7 +493,7 @@ func _pick_world_interaction(screen_pos: Vector2) -> String:
 	if actors.has(local_id):
 		candidates.append({"id": "player", "position": actors[local_id].node.position + Vector3(0, 0.9, 0), "radius": 40.0})
 		if not meadow.gate_open:
-			candidates.append({"id": "gate", "position": _surface_position(Vector2(6, 0)) + Vector3(0, 0.7, 0), "radius": 42.0})
+			candidates.append({"id": "gate", "position": _surface_position(Vector2(6, world_layout.gate_y)) + Vector3(0, 0.7, 0), "radius": 42.0})
 	var nearest := ""
 	var nearest_distance := INF
 	for candidate in candidates:
@@ -498,10 +519,10 @@ func _world_tap(screen_pos: Vector2) -> void:
 				return
 			if interaction == "gate":
 				_close_controls()
-				if Vector2(player.position.x - 6, player.position.z).length() < 3.0:
+				if Vector2(player.position.x - 6, player.position.z - float(world_layout.gate_y)).length() < 3.0:
 					_interact("gate")
 				else:
-					movement_target = Vector2(5 if player.position.x < 6 else 7, 0)
+					movement_target = Vector2(5 if player.position.x < 6 else 7, world_layout.gate_y)
 					movement_seq = network.move_to(movement_target)
 					moving = true
 					_hint("Walk closer, then tap the gate.", 3.0)
@@ -511,7 +532,7 @@ func _world_tap(screen_pos: Vector2) -> void:
 		_hint("The steep slopes shelter this valley. Keep to the open ground.", 3.0)
 		return
 	# Water is readable as a real obstacle; tap the bridge or other bank to cross.
-	if absf(ground.x) < 1.5 and absf(ground.z) > 1.85:
+	if absf(ground.x) < 1.5 and absf(ground.z - float(world_layout.bridge_y)) > 1.85:
 		_hint("The bridge is the dry way across.")
 		return
 	var target := Vector2(ground.x, ground.z)
@@ -537,10 +558,22 @@ func _surface_position(point: Vector2) -> Vector3:
 	return Vector3(point.x, meadow.surface_height(point.x, point.y) + 0.03, point.y)
 
 func _on_snapshot(snapshot: Dictionary) -> void:
-	latest = snapshot
 	var landscape := str(snapshot.get("landscape", "alpine"))
-	if landscape != selected_landscape:
-		_select_landscape(landscape)
+	var layout: Variant = snapshot.get("layout", {})
+	# Old centered worlds remain compatible. Never guess an unfamiliar route,
+	# or silently display a centered bridge for a new landscape.
+	if not LANDSCAPES.has(landscape) or not layout is Dictionary:
+		network.require_update("Update Corgi Herding to visit this landscape.")
+		return
+	if layout.is_empty() and landscape != "larch":
+		layout = _default_layout(landscape)
+	if not _supported_layout(landscape, layout):
+		network.require_update("Update Corgi Herding to follow this valley's route.")
+		return
+	layout = _default_layout(landscape)
+	latest = snapshot
+	if landscape != selected_landscape or layout != world_layout:
+		_select_landscape(landscape, layout)
 	meadow.preview.hide()
 	meadow.gate_open = bool(snapshot.get("gate_open", false))
 	var present: Dictionary = {}
@@ -664,27 +697,36 @@ func _process(delta: float) -> void:
 
 func _next_waypoint(point: Vector2, target: Vector2) -> Vector2:
 	# Mirror server/internal/game/world.go waypoint, including stops on the bridge.
+	var bridge_y := float(world_layout.bridge_y)
+	# Returning from pasture reaches the fence before the river. On offset
+	# routes, river-first routing would steer directly into the closed fence.
+	if point.x > 6 and target.x < 6:
+		return _gate_waypoint(point)
 	if point.x < -1.5 and target.x > -1.5:
-		if absf(point.y) > 1.4:
-			return Vector2(-2.1, 0)
-		return target if target.x < 1.5 else Vector2(2.1, 0)
+		if absf(point.y - bridge_y) > 1.4:
+			return Vector2(-2.1, bridge_y)
+		return target if target.x < 1.5 else Vector2(2.1, bridge_y)
 	if point.x > 1.5 and target.x < 1.5:
-		if absf(point.y) > 1.4:
-			return Vector2(2.1, 0)
-		return target if target.x > -1.5 else Vector2(-2.1, 0)
+		if absf(point.y - bridge_y) > 1.4:
+			return Vector2(2.1, bridge_y)
+		return target if target.x > -1.5 else Vector2(-2.1, bridge_y)
 	if absf(point.x) <= 1.5:
-		return target if absf(target.x) <= 1.5 else Vector2(2.1 if target.x >= 0 else -2.1, 0)
+		return target if absf(target.x) <= 1.5 else Vector2(2.1 if target.x >= 0 else -2.1, bridge_y)
 	if (point.x < 6 and target.x > 6) or (point.x > 6 and target.x < 6):
-		var side := 1.0 if point.x > 6 else -1.0
-		return Vector2(6 + side * 0.6, 0) if not meadow.gate_open or absf(point.y) > 1.4 else Vector2(6 - side * 0.6, 0)
+		return _gate_waypoint(point)
 	return target
+
+func _gate_waypoint(point: Vector2) -> Vector2:
+	var side := 1.0 if point.x > 6 else -1.0
+	var gate_y := float(world_layout.gate_y)
+	return Vector2(6 + side * 0.6, gate_y) if not meadow.gate_open or absf(point.y - gate_y) > 1.4 else Vector2(6 - side * 0.6, gate_y)
 
 func _walkable(point: Vector2) -> bool:
 	if absf(point.x) > 17 or absf(point.y) > 11:
 		return false
-	if absf(point.x) < 1.5 and absf(point.y) > 1.85:
+	if absf(point.x) < 1.5 and absf(point.y - float(world_layout.bridge_y)) > 1.85:
 		return false
-	if absf(point.x - 6) < 0.18 and (not meadow.gate_open or absf(point.y) > 1.8):
+	if absf(point.x - 6) < 0.18 and (not meadow.gate_open or absf(point.y - float(world_layout.gate_y)) > 1.8):
 		return false
 	return true
 
@@ -699,7 +741,7 @@ func _show_preview() -> void:
 	var sheep: Array = []
 	for i in range(10):
 		sheep.append({"id": "s%d" % i, "position": {"x": -5.5 + sin(i * 2.3) * 3, "y": -1.6 + cos(i * 1.6) * 2.6}, "state": "grazing"})
-	_on_snapshot({"gate_open": false, "settled": 0, "landscape": selected_landscape,
+	_on_snapshot({"gate_open": false, "settled": 0, "landscape": selected_landscape, "layout": world_layout,
 		"players": [{"id": "p1", "position": {"x": -10, "y": 2}, "state": "idle", "connected": true}, {"id": "p2", "position": {"x": -4, "y": 5}, "state": "idle", "connected": true}],
 		"dogs": [{"id": "mochi", "position": {"x": -8, "y": 3}, "state": "wander"}, {"id": "maple", "position": {"x": -2.5, "y": 4}, "state": "wander"}], "sheep": sheep})
 	status_label.text = "Preview · not connected"

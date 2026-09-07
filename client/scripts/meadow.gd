@@ -9,6 +9,7 @@ const TerrainProfile = preload("res://scripts/terrain_profile.gd")
 const SceneryBatch = preload("res://scripts/static_scenery_batch.gd")
 var camera: Camera3D
 var gate: Node3D
+var bridge: Node3D
 var destination: Node3D
 var selection: Node3D
 var preview: Node3D
@@ -27,6 +28,9 @@ var desired_focus := Vector3(-4.0, 1.8, -6.0)
 const CAMERA_OFFSET := Vector3(8, 28, 38)
 const TERRAIN_HORIZON_DEPTH := 22.0
 var profile: ValleyTerrainProfile
+var layout: Dictionary = {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
+var bridge_y := 0.0
+var gate_y := 0.0
 
 func _ready() -> void:
 	_build_light()
@@ -38,12 +42,21 @@ func _ready() -> void:
 	selection.visible = false
 	_build_preview()
 
-func set_landscape(id: String) -> void:
-	var next := "cactus" if id == "cactus" else "alpine"
-	if next == landscape and is_instance_valid(terrain):
+func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
+	var next := id if id in ["alpine", "cactus", "larch"] else "alpine"
+	var next_layout := {"version": int(incoming_layout.get("version", 1)),
+		"bridge_y": float(incoming_layout.get("bridge_y", -4.0 if next == "larch" else 0.0)),
+		"gate_y": float(incoming_layout.get("gate_y", 4.0 if next == "larch" else 0.0))}
+	if next_layout.version != 1:
+		push_error("Unsupported landscape layout version")
+		return
+	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	landscape = next
-	profile = TerrainProfile.new(landscape)
+	layout = next_layout
+	bridge_y = next_layout.bridge_y
+	gate_y = next_layout.gate_y
+	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
 		terrain.queue_free()
@@ -51,7 +64,7 @@ func set_landscape(id: String) -> void:
 	terrain.name = "Landscape_" + landscape
 	add_child(terrain)
 	if world_environment != null:
-		world_environment.background_color = Color("d8c1a1") if landscape == "cactus" else Color("bdcfd0")
+		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
@@ -64,8 +77,8 @@ func set_landscape(id: String) -> void:
 		for actor in preview.get_children():
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
 
-func _color(alpine: String, cactus: String) -> Color:
-	return Color(cactus if landscape == "cactus" else alpine)
+func _color(alpine: String, cactus: String, larch := "") -> Color:
+	return Color(cactus if landscape == "cactus" else (larch if landscape == "larch" and not larch.is_empty() else alpine))
 
 func material(color: Color, unshaded := false) -> StandardMaterial3D:
 	var key := color.to_html() + str(unshaded)
@@ -158,8 +171,12 @@ func _build_land() -> void:
 				_ground_triangle(surface, a, c, d, Color.WHITE, true)
 		_finish_surface(surface, "ValleyGround%d" % (0 if side < 0 else 1), true)
 	_build_river()
-	_trail([Vector2(-31, -13), Vector2(-24, -7), Vector2(-18, -2), Vector2(-13, -1), Vector2(-8, 0.7), Vector2(-4, 0.3), Vector2(-1.7, 0)], 1.1)
-	_trail([Vector2(1.7, 0), Vector2(6, 0), Vector2(10, 0.8), Vector2(14, 2), Vector2(19, 4), Vector2(27, 3), Vector2(35, -2)], 1.05)
+	if landscape == "larch":
+		_trail([Vector2(-29, -8), Vector2(-21, -3), Vector2(-15, 0), Vector2(-11, -0.5), Vector2(-7, bridge_y + 1.0), Vector2(-3.8, bridge_y), Vector2(-1.7, bridge_y)], 1.0)
+		_trail([Vector2(1.7, bridge_y), Vector2(3.2, bridge_y + 0.7), Vector2(3.7, 0), Vector2(4.3, gate_y - 1.2), Vector2(6, gate_y), Vector2(9, gate_y + 0.8), Vector2(13, 6.2), Vector2(20, 7), Vector2(30, 4)], 0.95)
+	else:
+		_trail([Vector2(-31, -13), Vector2(-24, -7), Vector2(-18, -2), Vector2(-13, -1), Vector2(-8, bridge_y + 0.7), Vector2(-4, bridge_y + 0.3), Vector2(-1.7, bridge_y)], 1.1)
+		_trail([Vector2(1.7, bridge_y), Vector2(6, gate_y), Vector2(10, gate_y + 0.8), Vector2(14, gate_y + 2), Vector2(19, 4), Vector2(27, 3), Vector2(35, -2)], 1.05)
 
 func _build_river() -> void:
 	var channel := SurfaceTool.new()
@@ -243,22 +260,37 @@ func _ground_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, 
 	var polygon: Array[Vector3] = [a, b, c]
 	var clipped: Array[Vector3] = []
 	var previous := polygon.back() as Vector3
-	var previous_depth := -previous.x * 0.2063 - previous.z * 0.9785
+	var previous_gap := _ground_horizon_gap(previous)
 	for point in polygon:
-		var depth := -point.x * 0.2063 - point.z * 0.9785
-		var inside := depth <= TERRAIN_HORIZON_DEPTH
-		var previous_inside := previous_depth <= TERRAIN_HORIZON_DEPTH
+		var gap := _ground_horizon_gap(point)
+		var inside := gap >= 0.0
+		var previous_inside := previous_gap >= 0.0
 		if inside != previous_inside:
-			clipped.append(previous.lerp(point, (TERRAIN_HORIZON_DEPTH - previous_depth) / (depth - previous_depth)))
+			clipped.append(previous.lerp(point, previous_gap / (previous_gap - gap)))
 		if inside:
 			clipped.append(point)
 		previous = point
-		previous_depth = depth
+		previous_gap = gap
 	for i in range(1, clipped.size() - 1):
 		if smooth_terrain:
 			_terrain_triangle(surface, clipped[0], clipped[i], clipped[i + 1])
 		else:
 			_triangle(surface, clipped[0], clipped[i], clipped[i + 1], color)
+
+func _larch_front_depth(across: float) -> float:
+	# The whole playable rectangle is nearer than depth 14.27. This irregular foot
+	# stays beyond it while letting the low saddle remain low, not a raised wall.
+	return maxf(14.7, 14.8 + sin(across * 0.23) * 1.8)
+
+func _ground_horizon_gap(point: Vector3) -> float:
+	var depth := -point.x * 0.2063 - point.z * 0.9785
+	var limit := TERRAIN_HORIZON_DEPTH
+	if landscape == "larch":
+		var across := point.x * 0.9785 - point.z * 0.2063
+		# Only a narrow overlap under the granite foot is needed. Farther heightfield
+		# would pierce the lower saddle and expose an artificial green cut-off slab.
+		limit = _larch_front_depth(across) + 0.12
+	return limit - depth
 
 func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
 	if (c - a).cross(b - a).y < 0:
@@ -267,11 +299,11 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
-		var color := _color("88a46a", "c4a06f")
+		var color := _color("88a46a", "c4a06f", "99a579")
 		var flank := smoothstep(0.12, 0.45, 1.0 - normal.y)
-		color = color.lerp(_color("798273", "a67b58"), flank * 0.78)
+		color = color.lerp(_color("798273", "a67b58", "838777"), flank * 0.78)
 		var high_meadow := smoothstep(1.0, 5.0, point.y)
-		color = color.lerp(_color("71905c", "b58e62"), high_meadow * 0.30)
+		color = color.lerp(_color("71905c", "b58e62", "899a69"), high_meadow * 0.30)
 		color = color.lightened(sin(point.x * 0.12 + point.z * 0.08) * 0.014)
 		surface.set_color(color)
 		surface.set_normal(normal)
@@ -314,8 +346,13 @@ func _trail(points: Array, width: float) -> void:
 func _build_backdrop() -> void:
 	# Connected, asymmetric ridges and gullies follow the reference valleys. A large
 	# crag on one flank faces a lower saddle; there is no row of separate cones.
-	_ridge_strip(29.5, 36.5, -1.9, 7.3, 0.9, false, true)
-	_ridge_strip(15.5, 25.5, 3.0, 7.0 if landscape == "alpine" else 5.0, 0.0, landscape == "alpine", false)
+	if landscape == "larch":
+		_ridge_strip(30.0, 37.0, -1.3, 7.1, 1.1, true, true)
+		_ridge_strip(14.8, 24.8, 2.0, 7.8, 0.65, false, false)
+		_build_larch_forests()
+	else:
+		_ridge_strip(29.5, 36.5, -1.9, 7.3, 0.9, false, true)
+		_ridge_strip(15.5, 25.5, 3.0, 7.0 if landscape == "alpine" else 5.0, 0.0, landscape == "alpine", false)
 	if landscape == "alpine":
 		for i in range(27):
 			var z := -15.0 + sin(i * 1.7) * 2.1
@@ -326,6 +363,56 @@ func _build_backdrop() -> void:
 			var p := Vector3(-21.5 + sin(i * 1.7) * 1.9, 0, -12.0 + i * 1.9)
 			_pine(p, 0.9 + fmod(i * 0.23, 0.35), i % 3 == 0)
 
+func _build_larch_forests() -> void:
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 79241
+	# Three uneven woodland pockets climb the shoulder at different depths. Crown
+	# silhouettes overlap in the view, but their geometry must not interpenetrate.
+	var groups := [
+		{"center": Vector2(-23.5, 9.0), "radius": Vector2(4.8, 3.0), "count": 16},
+		{"center": Vector2(-13.8, 11.1), "radius": Vector2(3.5, 2.3), "count": 10},
+		{"center": Vector2(-6.5, 12.4), "radius": Vector2(1.9, 1.5), "count": 5},
+	]
+	# Each entry stores across/depth coordinates and its actual crown radius.
+	# Reserve the nearby detail trees too: their independent placement previously
+	# let a golden larch intersect an evergreen in the smallest woodland pocket.
+	var planted: Array[Vector3] = []
+	for p in [Vector3(-14, 0, -8), Vector3(-10, 0, -9.5), Vector3(-15.2, 0, 5.7), Vector3(13, 0, -8.8), Vector3(15.6, 0, -5.8), Vector3(13.8, 0, 8.3)]:
+		planted.append(Vector3(p.dot(across), p.dot(away), 1.25))
+	for group in groups:
+		var placed := 0
+		for attempt in range(180):
+			if placed >= int(group.count):
+				break
+			var angle := rng.randf_range(0, TAU)
+			var radius := sqrt(rng.randf())
+			var local: Vector2 = group.center + Vector2(cos(angle), sin(angle)) * group.radius * radius
+			if local.y > _larch_front_depth(local.x) - 0.65:
+				continue
+			var scale_value := rng.randf_range(0.62, 1.28)
+			var crown_radius := 1.08 * scale_value + 0.06
+			var crowded := false
+			for other in planted:
+				var clearance := maxf(1.70, crown_radius + other.z + 0.15)
+				if local.distance_to(Vector2(other.x, other.y)) < clearance:
+					crowded = true
+					break
+			if crowded:
+				continue
+			var p := across * local.x + away * local.y
+			if absf(p.x) < 3.8:
+				continue
+			planted.append(Vector3(local.x, local.y, crown_radius))
+			placed += 1
+			if rng.randf() < 0.18:
+				_pine(p, scale_value * 0.91)
+			else:
+				_larch(p, scale_value, rng.randf() < 0.37)
+	for p in [Vector3(15, 0, -10), Vector3(17.8, 0, -6), Vector3(18.3, 0, 8.0)]:
+		_larch(p, 0.92, p.z > 0)
+
 func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, amplitude: float, phase: float, snow: bool, hazy: bool) -> void:
 	var across := Vector3(0.9785, 0, -0.2063)
 	var away := Vector3(-0.2063, 0, -0.9785)
@@ -335,12 +422,18 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	for i in range(count):
 		var u := -52.0 + i * 0.8
 		var structure := 0.48 + 0.66 * exp(-pow((u + 12.0) / 9.0, 2)) + 0.98 * exp(-pow((u - 10.0) / 5.0, 2)) + 0.62 * exp(-pow((u - 29.0) / 10.0, 2))
+		if landscape == "larch" and not hazy:
+			# A dominant granite flank faces a much lower open saddle.
+			structure = 0.28 + 1.45 * exp(-pow((u + 13.0) / 5.7, 2)) + 0.34 * exp(-pow((u - 25.0) / 10.0, 2))
 		var jagged := 0.22 * pow(maxf(sin(u * 0.93 + phase), 0.0), 4) + 0.11 * sin(u * 2.03 - phase)
 		if landscape == "cactus":
 			structure = 0.56 + 0.65 * smoothstep(-0.2, 0.6, sin(u * 0.17 + phase))
 			jagged *= 0.35
 		var crest_height := base_height + amplitude * (structure + jagged)
-		var front := across * u + away * (front_depth + sin(u * 0.23) * 1.8)
+		var foot_depth := front_depth + sin(u * 0.23) * 1.8
+		if landscape == "larch" and not hazy:
+			foot_depth = _larch_front_depth(u)
+		var front := across * u + away * foot_depth
 		front.y = base_height - 1.4 if hazy else profile.sample(front.x, front.z)
 		var crest := across * (u + sin(u * 0.7) * 0.20) + away * (crest_depth + sin(u * 0.31 + phase) * 2.9)
 		crest.y = maxf(crest_height, front.y + (0.6 if hazy else 1.4))
@@ -353,6 +446,10 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 			point.y += sin(u * 1.16 + band * 5.1) * middle * 0.45
 			point += across * sin(u * 0.91 + band * 4.0) * middle * 0.24
 			point += away * sin(u * 0.71 + band * 4.6) * middle * 1.05
+			if landscape == "larch" and not hazy and band > 0.0 and band <= 0.32:
+				# The first rock ledges cover the tiny heightfield overlap. Gullies above
+				# remain deep and the crest is untouched, preserving the open saddle.
+				point.y = maxf(point.y, profile.sample(point.x, point.z) + middle * 0.35)
 			row.append(point)
 		var back := crest + away * 8.0
 		back.y = base_height - 2.5
@@ -362,13 +459,13 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(count - 1):
 		for band in range(bands.size()):
-			var color := _color("6e7a79", "a57755")
+			var color := _color("6e7a79", "a57755", "7d837e")
 			if band <= 1:
-				color = _color("738d62", "b48b62")
+				color = _color("738d62", "b48b62", "8a9571")
 			elif band <= 4:
-				color = _color("727d79", "986e51")
+				color = _color("727d79", "986e51", "7e8580")
 			else:
-				color = _color("8d9897", "bc946c")
+				color = _color("8d9897", "bc946c", "9ca39b")
 			var u := -52.0 + (i + 0.5) * 0.8
 			var gully := pow(absf(sin(u * 0.61 + phase)), 10)
 			color = color.darkened(gully * 0.15)
@@ -380,9 +477,11 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 				color = Color("e3e9e2").darkened(gully * 0.08)
 			if hazy:
 				color = _color("9eb5bd", "c1ac97").lightened(sin(i * 0.4) * 0.025)
+				if landscape == "larch" and height > 8.1 and band >= 7 and snow_patch > 0.15:
+					color = Color("ccd8d8")
 			_triangle(surface, sections[i][band], sections[i + 1][band], sections[i + 1][band + 1], color)
 			_triangle(surface, sections[i][band], sections[i + 1][band + 1], sections[i][band + 1], color.lightened(0.018))
-	_finish_surface(surface, "DistantRidgeline" if hazy else ("AlpineCrags" if snow else "ErodedCanyon"))
+	_finish_surface(surface, "DistantRidgeline" if hazy else ("GraniteFlank" if landscape == "larch" else ("AlpineCrags" if snow else "ErodedCanyon")))
 
 func _build_boundaries() -> void:
 	# Scattered outcrops follow the rising slopes. No rectangular necklace of shrubs.
@@ -394,6 +493,8 @@ func _build_boundaries() -> void:
 	for p in [Vector3(-25, 0, 17), Vector3(25, 0, 17), Vector3(-15, 0, 20), Vector3(14, 0, 22)]:
 		if landscape == "cactus":
 			_cactus(p, 1.3)
+		elif landscape == "larch":
+			_larch(p, 1.1, p.x > 0)
 		else:
 			_pine(p, 1.2, p.x < 0)
 
@@ -407,26 +508,32 @@ func _shrub(pos: Vector3, size: float) -> void:
 		_agave(pos + Vector3(0.6, 0, 0.25), size * 0.75)
 
 func _build_bridge() -> void:
+	bridge = Node3D.new()
+	bridge.name = "Footbridge"
+	bridge.position = Vector3(0, 0, bridge_y)
+	terrain.add_child(bridge)
 	for i in range(12):
-		box(terrain, Vector3(-1.78 + i * 0.325, 0.13, 0), Vector3(0.305, 0.20, 3.9), _color("cda77a", "b68e67") if i % 3 else _color("bf966b", "a8805c"))
+		box(bridge, Vector3(-1.78 + i * 0.325, 0.13, 0), Vector3(0.305, 0.20, 3.9), _color("cda77a", "b68e67", "b89368") if i % 3 else _color("bf966b", "a8805c", "aa845e"))
 	for z in [-2.0, 2.0]:
 		for x in [-1.9, 0.0, 1.9]:
-			box(terrain, Vector3(x, 0.62, z), Vector3(0.14, 1.16, 0.14), Color("8d7656"))
-		box(terrain, Vector3(0, 0.92, z), Vector3(4.0, 0.12, 0.12), Color("b09066"))
+			box(bridge, Vector3(x, 0.62, z), Vector3(0.14, 1.16, 0.14), Color("8d7656"))
+		box(bridge, Vector3(0, 0.92, z), Vector3(4.0, 0.12, 0.12), Color("b09066"))
 
 func _build_fence() -> void:
-	for side in [-1, 1]:
-		for i in range(6):
-			var z: float = side * (2.0 + i * 1.7)
+	for interval in [Vector2(-10.5, gate_y - 2.0), Vector2(gate_y + 2.0, 10.5)]:
+		var segments := maxi(1, int(ceil((interval.y - interval.x) / 1.7)))
+		var spacing: float = (interval.y - interval.x) / segments
+		for i in range(segments + 1):
+			var z: float = interval.x + i * spacing
 			box(terrain, _grounded(Vector3(6, 0.62, z)), Vector3(0.18, 1.18, 0.18), Color("9e8361"))
-			if i < 5:
+			if i < segments:
 				for y in [0.4, 0.87]:
 					var from := _grounded(Vector3(6, y, z))
-					var to := _grounded(Vector3(6, y, z + side * 1.7))
+					var to := _grounded(Vector3(6, y, z + spacing))
 					var beam := box(terrain, (from + to) * 0.5, Vector3(0.10, 0.13, from.distance_to(to)), Color("c5a47a"))
 					beam.look_at(to, Vector3.UP)
 	gate = Node3D.new()
-	gate.position = _grounded(Vector3(6, 0, -2))
+	gate.position = _grounded(Vector3(6, 0, gate_y - 2.0))
 	terrain.add_child(gate)
 	for z in [0.15, 1.0, 2.0, 3.0, 3.85]:
 		box(gate, Vector3(0, 0.60, z), Vector3(0.13, 1.0, 0.14), Color("ae8960"))
@@ -451,28 +558,35 @@ func _build_details() -> void:
 		if landscape == "cactus":
 			_cactus(p, rng.randf_range(0.9, 1.25))
 			_agave(p + Vector3(1.1, 0.1, 0.6), 0.8)
+		elif landscape == "larch":
+			_larch(p, rng.randf_range(0.82, 1.10), p.x > 0)
 		else:
 			_tree(p, rng.randf_range(0.85, 1.15))
 	for p in [Vector3(-2.4, 0, 7), Vector3(2.3, 0, -5), Vector3(-2.6, 0, -7.4), Vector3(15, 0, 4)]:
 		ball(terrain, _grounded(p + Vector3(0, 0.12, 0)), Vector3(0.85, 0.50, 0.7), _color("a4a58f", "b99a75"))
 		ball(terrain, _grounded(p + Vector3(0.45, 0.09, 0.22)), Vector3(0.4, 0.30, 0.4), _color("b0b09a", "c6a681"))
 	# A place to rest, with no menu or reward machine.
-	_draped_patch(Vector2(11.6, 5.5), Vector2(2.8, 1.8), _color("d6bda0", "bc8165"), 0.035)
-	for x in [10.8, 12.4]:
-		_draped_patch(Vector2(x, 5.5), Vector2(0.12, 1.8), Color("f1dcc0"), 0.050)
-	var basket := cylinder(terrain, _grounded(Vector3(12.8, 0.28, 4.9)), 0.27, 0.23, 0.55, Color("b68d57"))
+	var rest := Vector2(12.4, 6.4) if landscape == "larch" else Vector2(11.6, 5.5)
+	_draped_patch(rest, Vector2(2.8, 1.8), _color("d6bda0", "bc8165", "b99472"), 0.035)
+	for x in [rest.x - 0.8, rest.x + 0.8]:
+		_draped_patch(Vector2(x, rest.y), Vector2(0.12, 1.8), Color("f1dcc0"), 0.050)
+	var basket := cylinder(terrain, _grounded(Vector3(rest.x + 1.2, 0.28, rest.y - 0.6)), 0.27, 0.23, 0.55, Color("b68d57"))
 	basket.rotation.z = 0.07
 	# One small wooden trail sign, shaped in world space.
-	box(terrain, _grounded(Vector3(4.4, 0.7, -3.1)), Vector3(0.12, 1.4, 0.12), Color("9e8361"))
-	box(terrain, _grounded(Vector3(4.4, 1.15, -3.1)), Vector3(1.0, 0.37, 0.12), Color("c6a475"))
+	box(terrain, _grounded(Vector3(4.4, 0.7, gate_y - 3.1)), Vector3(0.12, 1.4, 0.12), Color("9e8361"))
+	box(terrain, _grounded(Vector3(4.4, 1.15, gate_y - 3.1)), Vector3(1.0, 0.37, 0.12), Color("c6a475"))
 	if landscape == "alpine":
 		# A distant chalet and hay shelter are quiet hints of life beyond this stop.
 		_chalet(Vector3(24, 0, -15), 0.85)
 		_chalet(Vector3(-26, 0, -13), 0.60)
-	else:
+	elif landscape == "cactus":
 		for p in [Vector3(-23, 0, -15), Vector3(21, 0, -14), Vector3(-20, 0, 8), Vector3(25, 0, 5), Vector3(9, 0, -17)]:
 			_cactus(p, 1.25)
 			_agave(p + Vector3(1.2, 0, 0.5), 1.0)
+	else:
+		_chalet(Vector3(25, 0, -9), 0.67)
+		var resting_log := cylinder(terrain, _grounded(Vector3(rest.x - 1.8, 0.24, rest.y + 1.2)), 0.23, 0.26, 1.8, Color("92775b"), 9)
+		resting_log.rotation.z = PI / 2
 
 func _tree(pos: Vector3, tree_scale: float) -> void:
 	var tree := Node3D.new()
@@ -495,6 +609,25 @@ func _pine(pos: Vector3, tree_scale: float, autumn := false) -> void:
 		if autumn and pos.x > 0:
 			needles = Color("ac7845")
 		cylinder(tree, Vector3(0, 1.6 + i * 0.74, 0), 0.03, 1.10 - i * 0.23, 2.0 - i * 0.26, needles.lightened(i * 0.035), 7)
+
+func _larch(pos: Vector3, tree_scale: float, rust := false) -> void:
+	var tree := Node3D.new()
+	tree.name = "RustLarch" if rust else "GoldenLarch"
+	tree.position = _grounded(pos)
+	tree.scale = Vector3.ONE * tree_scale
+	tree.rotation.y = pos.x * 0.19
+	terrain.add_child(tree)
+	var needles := Color("bb9f48") if not rust else Color("b58043")
+	cylinder(tree, Vector3(0, 1.65, 0), 0.07, 0.15, 3.3, Color("8b7962"), 8)
+	for i in range(5):
+		var branch := cylinder(tree, Vector3(0.04 * sin(i), 1.2 + i * 0.55, 0), 0.015, 1.03 - i * 0.18, 1.2 - i * 0.09, needles.lightened(i * 0.025), 9)
+		branch.rotation.y = i * 0.31
+	for side in [-1, 1]:
+		var limb := box(tree, Vector3(side * 0.25, 1.1, 0.05), Vector3(0.63, 0.055, 0.07), Color("8b7962"))
+		limb.rotation.z = side * 0.22
+	for i in range(2):
+		var leaf_pos := Vector3(pos.x + sin(pos.z + i * 2.5) * 0.7, 0.035, pos.z + cos(pos.x + i * 2.2) * 0.65)
+		ball(terrain, _grounded(leaf_pos), Vector3(0.30, 0.035, 0.19), needles.darkened(0.05))
 
 func _cactus(pos: Vector3, cactus_scale: float) -> void:
 	var cactus := Node3D.new()

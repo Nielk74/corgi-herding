@@ -102,8 +102,11 @@ for the [Compatibility renderer](https://docs.godotengine.org/en/4.6/tutorials/r
 The effect count is kept small, but frame time still needs measuring on target
 phones before making a performance claim.
 
-Two selectable landscapes share the first cooperative encounter: an Alpine
-valley with snowy peaks and a cactus canyon with warm mesas and saguaro cacti.
+Three selectable landscapes offer quiet cooperative herding: an Alpine
+valley with snowy peaks, a cactus canyon with warm mesas and saguaro cacti,
+and sheltered Larch Hollow with gold/rust foliage, a sloping rest shelf and
+an offset bridge and gate. Its gentle S-shaped route changes where the pair
+coordinates without adding a timer, score or loss condition.
 The creator chooses the location; the server persists it for both players.
 Large vistas are part of the presentation. Continuous free travel between
 regions belongs to a later journey milestone.

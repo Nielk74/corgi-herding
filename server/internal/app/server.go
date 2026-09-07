@@ -59,14 +59,18 @@ type peer struct {
 }
 
 type event struct {
-	kind   string
-	id     string
-	name   string
-	hash   string
-	input  game.Input
-	peer   *peer
-	result chan error
+	kind          string
+	id            string
+	name          string
+	hash          string
+	input         game.Input
+	peer          *peer
+	result        chan error
+	layoutVersion int
 }
+
+var errUpdateRequired = errors.New("Update Corgi Herding to visit this landscape.")
+var errInvalidCredentials = errors.New("invalid herd credentials")
 
 type herd struct {
 	events chan event
@@ -173,7 +177,11 @@ func (h *herd) run(s savedHerd) {
 			case "connect":
 				p := s.World.Player(e.id)
 				if p == nil || subtle.ConstantTimeCompare([]byte(s.Secrets[e.id]), []byte(e.hash)) != 1 {
-					err = errors.New("invalid herd credentials")
+					err = errInvalidCredentials
+					break
+				}
+				if !s.World.SupportsLayout(e.layoutVersion) {
+					err = errUpdateRequired
 					break
 				}
 				if previous := peers[e.id]; previous != nil {
@@ -295,7 +303,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		status = "persistence_error"
 		code = http.StatusServiceUnavailable
 	}
-	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "sessions": n})
+	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "sessions": n})
 }
 
 func (s *Server) allow(remote string) bool {
@@ -372,12 +380,12 @@ func decodeCreation(w http.ResponseWriter, r *http.Request) (string, string, err
 	if len(body.Landscape) > 0 {
 		var selected string
 		if err := json.Unmarshal(body.Landscape, &selected); err != nil {
-			return "", "", errors.New("landscape must be alpine or cactus")
+			return "", "", errors.New("landscape must be alpine, cactus or larch")
 		}
 		landscape = selected
 	}
 	if !game.ValidLandscape(landscape) {
-		return "", "", errors.New("landscape must be alpine or cactus")
+		return "", "", errors.New("landscape must be alpine, cactus or larch")
 	}
 	name, err := cleanName(body.Name)
 	return name, landscape, err
@@ -456,6 +464,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 	}
 	world := game.New(code)
 	world.Landscape = landscape
+	world.Layout = game.LayoutForLandscape(landscape)
 	_ = world.AddPlayer(id, name)
 	h := newHerd(savedHerd{World: world, Secrets: map[string]string{id: hashToken(token)}}, s.cfg.Logger)
 	s.herds[code] = h
@@ -561,8 +570,22 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	p := &peer{id: auth.PlayerID, conn: conn, cancel: cancel, out: make(chan []byte, 1)}
-	if err = h.request(ctx, event{kind: "connect", id: p.id, hash: hashToken(auth.Token), peer: p}); err != nil {
-		_ = conn.Close(websocket.StatusPolicyViolation, "invalid herd credentials")
+	if err = h.request(ctx, event{kind: "connect", id: p.id, hash: hashToken(auth.Token), peer: p, layoutVersion: auth.LayoutVersion}); err != nil {
+		if errors.Is(err, errUpdateRequired) {
+			data, _ := json.Marshal(map[string]string{"type": "error", "code": "update_required", "message": errUpdateRequired.Error()})
+			writeCtx, writeCancel := context.WithTimeout(ctx, 2*time.Second)
+			_ = conn.Write(writeCtx, websocket.MessageText, data)
+			writeCancel()
+			_ = conn.Close(websocket.StatusCode(4002), "update required")
+			return
+		}
+		if errors.Is(err, errInvalidCredentials) {
+			_ = conn.Close(websocket.StatusPolicyViolation, "invalid herd credentials")
+		} else {
+			// Restart/cancellation is transient. Legacy clients interpret 1008 as
+			// revoked credentials, so never use it for an unavailable world actor.
+			_ = conn.Close(websocket.StatusTryAgainLater, "server temporarily unavailable")
+		}
 		return
 	}
 	defer func() {
@@ -725,6 +748,15 @@ func (s *Server) load() error {
 		}
 		if !game.ValidLandscape(saved.World.Landscape) {
 			return errors.New("invalid saved landscape")
+		}
+		if saved.World.Layout == nil {
+			if saved.World.Landscape == game.LandscapeLarch {
+				return errors.New("missing saved Larch layout")
+			}
+			saved.World.Layout = game.LayoutForLandscape(saved.World.Landscape)
+		}
+		if err := saved.World.ValidateLayout(); err != nil {
+			return err
 		}
 		for _, p := range saved.World.Players {
 			if len(saved.Secrets[p.ID]) != 64 || !p.Position.Valid() || !p.Target.Valid() {

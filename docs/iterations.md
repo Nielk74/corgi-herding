@@ -52,13 +52,32 @@ portrait Android emulator: hill walking, descending to the bridge, stopping on
 the deck, crossing, opening the gate and showing/dismissing the corgi controls.
 Emulator evidence verifies rendering and interaction, not physical-phone FPS.
 
-## Next place — Larch Hollow
+## Third place — Larch Hollow
 
 An autumn shelter beneath an asymmetric rock face. Gold larches mixed with dark
 firs follow a sloping shoulder; a small clear stream and grassy rest shelf open
 toward distant mountains. The tree line should invite lingering, not hide the
 flock. Give it a distinct terrain silhouette and spatial rhythm, not merely a
 palette swap. Preserve unhurried herding and shared care.
+
+The implemented route places the bridge at -4 and the pasture gate at +4.
+Server snapshots, saved worlds, collision and the rendered scene share a
+versioned layout. Twenty-four two-way prediction routes pass; 543 portrait
+picking cases cover all three landscapes. The real two-client test walks to
+the offset gate by tapping it, opens it for both players, visits the pasture,
+returns over the bridge and reconnects. A deterministic server regression
+brings all ten sheep into pasture with ordinary movement and collision limits.
+
+The first Android composition was rejected: a distant grass slab pierced the
+rock face, and an evenly spaced tree belt looked planted as a barrier. The
+revised ground ends beneath the irregular rock foot without altering playable
+heights. Three unequal woodland pockets replace the row; crown spacing also
+prevents foliage intersections. The bridge and gate stay readable and the rest
+shelf stays open. Android touch testing reaches and opens the offset gate.
+
+Keep improving: the shoreline and trail bends remain visibly polygonal, the
+far ridge faces are still too repetitive, and ambient sound and richer animal
+animation are missing. This is a playable place to iterate on, not final art.
 
 Later ideas to assess through play: an orchard with shallow terraces, a broad
 high pasture above cloud, and a sheltered canyon oasis. Do not add a new place

@@ -8,6 +8,10 @@ behind readable playable ground, with natural boundaries rather than a board rim
 Relief must affect the rendered playable ground, not only distant scenery.
 Place actors and props on the sampled mesh surface and ray-pick that same surface.
 Keep authoritative movement/interaction distances in the existing 2D coordinates.
+Landscapes carry an immutable versioned layout. Bridge/gate geometry, collision,
+waypoints, picking and persistence must agree. Preserve existing saved routes.
+Negotiate server capabilities before auth; update/policy errors must not erase
+saved invitations. Test outward and return routes when openings are offset.
 Lighting should reveal slopes and preserve animal readability; describe shadow
 mapping and stylized light shafts honestly, not as hardware ray tracing.
 

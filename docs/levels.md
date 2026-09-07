@@ -1,7 +1,7 @@
 # Landscape routes
 
-This is the proposed next iteration after the Alpine valley / Cactus canyon
-terrain and lighting revision. Larch Hollow is not implemented yet.
+Three places share a quiet cooperative world, with a distinct route through
+Larch Hollow following the Alpine valley / Cactus canyon relief revision.
 
 The two existing landscapes retain their current playable bounds and route.
 Every herd keeps its animals, invite credentials, saved positions, and selected
@@ -19,7 +19,7 @@ room to regroup and call the dogs back if sheep scatter.
 | --- | --- | --- | --- |
 | Alpine valley | 0 | 0 | X [-17, 17], Y [-11, 11] |
 | Cactus canyon | 0 | 0 | X [-17, 17], Y [-11, 11] |
-| Larch Hollow, proposed | -4 | +4 | X [-17, 17], Y [-11, 11] |
+| Larch Hollow | -4 | +4 | X [-17, 17], Y [-11, 11] |
 
 The river remains at X [-1.5, 1.5], the fence remains at X=6, and opening widths
 retain the current margins. This changes where the animals must go without
@@ -29,7 +29,7 @@ walkable space, including both approaches to the bridge and gate.
 ## One authoritative layout
 
 Each herd receives an immutable layout when created. The server owns it and
-includes it in snapshots. A first layout message can remain small:
+includes it in snapshots:
 
 ```json
 {"landscape":"larch","layout":{"version":1,"bridge_y":-4,"gate_y":4}}
@@ -61,12 +61,18 @@ credentials, animal identities, sequences, positions, gate state, and progressio
 during that migration. Unknown layout versions stop loading with a clear error
 instead of resetting data or guessing geometry.
 
-An older client must not enter Larch Hollow while rendering the old centered
-bridge. Before enabling a noncentered route, add a capability/version check to
-the WebSocket handshake and verify it in integration tests. Reject unsupported
-layouts with a dedicated update-required response that preserves the client's
-saved credentials; do not report this as invalid authentication. Legacy clients
-may continue using the unchanged centered landscapes.
+An older client cannot enter Larch Hollow while rendering the old centered
+bridge. The WebSocket authentication message advertises `layout_version: 1`.
+Unsupported clients receive an `update_required` error and close code 4002,
+not an invalid-authentication response. Updated clients preserve their saved
+credentials and show an update message instead of retrying forever. Legacy
+clients may continue using the unchanged centered landscapes.
+
+New clients first probe `/healthz`: older servers do not advertise layout
+support, so they receive the original authentication fields. One bounded
+re-probe covers a rollback between that check and authentication. Rejections
+pause in settings while preserving the saved invitation. Transient server
+shutdown failures use retryable close code 1013 rather than bad-credential 1008.
 
 Server release rollback must restore the matching pre-upgrade checkpoint as
 well as the executable. Test migration and rollback with copies of actual

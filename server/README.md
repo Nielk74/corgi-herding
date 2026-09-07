@@ -4,10 +4,15 @@ The first playable milestone runs one Go process with a 20 Hz actor for each
 two-player herd. Each herd owns two shared corgis and ten sheep. Worlds pause
 when nobody is connected. Both herders can return with their locally saved
 credentials; reconnecting replaces the previous connection for that herder.
-New herds can select `alpine` (the default) or `cactus`. The choice is stored with
-the herd and shared with both players in snapshots. Existing checkpoints without
-a landscape selection load as `alpine`; both landscapes use the same bridge and
-gate simulation footprint.
+New herds can select `alpine` (the default), `cactus`, or `larch`. The choice and
+immutable version 1 layout are stored with the herd and shared in snapshots.
+Alpine/Cactus retain centered openings. Larch Hollow has its bridge at Y=-4 and
+gate at Y=4, creating a different route through the same playable footprint.
+Existing saves without a landscape load as Alpine; existing centered saves
+without a layout migrate without changing their animals or credentials. Unknown
+saved layout versions fail startup. Clients send `layout_version:1` during
+WebSocket authentication; unsupported layouts return `update_required`/4002
+without changing credentials or replacing an existing player connection.
 
 ```sh
 go run ./cmd/server

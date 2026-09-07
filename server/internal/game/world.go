@@ -12,10 +12,41 @@ const TickRate = 20
 const (
 	LandscapeAlpine = "alpine"
 	LandscapeCactus = "cactus"
+	LandscapeLarch  = "larch"
 )
 
 func ValidLandscape(landscape string) bool {
-	return landscape == LandscapeAlpine || landscape == LandscapeCactus
+	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch
+}
+
+// Layout is immutable herd geometry. Version 1 retains the original bounds,
+// river/fence X coordinates and opening widths, varying only opening centers.
+type Layout struct {
+	Version int     `json:"version"`
+	BridgeY float64 `json:"bridge_y"`
+	GateY   float64 `json:"gate_y"`
+}
+
+func LayoutForLandscape(landscape string) *Layout {
+	layout := &Layout{Version: 1}
+	if landscape == LandscapeLarch {
+		layout.BridgeY, layout.GateY = -4, 4
+	}
+	return layout
+}
+
+func (w *World) ValidateLayout() error {
+	if w.Layout == nil || w.Layout.Version != 1 {
+		return errors.New("unsupported saved layout version")
+	}
+	if !ValidLandscape(w.Landscape) || *w.Layout != *LayoutForLandscape(w.Landscape) {
+		return errors.New("saved layout does not match its landscape version")
+	}
+	return nil
+}
+
+func (w *World) SupportsLayout(version int) bool {
+	return version == 1 || (version == 0 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
 }
 
 type Vec2 struct {
@@ -70,6 +101,7 @@ type World struct {
 	Tick      uint64   `json:"tick"`
 	Code      string   `json:"code"`
 	Landscape string   `json:"landscape"`
+	Layout    *Layout  `json:"layout"`
 	GateOpen  bool     `json:"gate_open"`
 	Settled   int      `json:"settled"`
 	Players   []Player `json:"players"`
@@ -78,18 +110,19 @@ type World struct {
 }
 
 type Input struct {
-	Type     string `json:"type"`
-	Seq      uint64 `json:"seq,omitempty"`
-	Target   *Vec2  `json:"target,omitempty"`
-	DogID    string `json:"dog_id,omitempty"`
-	Command  string `json:"command,omitempty"`
-	Action   string `json:"action,omitempty"`
-	PlayerID string `json:"player_id,omitempty"`
-	Token    string `json:"token,omitempty"`
+	Type          string `json:"type"`
+	Seq           uint64 `json:"seq,omitempty"`
+	Target        *Vec2  `json:"target,omitempty"`
+	DogID         string `json:"dog_id,omitempty"`
+	Command       string `json:"command,omitempty"`
+	Action        string `json:"action,omitempty"`
+	PlayerID      string `json:"player_id,omitempty"`
+	Token         string `json:"token,omitempty"`
+	LayoutVersion int    `json:"layout_version,omitempty"`
 }
 
 func New(code string) *World {
-	w := &World{Type: "snapshot", Code: code, Landscape: LandscapeAlpine, Players: []Player{}, Dogs: []Dog{
+	w := &World{Type: "snapshot", Code: code, Landscape: LandscapeAlpine, Layout: LayoutForLandscape(LandscapeAlpine), Players: []Player{}, Dogs: []Dog{
 		{ID: "mochi", Name: "Mochi", Position: Vec2{-11, -2}, Target: Vec2{-11, -2}, State: "wander"},
 		{ID: "maple", Name: "Maple", Position: Vec2{-11, 2}, Target: Vec2{-11, 2}, State: "wander"},
 	}}
@@ -101,6 +134,10 @@ func New(code string) *World {
 
 func (w *World) Clone() *World {
 	n := *w
+	if w.Layout != nil {
+		layout := *w.Layout
+		n.Layout = &layout
+	}
 	n.Players = append([]Player{}, w.Players...)
 	n.Dogs = append([]Dog{}, w.Dogs...)
 	n.Sheep = append([]Sheep{}, w.Sheep...)
@@ -138,7 +175,7 @@ func (w *World) Apply(playerID string, in Input) error {
 		if in.Seq <= p.Seq {
 			return nil
 		}
-		if !Walkable(*in.Target, w.GateOpen) {
+		if !w.Walkable(*in.Target) {
 			return errors.New("choose somewhere on dry land")
 		}
 		p.Seq, p.Target, p.State = in.Seq, *in.Target, "walking"
@@ -159,7 +196,7 @@ func (w *World) Apply(playerID string, in Input) error {
 		case "stay":
 			d.Target = d.Position
 		case "go":
-			if in.Target == nil || !in.Target.Valid() || !Walkable(*in.Target, w.GateOpen) {
+			if in.Target == nil || !in.Target.Valid() || !w.Walkable(*in.Target) {
 				return errors.New("choose a dry-land destination for the corgi")
 			}
 			d.Target = *in.Target
@@ -170,7 +207,7 @@ func (w *World) Apply(playerID string, in Input) error {
 	case "interact":
 		switch in.Action {
 		case "gate":
-			if p.Position.Sub(Vec2{6, 0}).Len() > 3 {
+			if p.Position.Sub(Vec2{6, w.Layout.GateY}).Len() > 3 {
 				return errors.New("walk closer to the gate")
 			}
 			// Once opened, the gate stays open so animals cannot become trapped in it.
@@ -198,34 +235,40 @@ func (w *World) Apply(playerID string, in Input) error {
 
 // Walkable describes the same bridge and fence used by the client diorama.
 func Walkable(p Vec2, gateOpen bool) bool {
+	return walkable(p, gateOpen, Layout{Version: 1})
+}
+
+func (w *World) Walkable(p Vec2) bool { return walkable(p, w.GateOpen, *w.Layout) }
+
+func walkable(p Vec2, gateOpen bool, layout Layout) bool {
 	if !p.Valid() {
 		return false
 	}
-	if math.Abs(p.X) < 1.5 && math.Abs(p.Y) > 1.85 {
+	if math.Abs(p.X) < 1.5 && math.Abs(p.Y-layout.BridgeY) > 1.85 {
 		return false
 	}
-	if math.Abs(p.X-6) < 0.18 && (!gateOpen || math.Abs(p.Y) > 1.8) {
+	if math.Abs(p.X-6) < 0.18 && (!gateOpen || math.Abs(p.Y-layout.GateY) > 1.8) {
 		return false
 	}
 	return true
 }
 
 // terrainStep is also used for flock forces; every small step is collision checked.
-func terrainStep(p, delta Vec2, gateOpen bool) Vec2 {
+func terrainStep(p, delta Vec2, gateOpen bool, layout Layout) Vec2 {
 	pieces := max(1, int(math.Ceil(delta.Len()/0.08)))
 	delta = delta.Mul(1 / float64(pieces))
 	for i := 0; i < pieces; i++ {
 		n := p.Add(delta)
-		if Walkable(n, gateOpen) {
+		if walkable(n, gateOpen, layout) {
 			p = n
 			continue
 		}
 		n = p.Add(Vec2{delta.X, 0})
-		if Walkable(n, gateOpen) {
+		if walkable(n, gateOpen, layout) {
 			p = n
 		}
 		n = p.Add(Vec2{0, delta.Y})
-		if Walkable(n, gateOpen) {
+		if walkable(n, gateOpen, layout) {
 			p = n
 		}
 	}
@@ -233,50 +276,59 @@ func terrainStep(p, delta Vec2, gateOpen bool) Vec2 {
 }
 
 // Waypoints route both people and dogs onto the bridge before crossing water.
-func waypoint(p, target Vec2, gateOpen bool) Vec2 {
+func waypoint(p, target Vec2, gateOpen bool, layout Layout) Vec2 {
+	// On a return journey the fence comes before the river. This order matters
+	// when their openings have different Y coordinates.
+	if p.X > 6 && target.X < 6 {
+		return gateWaypoint(p, gateOpen, layout)
+	}
 	if p.X < -1.5 && target.X > -1.5 {
-		if math.Abs(p.Y) > 1.4 {
-			return Vec2{-2.1, 0}
+		if math.Abs(p.Y-layout.BridgeY) > 1.4 {
+			return Vec2{-2.1, layout.BridgeY}
 		}
 		if target.X < 1.5 {
 			return target
 		}
-		return Vec2{2.1, 0}
+		return Vec2{2.1, layout.BridgeY}
 	}
 	if p.X > 1.5 && target.X < 1.5 {
-		if math.Abs(p.Y) > 1.4 {
-			return Vec2{2.1, 0}
+		if math.Abs(p.Y-layout.BridgeY) > 1.4 {
+			return Vec2{2.1, layout.BridgeY}
 		}
 		if target.X > -1.5 {
 			return target
 		}
-		return Vec2{-2.1, 0}
+		return Vec2{-2.1, layout.BridgeY}
 	}
 	if math.Abs(p.X) <= 1.5 {
 		if math.Abs(target.X) <= 1.5 {
 			return target
 		}
 		if target.X >= 0 {
-			return Vec2{2.1, 0}
+			return Vec2{2.1, layout.BridgeY}
 		}
-		return Vec2{-2.1, 0}
+		return Vec2{-2.1, layout.BridgeY}
 	}
 	if (p.X < 6 && target.X > 6) || (p.X > 6 && target.X < 6) {
-		side := -1.0
-		if p.X > 6 {
-			side = 1
-		}
-		if !gateOpen || math.Abs(p.Y) > 1.4 {
-			return Vec2{6 + side*0.6, 0}
-		}
-		return Vec2{6 - side*0.6, 0}
+		return gateWaypoint(p, gateOpen, layout)
 	}
 	return target
 }
 
-func moveTo(p, target Vec2, speed float64, gateOpen bool) Vec2 {
-	d := waypoint(p, target, gateOpen).Sub(p)
-	return terrainStep(p, d.Unit().Mul(math.Min(d.Len(), speed/TickRate)), gateOpen)
+func gateWaypoint(p Vec2, gateOpen bool, layout Layout) Vec2 {
+	side := -1.0
+	if p.X > 6 {
+		side = 1
+	}
+	if !gateOpen || math.Abs(p.Y-layout.GateY) > 1.4 {
+		return Vec2{6 + side*0.6, layout.GateY}
+	}
+	return Vec2{6 - side*0.6, layout.GateY}
+}
+
+func (w *World) moveTo(p, target Vec2, speed float64) Vec2 {
+	d := waypoint(p, target, w.GateOpen, *w.Layout).Sub(p)
+	return terrainStep(p, d.Unit().Mul(math.Min(d.Len(), speed/TickRate)), w.GateOpen, *w.Layout)
 }
 
 func (w *World) Step() {
@@ -286,7 +338,7 @@ func (w *World) Step() {
 		if !p.Connected || p.State != "walking" {
 			continue
 		}
-		p.Position = moveTo(p.Position, p.Target, 4, w.GateOpen)
+		p.Position = w.moveTo(p.Position, p.Target, 4)
 		if p.Position.Sub(p.Target).Len() < 0.08 {
 			p.State = "idle"
 		}
@@ -318,12 +370,12 @@ func (w *World) Step() {
 					center = w.Players[i%len(w.Players)].Position
 				}
 				candidate := center.Add(Vec2{math.Cos(phase) * 2, math.Sin(phase) * 2})
-				if Walkable(candidate, w.GateOpen) {
+				if w.Walkable(candidate) {
 					d.Target = candidate
 				}
 			}
 		}
-		d.Position = moveTo(d.Position, d.Target, 4.6, w.GateOpen)
+		d.Position = w.moveTo(d.Position, d.Target, 4.6)
 	}
 	w.stepSheep()
 }
@@ -382,16 +434,19 @@ func (w *World) stepSheep() {
 		}
 		// Near water/fence, nervous sheep seek the visible opening, then cross.
 		if p.X > -4.5 && p.X < -1.5 && velocity.X > 0.06 && fear > 0.08 {
-			velocity.Y += -p.Y * 0.8
+			velocity.Y += (w.Layout.BridgeY - p.Y) * 0.8
 		}
 		if p.X > 1.5 && p.X < 4.5 && velocity.X < -0.06 && fear > 0.08 {
-			velocity.Y += -p.Y * 0.8
+			velocity.Y += (w.Layout.BridgeY - p.Y) * 0.8
 		}
 		if p.X > 3 && p.X < 6 && velocity.X > 0.06 && fear > 0.08 {
-			velocity.Y += -p.Y * 0.8
+			velocity.Y += (w.Layout.GateY - p.Y) * 0.8
+		}
+		if p.X > 6 && p.X < 9 && velocity.X < -0.06 && fear > 0.08 {
+			velocity.Y += (w.Layout.GateY - p.Y) * 0.8
 		}
 		if math.Abs(p.X) < 1.8 {
-			velocity.Y += -p.Y * 0.8
+			velocity.Y += (w.Layout.BridgeY - p.Y) * 0.8
 		}
 		if p.X > 8 && fear < 0.08 {
 			velocity = velocity.Mul(0.28)
@@ -400,7 +455,7 @@ func (w *World) stepSheep() {
 		if velocity.Len() > 2.6 {
 			velocity = velocity.Unit().Mul(2.6)
 		}
-		s.Position = terrainStep(p, velocity.Mul(1.0/TickRate), w.GateOpen)
+		s.Position = terrainStep(p, velocity.Mul(1.0/TickRate), w.GateOpen, *w.Layout)
 		s.Velocity = s.Position.Sub(p).Mul(TickRate)
 		if s.Position.X > 8 {
 			w.Settled++

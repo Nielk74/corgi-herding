@@ -51,6 +51,7 @@ jobs:
           "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/smoke.gd
           "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/terrain_smoke.gd
           "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/static_scenery_batch.gd
+          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/layout_smoke.gd
       - name: Test Godot client against real Go server
         run: |
           (cd server && go build -o "$RUNNER_TEMP/corgi-test-server" ./cmd/server)
@@ -62,6 +63,7 @@ jobs:
             sleep 1
           done
           "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791
+          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=larch
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         if: github.event_name != 'pull_request'
         with:

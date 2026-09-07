@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +61,11 @@ func createHerd(t *testing.T, base string) credentials {
 
 func connect(t *testing.T, base string, c credentials) *websocket.Conn {
 	t.Helper()
+	return connectVersion(t, base, c, nil)
+}
+
+func connectVersion(t *testing.T, base string, c credentials, version *int) *websocket.Conn {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(base, "http")+"/api/herds/"+c.Code+"/ws", nil)
@@ -67,7 +73,11 @@ func connect(t *testing.T, base string, c credentials) *websocket.Conn {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.CloseNow() })
-	write(t, conn, map[string]any{"type": "auth", "player_id": c.PlayerID, "token": c.Token})
+	auth := map[string]any{"type": "auth", "player_id": c.PlayerID, "token": c.Token}
+	if version != nil {
+		auth["layout_version"] = *version
+	}
+	write(t, conn, auth)
 	return conn
 }
 
@@ -223,6 +233,27 @@ func TestAuthAndMalformedInputIsolation(t *testing.T) {
 	snapshot(t, c, func(w *game.World) bool { return w.Player(a.PlayerID).Seq == 2 })
 }
 
+func TestShutdownBetweenUpgradeAndAuthIsRetryable(t *testing.T) {
+	s, h := newTestServer(t, t.TempDir(), 10)
+	a := createHerd(t, h.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// The upgrade succeeds while the world exists, then shutdown wins before
+	// its first authenticated actor request. Tokens are still valid on disk.
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(h.URL, "http")+"/api/herds/"+a.Code+"/ws", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.CloseNow()
+	if err = s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	write(t, conn, map[string]any{"type": "auth", "player_id": a.PlayerID, "token": a.Token})
+	if _, _, err = conn.Read(ctx); websocket.CloseStatus(err) != websocket.StatusTryAgainLater {
+		t.Fatalf("world shutdown must close1013 without invalidating credentials, got %v", err)
+	}
+}
+
 func TestHTTPValidationCapacityAndHealth(t *testing.T) {
 	_, h := newTestServer(t, t.TempDir(), 1)
 	for _, body := range []string{`{"name":"Ada","admin":true}`, `{"name":"Ada"} {}`, `{"name":"1234567890123456789012345"}`, `{"name":"A\nB"}`, strings.Repeat("x", 2048)} {
@@ -237,15 +268,16 @@ func TestHTTPValidationCapacityAndHealth(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	var health struct {
-		Status   string `json:"status"`
-		Version  string `json:"version"`
-		Sessions int    `json:"sessions"`
-		Protocol int    `json:"protocol"`
+		Status        string `json:"status"`
+		Version       string `json:"version"`
+		Sessions      int    `json:"sessions"`
+		Protocol      int    `json:"protocol"`
+		LayoutVersion int    `json:"layout_version"`
 	}
 	if err = json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 {
+	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 {
 		t.Fatalf("invalid health: %+v", health)
 	}
 }
@@ -307,6 +339,7 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 		{"default", `{"name":"Ada"}`, "alpine"},
 		{"alpine", `{"name":"Ada","landscape":"alpine"}`, "alpine"},
 		{"cactus", `{"name":"Ada","landscape":"cactus"}`, "cactus"},
+		{"larch", `{"name":"Ada","landscape":"larch"}`, "larch"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -319,10 +352,14 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, creds := range []credentials{a, b} {
-				conn := connect(t, h.URL, creds)
+				version := 1
+				conn := connectVersion(t, h.URL, creds, &version)
 				w := snapshot(t, conn, func(w *game.World) bool { return true })
 				if w.Landscape != tc.want {
 					t.Fatalf("player received landscape %q, want %q", w.Landscape, tc.want)
+				}
+				if w.Layout == nil || *w.Layout != *game.LayoutForLandscape(tc.want) {
+					t.Fatalf("wrong shared layout: %+v", w.Layout)
 				}
 				_ = conn.CloseNow()
 			}
@@ -330,10 +367,191 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, restored := newTestServer(t, dir, 10)
-			conn := connect(t, restored.URL, a)
+			version := 1
+			conn := connectVersion(t, restored.URL, a, &version)
 			w := snapshot(t, conn, func(w *game.World) bool { return true })
 			if w.Landscape != tc.want {
 				t.Fatalf("restart changed landscape to %q, want %q", w.Landscape, tc.want)
+			}
+			if w.Layout == nil || *w.Layout != *game.LayoutForLandscape(tc.want) {
+				t.Fatalf("restart changed immutable layout: %+v", w.Layout)
+			}
+		})
+	}
+}
+
+func expectUpdateRequired(t *testing.T, conn *websocket.Conn) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, data, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var msg struct {
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err = json.Unmarshal(data, &msg); err != nil {
+		t.Fatal(err)
+	}
+	if msg.Type != "error" || msg.Code != "update_required" || msg.Message == "" {
+		t.Fatalf("expected update-required before any snapshot, got %s", data)
+	}
+	if _, _, err = conn.Read(ctx); websocket.CloseStatus(err) != 4002 {
+		t.Fatalf("expected update-required close4002, got %v", err)
+	}
+}
+
+func TestLayoutCapabilityProtectsLarchAndExistingConnection(t *testing.T) {
+	s, h := newTestServer(t, t.TempDir(), 10)
+	var a credentials
+	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"larch"}`, 201), &a); err != nil {
+		t.Fatal(err)
+	}
+	legacy := connect(t, h.URL, a)
+	expectUpdateRequired(t, legacy)
+	if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {
+		t.Fatal("unsupported client entered the world")
+	}
+	version := 1
+	current := connectVersion(t, h.URL, a, &version)
+	snapshot(t, current, func(w *game.World) bool {
+		return w.Player(a.PlayerID).Connected && w.Layout.BridgeY == -4 && w.Layout.GateY == 4
+	})
+	// Rejecting an old instance must not kick the already compatible instance.
+	legacy = connect(t, h.URL, a)
+	expectUpdateRequired(t, legacy)
+	write(t, current, map[string]any{"type": "move", "seq": 12, "target": game.Vec2{X: 0, Y: -4}})
+	snapshot(t, current, func(w *game.World) bool { return w.Player(a.PlayerID).Seq == 12 })
+	write(t, current, map[string]any{"type": "move", "seq": 13, "target": game.Vec2{X: 0, Y: 0}})
+	if !strings.Contains(readError(t, current), "dry land") {
+		t.Fatal("centered bridge accepted in offset world")
+	}
+	unknown := 99
+	expectUpdateRequired(t, connectVersion(t, h.URL, a, &unknown))
+	centered := createHerd(t, h.URL)
+	expectUpdateRequired(t, connectVersion(t, h.URL, centered, &unknown))
+	// Legacy centered clients and saved credentials remain valid after rejection.
+	centeredConnection := connect(t, h.URL, centered)
+	snapshot(t, centeredConnection, func(w *game.World) bool { return w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0 })
+	bad := a
+	bad.Token = strings.Repeat("0", 64)
+	unauthorized := connectVersion(t, h.URL, bad, &version)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, _, err := unauthorized.Read(ctx); websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
+		t.Fatalf("wrong token must remain an auth failure, got %v", err)
+	}
+}
+
+func TestLegacyLayoutMigrationPreservesSavedHerd(t *testing.T) {
+	for _, landscape := range []string{game.LandscapeAlpine, game.LandscapeCactus} {
+		t.Run(landscape, func(t *testing.T) {
+			dir := t.TempDir()
+			s, h := newTestServer(t, dir, 10)
+			var a, b credentials
+			body, _ := json.Marshal(map[string]string{"name": "Ada", "landscape": landscape})
+			if err := json.Unmarshal(post(t, h.URL+"/api/herds", string(body), 201), &a); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "herds.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var old checkpoint
+			if err = json.Unmarshal(data, &old); err != nil {
+				t.Fatal(err)
+			}
+			w := old.Herds[0].World
+			w.Layout = nil
+			w.Tick = 321
+			w.GateOpen = true
+			w.Settled = 1
+			w.Players[0].Seq = 17
+			w.Players[0].State = "sitting"
+			w.Dogs[0].Command = "stay"
+			w.Dogs[0].State = "happy"
+			w.Dogs[0].Caller = a.PlayerID
+			w.Sheep[0].Position = game.Vec2{X: 10, Y: 2}
+			data, err = json.Marshal(old)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data = bytes.Replace(data, []byte(`,"layout":null`), nil, 1)
+			if err = os.WriteFile(path, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			restored, server := newTestServer(t, dir, 10)
+			state := restored.find(a.Code).state.Load()
+			if state.World.Layout == nil || *state.World.Layout != *game.LayoutForLandscape(landscape) {
+				t.Fatal("missing legacy layout was not migrated to centered v1")
+			}
+			actual := state.World.Clone()
+			actual.Layout = nil
+			if !reflect.DeepEqual(actual, w) || !reflect.DeepEqual(state.Secrets, old.Herds[0].Secrets) {
+				t.Fatal("layout migration changed animals, players, credentials or saved world state")
+			}
+			for _, creds := range []credentials{a, b} {
+				conn := connect(t, server.URL, creds)
+				snapshot(t, conn, func(w *game.World) bool { return w.Player(creds.PlayerID).Connected })
+			}
+			if err = restored.Close(); err != nil {
+				t.Fatal(err)
+			}
+			data, err = os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Contains(data, []byte(`"layout":{"version":1,"bridge_y":0,"gate_y":0}`)) {
+				t.Fatal("migrated layout was not saved")
+			}
+		})
+	}
+}
+
+func TestUnknownSavedLayoutsFailWithoutOverwriting(t *testing.T) {
+	for _, tc := range []struct {
+		name, landscape string
+		layout          *game.Layout
+	}{
+		{"unknown_version", game.LandscapeAlpine, &game.Layout{Version: 2}},
+		{"wrong_center", game.LandscapeCactus, &game.Layout{Version: 1, GateY: 4}},
+		{"missing_larch", game.LandscapeLarch, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := game.New("ABCDEF")
+			_ = w.AddPlayer("0123456789abcdef", "Ada")
+			w.Landscape = tc.landscape
+			w.Layout = tc.layout
+			state := checkpoint{Schema: 1, Herds: []savedHerd{{World: w, Secrets: map[string]string{w.Players[0].ID: strings.Repeat("a", 64)}}}}
+			data, err := json.Marshal(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dir := t.TempDir()
+			path := filepath.Join(dir, "herds.json")
+			if err = os.WriteFile(path, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if server, err := New(Config{StateDir: dir}); err == nil {
+				_ = server.Close()
+				t.Fatal("unsupported saved layout loaded")
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(data, after) {
+				t.Fatal("failed migration overwrote original checkpoint")
 			}
 		})
 	}

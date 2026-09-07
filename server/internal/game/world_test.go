@@ -202,3 +202,162 @@ func TestFlockCanCrossBridgeAndOpenGate(t *testing.T) {
 	}
 	t.Fatalf("flock failed to pass bridge and open gate: settled=%d sheep=%+v dogs=%+v", w.Settled, w.Sheep, w.Dogs)
 }
+
+func larchWorld(t *testing.T) *World {
+	t.Helper()
+	w := herderWorld(t)
+	w.Landscape = LandscapeLarch
+	w.Layout = LayoutForLandscape(LandscapeLarch)
+	return w
+}
+
+func TestLarchOpeningsAndRoundTripNavigation(t *testing.T) {
+	w := larchWorld(t)
+	if w.Walkable(Vec2{0, 0}) || !w.Walkable(Vec2{0, -4}) || w.Walkable(Vec2{6, 4}) {
+		t.Fatal("incorrect offset bridge or closed gate collision")
+	}
+	if err := w.Apply("a", Input{Type: "move", Seq: 1, Target: &Vec2{0, 0}}); err == nil {
+		t.Fatal("old centered bridge destination accepted in Larch")
+	}
+	if err := w.Apply("a", Input{Type: "command", DogID: "mochi", Command: "go", Target: &Vec2{0, 0}}); err == nil {
+		t.Fatal("dog accepted a destination in water")
+	}
+	// Every step begins at the ordinary spawn, including approaching the gate.
+	target := Vec2{5.4, 4}
+	if err := w.Apply("a", Input{Type: "move", Seq: 2, Target: &target}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 260; i++ {
+		w.Step()
+		assertWalkableWorld(t, w)
+	}
+	if w.Players[0].Position.Sub(target).Len() > .1 {
+		t.Fatalf("failed approach to offset gate: %+v", w.Players[0])
+	}
+	if err := w.Apply("a", Input{Type: "interact", Action: "gate"}); err != nil {
+		t.Fatal(err)
+	}
+	if !w.Walkable(Vec2{6, 4}) || w.Walkable(Vec2{6, 0}) {
+		t.Fatal("opening offset did not persist after gate opened")
+	}
+	for seq, destination := range []Vec2{{12, -6}, {0, -3}, {-10, 5}, {11, 7}, {-12, -7}} {
+		if err := w.Apply("a", Input{Type: "move", Seq: uint64(seq + 3), Target: &destination}); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Apply("b", Input{Type: "command", DogID: "mochi", Command: "go", Target: &destination}); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 400; i++ {
+			w.Step()
+			assertWalkableWorld(t, w)
+		}
+		if w.Players[0].Position.Sub(destination).Len() > .1 || w.Dogs[0].Position.Sub(destination).Len() > .16 {
+			t.Fatalf("failed two-way offset route to %+v: player=%+v dog=%+v", destination, w.Players[0], w.Dogs[0])
+		}
+	}
+}
+
+func assertWalkableWorld(t *testing.T, w *World) {
+	t.Helper()
+	for _, p := range w.Players {
+		if !w.Walkable(p.Position) {
+			t.Fatalf("herder crossed blocked terrain: %+v", p)
+		}
+	}
+	for _, d := range w.Dogs {
+		if !w.Walkable(d.Position) {
+			t.Fatalf("dog crossed blocked terrain: %+v", d)
+		}
+	}
+	for _, s := range w.Sheep {
+		if !w.Walkable(s.Position) {
+			t.Fatalf("sheep crossed blocked terrain: %+v", s)
+		}
+	}
+}
+
+func TestAllTenSheepReachLarchPastureWithoutTeleporting(t *testing.T) {
+	w := larchWorld(t)
+	for _, id := range []string{"mochi", "maple"} {
+		_ = w.Apply("a", Input{Type: "command", DogID: id, Command: "stay"})
+	}
+	gateApproach := Vec2{5.4, w.Layout.GateY}
+	if err := w.Apply("a", Input{Type: "move", Seq: 1, Target: &gateApproach}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 260; i++ {
+		w.Step()
+		assertWalkableWorld(t, w)
+	}
+	if err := w.Apply("a", Input{Type: "interact", Action: "gate"}); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Apply("a", Input{Type: "move", Seq: 2, Target: &Vec2{15, -8}})
+	_ = w.Apply("b", Input{Type: "move", Seq: 1, Target: &Vec2{-16, 9}})
+	for tick := 0; tick < 6000; tick++ {
+		if tick%10 == 0 {
+			back, centerY := 17.0, 0.0
+			for _, sheep := range w.Sheep {
+				back = math.Min(back, sheep.Position.X)
+				centerY += sheep.Position.Y / 10
+			}
+			for i, id := range []string{"mochi", "maple"} {
+				target := Vec2{math.Max(-16, back-2), math.Max(-10, math.Min(10, centerY+float64(i*2-1)*1.2))}
+				// Once the last sheep is over, bring both dogs off the bridge;
+				// staying in the channel would stop applying pressure to the turn.
+				if back > 1.8 {
+					target.X = math.Max(2.0, target.X)
+				}
+				if math.Abs(target.X) < 1.5 {
+					target.Y = w.Layout.BridgeY
+				}
+				if math.Abs(target.X-6) < .18 {
+					target.Y = w.Layout.GateY
+				}
+				if err := w.Apply([]string{"a", "b"}[i], Input{Type: "command", DogID: id, Command: "go", Target: &target}); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		previous := w.Clone()
+		w.Step()
+		assertWalkableWorld(t, w)
+		for i, sheep := range w.Sheep {
+			if sheep.Position.Sub(previous.Sheep[i].Position).Len() > 2.6/TickRate+1e-8 {
+				t.Fatal("sheep exceeded speed or teleported")
+			}
+		}
+		for i, dog := range w.Dogs {
+			if dog.Position.Sub(previous.Dogs[i].Position).Len() > 4.6/TickRate+1e-8 {
+				t.Fatal("dog exceeded speed or teleported")
+			}
+		}
+		if w.Settled == 10 {
+			t.Logf("all ten sheep reached Larch pasture at tick %d", w.Tick)
+			return
+		}
+	}
+	t.Fatalf("offset herding did not settle all sheep: settled=%d sheep=%+v dogs=%+v", w.Settled, w.Sheep, w.Dogs)
+}
+
+func TestLayoutCloneAndValidation(t *testing.T) {
+	w := larchWorld(t)
+	copy := w.Clone()
+	copy.Layout.GateY = 0
+	if w.Layout.GateY != 4 {
+		t.Fatal("snapshot layout aliases mutable world")
+	}
+	if copy.ValidateLayout() == nil {
+		t.Fatal("accepted layout mismatch")
+	}
+	copy.Layout.Version = 99
+	if copy.ValidateLayout() == nil {
+		t.Fatal("accepted unknown layout version")
+	}
+	if !w.SupportsLayout(1) || w.SupportsLayout(0) || w.SupportsLayout(2) {
+		t.Fatal("Larch capability validation failed")
+	}
+	if !herderWorld(t).SupportsLayout(0) {
+		t.Fatal("legacy centered clients rejected")
+	}
+}
