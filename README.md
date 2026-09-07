@@ -10,6 +10,12 @@ landscapes make the walkable valley feel part of a much larger world. Steep rock
 woods and water mark its natural limits. No combat, score or timer: a wandering
 sheep creates another little story.
 
+The terrain itself rises and falls: rolling pastures, terraced banks and rocky
+valley sides carry the animals, trails and props at their actual rendered height.
+Touch destinations follow that ground rather than an invisible flat plane.
+Warm directional light, cooler shadows and subtle contact shading reveal those
+slopes. This is mobile raster lighting, not hardware ray tracing.
+
 [Download the latest APK](https://github.com/Nielk74/corgi-herding/releases/latest/download/corgi-herding.apk)
 · [All releases](https://github.com/Nielk74/corgi-herding/releases)
 · [Design and roadmap](docs/design.md)
@@ -58,6 +64,8 @@ go test -race ./...
 ```sh
 godot --headless --path client --editor --quit
 godot --headless --path client --script res://tests/smoke.gd
+godot --headless --path client --script res://tests/terrain_smoke.gd
+godot --headless --path client --script res://tests/static_scenery_batch.gd
 ```
 
 ## Automatic delivery

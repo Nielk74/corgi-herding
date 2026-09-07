@@ -472,7 +472,7 @@ func _pick_world_interaction(screen_pos: Vector2) -> String:
 	if actors.has(local_id):
 		candidates.append({"id": "player", "position": actors[local_id].node.position + Vector3(0, 0.9, 0), "radius": 40.0})
 		if not meadow.gate_open:
-			candidates.append({"id": "gate", "position": Vector3(6, 0.8, 0), "radius": 42.0})
+			candidates.append({"id": "gate", "position": _surface_position(Vector2(6, 0)) + Vector3(0, 0.7, 0), "radius": 42.0})
 	var nearest := ""
 	var nearest_distance := INF
 	for candidate in candidates:
@@ -531,6 +531,11 @@ func _world_tap(screen_pos: Vector2) -> void:
 		movement_target = target
 		moving = true
 
+func _surface_position(point: Vector2) -> Vector3:
+	# The server simulates a 2D plane; presentation follows the same ground mesh
+	# used for touch picking, including the bridge deck and raised pasture slopes.
+	return Vector3(point.x, meadow.surface_height(point.x, point.y) + 0.03, point.y)
+
 func _on_snapshot(snapshot: Dictionary) -> void:
 	latest = snapshot
 	var landscape := str(snapshot.get("landscape", "alpine"))
@@ -544,7 +549,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 		for data: Dictionary in snapshot.get("sheep" if kind == "sheep" else kind + "s", []):
 			var id := str(data.id)
 			present[id] = true
-			var pos := Vector3(float(data.position.x), 0.11, float(data.position.y))
+			var pos := _surface_position(Vector2(float(data.position.x), float(data.position.y)))
 			if not actors.has(id):
 				var node := meadow.make_actor(kind, id, kind == "player" and id != local_id)
 				node.position = pos
@@ -601,7 +606,12 @@ func _update_context() -> void:
 	if not actors.has(local_id):
 		return
 	var player: Node3D = actors[local_id].node
-	pet_button.visible = actors.has(selected_dog) and player.position.distance_to(actors[selected_dog].node.position) < 2.5
+	if actors.has(selected_dog):
+		var dog: Node3D = actors[selected_dog].node
+		# Interaction reach is authoritative in plan coordinates, not rendered height.
+		pet_button.visible = Vector2(player.position.x, player.position.z).distance_to(Vector2(dog.position.x, dog.position.z)) < 2.5
+	else:
+		pet_button.hide()
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -623,6 +633,9 @@ func _process(delta: float) -> void:
 				moving = false
 		elif id != local_id:
 			node.position = node.position.lerp(actor.target, 1.0 - exp(-delta * 12.0))
+		# Re-sample after horizontal prediction/interpolation. Linear 3D interpolation
+		# would cut through a hill or float above a hollow between snapshots.
+		node.position.y = meadow.surface_height(node.position.x, node.position.z) + 0.03
 		var motion := node.position - before
 		var walking := motion.length() > delta * 0.10
 		if walking:
@@ -640,7 +653,7 @@ func _process(delta: float) -> void:
 		meadow.follow_player(actors[local_id].node.position)
 	if actors.has(selected_dog) and hud.visible and (command_panel.visible or go_pending):
 		meadow.selection.visible = true
-		meadow.selection.position = actors[selected_dog].node.position + Vector3(0, 0.10, 0)
+		meadow.place_marker(meadow.selection, actors[selected_dog].node.position)
 	else:
 		meadow.selection.visible = false
 	if capture_after >= 0:

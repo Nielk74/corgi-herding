@@ -55,10 +55,10 @@ func _run() -> void:
 	var nearby_dog: Node3D = game.actors["mochi"].node
 	var previous_player := player.position
 	var previous_dog := nearby_dog.position
-	player.position = Vector3(5.6, 0.11, 0)
-	nearby_dog.position = Vector3(5.55, 0.11, -0.4)
+	player.position = game._surface_position(Vector2(5.6, 0))
+	nearby_dog.position = game._surface_position(Vector2(5.55, -0.4))
 	game.meadow.gate_open = false
-	var gate_screen: Vector2 = game.meadow.camera.unproject_position(Vector3(6, 0.8, 0))
+	var gate_screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, 0)) + Vector3(0, 0.7, 0))
 	var player_screen: Vector2 = game.meadow.camera.unproject_position(player.position + Vector3(0, 0.9, 0))
 	var dog_screen: Vector2 = game.meadow.camera.unproject_position(nearby_dog.position + Vector3(0, 0.5, 0))
 	if player_screen.distance_to(gate_screen) >= 40.0:
@@ -76,7 +76,7 @@ func _run() -> void:
 	# A rejected fence target must never advance the local input sequence, which
 	# would suppress reconciliation against the server's last accepted movement.
 	var previous_seq: int = game.network.seq
-	var fence_screen: Vector2 = game.meadow.camera.unproject_position(Vector3(6, 0.10, 6))
+	var fence_screen: Vector2 = game.meadow.camera.unproject_position(Vector3(6, game.meadow.surface_height(6, 6), 6))
 	game._world_tap(fence_screen)
 	if game.network.seq != previous_seq:
 		_fail("unwalkable fence taps must not send predicted movement")

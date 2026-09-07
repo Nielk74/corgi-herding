@@ -58,6 +58,50 @@ Avoid the visible edges of a floating rectangular board. Steep rock faces,
 dense woods, riverbanks and canyon slopes explain which routes are accessible.
 Keep the sheep, dogs, bridge and gate legible in the foreground.
 
+The grazing ground itself needs visible relief: rolling terraces, rounded
+shoulders, shallow hollows and raised riverbanks. Compose an asymmetrical rocky
+valley with slopes of different heights and shapes, a winding river below, and
+distant peaks visible through the opening. The mountain backdrop should connect
+visually to the ground where the animals walk. Keep the immediate herding routes
+gentle enough to read clearly in portrait.
+
+Build depth with several vegetation layers. Dark evergreen groups establish the
+slopes, while gold and rust foliage marks parts of the middle distance. Let rock
+faces, trees and meadow openings vary in density. The supplied photographs guide
+landforms, color and composition; the game remains a stylized procedural
+prototype, with no claim of photorealism.
+
+Render herders, dogs, sheep and their contact shadows at the local terrain height.
+Resolve ground taps against that displayed surface so an uphill or downhill tap
+selects the point the player sees. Keep the bridge and gate readable where they
+meet the ground. These heights are presentation only: the authoritative Go
+simulation still uses its existing 2D coordinates, movement, flocking and
+crossing rules. No terrain-height data is added to the network protocol or saves.
+
+Supplied visual references, used only for inspiration:
+
+- [Deep rocky valley and winding river](https://res.cloudinary.com/enchanting/q_70,f_auto,w_5568,h_3712,c_fit/exodus-web/2024/02/EX-HP-Hero-NAM-1.jpg): unequal slopes, exposed stone, and a strong foreground-to-distance valley opening.
+- [Rolling alpine meadow and distant peaks](https://www.thetrainline.com/cms/media/1479/switzerland-summer-landscape-the-alps-backdrop.jpg?mode=crop&width=1080&height=1080&quality=70): soft grazing terraces, tree groups and broad mountain scale.
+- [Steep rock with autumn forest, supplied thumbnail](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQgap-2fe7aR_Rn5HCM0OiEQWwvUw9y38pvvD3YrY9XFgsTsNI0juY1_k&s=10): dark evergreens mixed with gold and rust foliage beneath high rock faces.
+
+These links document visual direction. The photographs are not game assets and
+are not included in the repository or APK.
+
+Lighting should make the relief readable through warm afternoon sunlight,
+cooler ambient fill, and clear shadows under animals, trees and rocks. Keep
+highlight headroom for white sheep and pale stone. A small contrast adjustment
+supports the authored palette; haze starts beyond the nearby grazing ground
+and separates distant ridges.
+
+`ValleyLighting` uses one directional shadow map, low-quality SSAO at half
+resolution, depth fog, and two faint world-space shader quads that suggest
+sunlight through the valley. Their ordinary depth test hides them behind opaque
+terrain. These are raster effects; hardware ray tracing, ray-marched light
+shafts and volumetric fog are not enabled. Godot 4.6 documents SSAO and depth fog
+for the [Compatibility renderer](https://docs.godotengine.org/en/4.6/tutorials/rendering/renderers.html).
+The effect count is kept small, but frame time still needs measuring on target
+phones before making a performance claim.
+
 Two selectable landscapes share the first cooperative encounter: an Alpine
 valley with snowy peaks and a cactus canyon with warm mesas and saguaro cacti.
 The creator chooses the location; the server persists it for both players.
@@ -97,7 +141,7 @@ Sparse music and expressive environmental/animal sound leave room for silence.
 ## Technical foundation
 
 - Godot 4.6.3 standard, GDScript, Android first; compatible mobile renderer.
-- Fixed 3D presentation over 2D authoritative gameplay coordinates.
+- Fixed 3D presentation with terrain relief and surface-aware touch over unchanged 2D authoritative gameplay coordinates.
 - Go modular monolith; one actor per active herd; 20 Hz simulation.
 - HTTP for invitations; authenticated WebSocket JSON for gameplay.
 - Client movement feedback and reconciliation; animal/remote-player interpolation.

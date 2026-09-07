@@ -5,6 +5,11 @@ Preserve the no-combat, no-timer, soft-failure design. Both players control both
 Android is portrait-first. Keep controls hidden until an animal or interaction is
 tapped; no persistent command bars. Compose broad Alpine and cactus landscapes
 behind readable playable ground, with natural boundaries rather than a board rim.
+Relief must affect the rendered playable ground, not only distant scenery.
+Place actors and props on the sampled mesh surface and ray-pick that same surface.
+Keep authoritative movement/interaction distances in the existing 2D coordinates.
+Lighting should reveal slopes and preserve animal readability; describe shadow
+mapping and stylized light shafts honestly, not as hardware ray tracing.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

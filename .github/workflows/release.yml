@@ -49,6 +49,8 @@ jobs:
           "$RUNNER_TEMP/godot/godot" --headless --path client --editor --quit 2>&1 | tee "$RUNNER_TEMP/import.log"
           ! grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' "$RUNNER_TEMP/import.log"
           "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/smoke.gd
+          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/terrain_smoke.gd
+          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/static_scenery_batch.gd
       - name: Test Godot client against real Go server
         run: |
           (cd server && go build -o "$RUNNER_TEMP/corgi-test-server" ./cmd/server)
