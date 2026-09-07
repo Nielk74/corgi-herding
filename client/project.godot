@@ -9,12 +9,13 @@ config/icon="res://icon.svg"
 config/version="0.1.0"
 
 [display]
-window/size/viewport_width=1440
-window/size/viewport_height=900
-window/size/window_width_override=1200
-window/size/window_height_override=750
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/size/window_width_override=450
+window/size/window_height_override=800
 window/stretch/mode="canvas_items"
-window/handheld/orientation=0
+window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [input_devices]
 pointing/emulate_mouse_from_touch=true

@@ -4,6 +4,10 @@ The first playable milestone runs one Go process with a 20 Hz actor for each
 two-player herd. Each herd owns two shared corgis and ten sheep. Worlds pause
 when nobody is connected. Both herders can return with their locally saved
 credentials; reconnecting replaces the previous connection for that herder.
+New herds can select `alpine` (the default) or `cactus`. The choice is stored with
+the herd and shared with both players in snapshots. Existing checkpoints without
+a landscape selection load as `alpine`; both landscapes use the same bridge and
+gate simulation footprint.
 
 ```sh
 go run ./cmd/server

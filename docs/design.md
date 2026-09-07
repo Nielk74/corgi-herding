@@ -13,10 +13,18 @@ relationship between players.
 ## Experience
 
 A cozy, minimalist, exactly two-player cooperative Android game with a fixed
-semi-3D diorama camera. A couple of herders raises two corgis, cares for a
+semi-3D camera composed for a portrait phone. A couple of herders raises two corgis, cares for a
 persistent flock, and gradually travels toward summer pasture. Touch-to-move
 and a small command interface keep the world readable. Later platforms may
 include tablets, ChromeOS, iOS and desktop.
+
+Portrait is a requirement, not a rotated landscape layout. Use the tall frame for
+layered scenery above readable animals. A gentle horizontal camera follow reveals
+the valley without shrinking the flock. Tap ground to walk, a corgi for its small
+temporary command panel, the nearby gate to open it, and your herder to sit.
+Hide commands after use; no permanent joystick, dog tabs, action bar or tutorial
+text. Invitations disappear once both herders are connected. Keep server settings
+inside the menu and show connection status only when attention is needed.
 
 Prepare → explore → encounter a herding situation → coordinate humans and
 dogs → reach pasture or camp → relax, care and train → continue the journey.
@@ -40,6 +48,21 @@ This deliberately small prototype establishes the loop before progression.
 The acceptance test is two people naturally coordinating: “Go right”, “Wait,
 call your dog”, “We lost one!” Human playtesting is required; simulation tests
 alone cannot establish that the game is fun.
+
+## Landscape direction
+
+The walkable space should feel like a sheltered part of a broad landscape.
+Extend terrain, paths, rivers and vegetation beyond the interactive valley;
+compose layered mountain silhouettes and distant ridges into the fixed view.
+Avoid the visible edges of a floating rectangular board. Steep rock faces,
+dense woods, riverbanks and canyon slopes explain which routes are accessible.
+Keep the sheep, dogs, bridge and gate legible in the foreground.
+
+Two selectable landscapes share the first cooperative encounter: an Alpine
+valley with snowy peaks and a cactus canyon with warm mesas and saguaro cacti.
+The creator chooses the location; the server persists it for both players.
+Large vistas are part of the presentation. Continuous free travel between
+regions belongs to a later journey milestone.
 
 ## Animals
 

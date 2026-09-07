@@ -16,19 +16,47 @@ var elapsed := 0.0
 var gate_open := false
 var marker_age := 100.0
 var zoom := 1.0
+var landscape := ""
+var terrain: Node3D
+var world_environment: Environment
+var vertex_material: StandardMaterial3D
+var horizon_material: StandardMaterial3D
+var camera_focus := Vector3(-4.0, 1.8, -6.0)
+var desired_focus := Vector3(-4.0, 1.8, -6.0)
+const CAMERA_OFFSET := Vector3(8, 28, 38)
 
 func _ready() -> void:
 	_build_light()
-	_build_land()
-	_build_bridge()
-	_build_fence()
-	_build_details()
+	set_landscape("alpine")
 	_build_camera()
 	destination = _ring(self, Vector3.ZERO, Color("fff2c8"), 0.42)
 	destination.visible = false
 	selection = _ring(self, Vector3.ZERO, Color("fff2c8"), 0.76)
 	selection.visible = false
 	_build_preview()
+
+func set_landscape(id: String) -> void:
+	var next := "cactus" if id == "cactus" else "alpine"
+	if next == landscape and is_instance_valid(terrain):
+		return
+	landscape = next
+	if is_instance_valid(terrain):
+		terrain.hide()
+		terrain.queue_free()
+	terrain = Node3D.new()
+	terrain.name = "Landscape_" + landscape
+	add_child(terrain)
+	if world_environment != null:
+		world_environment.background_color = Color("d8c1a1") if landscape == "cactus" else Color("bdcfd0")
+	_build_land()
+	_build_backdrop()
+	_build_boundaries()
+	_build_bridge()
+	_build_fence()
+	_build_details()
+
+func _color(alpine: String, cactus: String) -> Color:
+	return Color(cactus if landscape == "cactus" else alpine)
 
 func material(color: Color, unshaded := false) -> StandardMaterial3D:
 	var key := color.to_html() + str(unshaded)
@@ -74,7 +102,7 @@ func cylinder(parent: Node3D, pos: Vector3, top: float, bottom: float, height: f
 	return mesh(parent, shape, pos, color)
 
 func _build_light() -> void:
-	var world_environment := WorldEnvironment.new()
+	var environment_node := WorldEnvironment.new()
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color("cad6bd")
@@ -84,8 +112,9 @@ func _build_light() -> void:
 	# Compatibility renders into an LDR buffer: keep the lighting below clipping.
 	# Linear tonemapping also preserves the authored grass/water palette on Android.
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	world_environment.environment = environment
-	add_child(world_environment)
+	world_environment = environment
+	environment_node.environment = environment
+	add_child(environment_node)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55, -25, 0)
 	sun.light_color = Color("fffdf6")
@@ -98,9 +127,9 @@ func _build_light() -> void:
 func _build_camera() -> void:
 	camera = Camera3D.new()
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.position = Vector3(17, 30, 28)
+	camera.position = camera_focus + CAMERA_OFFSET
 	add_child(camera)
-	camera.look_at(Vector3(0, 0, 0))
+	camera.look_at(camera_focus)
 	camera.current = true
 	camera.near = 0.1
 	camera.far = 150.0
@@ -110,43 +139,274 @@ func _build_camera() -> void:
 func fit_camera() -> void:
 	var size := get_viewport().get_visible_rect().size
 	var aspect := size.x / maxf(size.y, 1.0)
-	camera.size = maxf(32.0, 47.0 / aspect) * zoom
+	# Preserve animal readability on phones; gentle horizontal following reveals the valley.
+	camera.size = maxf(32.0, 25.5 / aspect) * zoom
+
+func follow_player(pos: Vector3) -> void:
+	# A broad quiet center means petting and short walks never move the camera.
+	var offset := pos.x - desired_focus.x
+	if absf(offset) > 5.8:
+		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
 
 func _build_land() -> void:
-	box(self, Vector3(0, -1.2, 0), Vector3(35.5, 2.0, 23.5), Color("8d8865"))
-	box(self, Vector3(-9.25, -0.12, 0), Vector3(15.5, 0.4, 22), GRASS)
-	box(self, Vector3(9.25, -0.12, 0), Vector3(15.5, 0.4, 22), Color("a6b982"))
-	box(self, Vector3(-1.67, -0.03, 0), Vector3(0.35, 0.5, 22), Color("b5bf93"))
-	box(self, Vector3(1.67, -0.03, 0), Vector3(0.35, 0.5, 22), Color("b5bf93"))
-	water = box(self, Vector3(0, -0.09, 0), Vector3(3.0, 0.14, 22), Color("80b4b1"))
-	# An unobtrusive path shows the physical route across the meadow.
-	box(self, Vector3(-5.6, 0.092, 0), Vector3(7.8, 0.015, 1.7), Color("bcc399"))
-	box(self, Vector3(4.0, 0.092, 0), Vector3(4.65, 0.015, 1.7), Color("c5c59a"))
-	box(self, Vector3(8.1, 0.092, 0), Vector3(3.9, 0.015, 1.7), Color("bcc795"))
-	for i in range(18):
-		var z := -10.5 + i * 1.2
-		var stripe := box(self, Vector3(sin(i * 2.6) * 0.7, 0.002, z), Vector3(0.4 + fmod(i * 0.33, 0.5), 0.01, 0.04), Color("afcfbd"))
+	# Continuous terrain goes far beyond the walkable valley; there is no board rim.
+	for side in [-1, 1]:
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for ix in range(21):
+			for iz in range(44):
+				var x0: float = side * (1.5 + ix * 3.0)
+				var x1: float = side * (1.5 + (ix + 1) * 3.0)
+				var z0 := -68.0 + iz * 3.0
+				var z1 := z0 + 3.0
+				var a := Vector3(x0, _terrain_height(x0, z0), z0)
+				var b := Vector3(x1, _terrain_height(x1, z0), z0)
+				var c := Vector3(x1, _terrain_height(x1, z1), z1)
+				var d := Vector3(x0, _terrain_height(x0, z1), z1)
+				var shade := 0.975 + sin(ix * 4.72 + iz * 1.18) * 0.022
+				var color := _color("99b37d", "d9b47f") * Color(shade, shade, shade, 1)
+				_ground_triangle(surface, a, b, c, color)
+				_ground_triangle(surface, a, c, d, color.lightened(0.008))
+		_finish_surface(surface, "ValleyGround")
+	# The river disappears into the foothills, not up into the sky behind the range.
+	water = box(terrain, Vector3(0, -0.09, 20), Vector3(3.0, 0.14, 80), _color("71aaa9", "83b4a8"))
+	# The dry trail continues into the distance on both banks.
+	_trail([Vector2(-47, -20), Vector2(-29, -14), Vector2(-22, -6), Vector2(-17, -1), Vector2(-11, 0), Vector2(-5, 0), Vector2(-1.7, 0)], 1.7)
+	_trail([Vector2(1.7, 0), Vector2(6, 0), Vector2(10, 0), Vector2(14, 2), Vector2(20, 5), Vector2(32, 3), Vector2(45, -3)], 1.55)
+	for i in range(44):
+		var z := -19.0 + i * 1.8
+		var stripe := box(terrain, Vector3(sin(i * 2.6) * 0.7, 0.002, z), Vector3(0.4 + fmod(i * 0.33, 0.5), 0.01, 0.04), _color("aecdc2", "b5d1b4"))
 		stripe.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for side in [-1, 1]:
+		for i in range(22):
+			var z := -18.0 + i * 1.8
+			var stone := ball(terrain, Vector3(side * (1.7 + 0.08 * sin(i)), 0.03, z), Vector3(0.36, 0.26, 1.5), _color("b6ba9d", "bea47e"))
+			stone.rotation.y = side * 0.16
+
+func _terrain_height(x: float, z: float) -> float:
+	var beyond := maxf(maxf(absf(x) - 17.0, absf(z) - 11.0), 0.0)
+	if beyond < 0.1 or absf(x) < 2.0:
+		return 0.08
+	var ripple := (sin(x * 0.12 + z * 0.06) + cos(z * 0.19 - x * 0.09)) * 0.6
+	return 0.08 + minf(beyond * 0.19, 1.1) * ripple
+
+func _triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	# Godot treats clockwise triangles as front-facing. Match winding to the normal,
+	# including the mirrored left bank, so two-sided shading cannot invert the light.
+	var normal := (c - a).cross(b - a).normalized()
+	if normal.y < 0:
+		var previous_b := b
+		b = c
+		c = previous_b
+		normal = -normal
+	surface.set_color(color)
+	surface.set_normal(normal)
+	surface.add_vertex(a)
+	surface.set_normal(normal)
+	surface.add_vertex(b)
+	surface.set_normal(normal)
+	surface.add_vertex(c)
+
+func _ground_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	# Clip only the distant ground, behind overlapping mountain bases. The foreground
+	# still extends past the viewport; the skyline is real silhouette against the sky.
+	var polygon: Array[Vector3] = [a, b, c]
+	var clipped: Array[Vector3] = []
+	var previous := polygon.back() as Vector3
+	var previous_depth := -previous.x * 0.2063 - previous.z * 0.9785
+	for point in polygon:
+		var depth := -point.x * 0.2063 - point.z * 0.9785
+		var inside := depth <= 28.0
+		var previous_inside := previous_depth <= 28.0
+		if inside != previous_inside:
+			clipped.append(previous.lerp(point, (28.0 - previous_depth) / (depth - previous_depth)))
+		if inside:
+			clipped.append(point)
+		previous = point
+		previous_depth = depth
+	for i in range(1, clipped.size() - 1):
+		_triangle(surface, clipped[0], clipped[i], clipped[i + 1], color)
+
+func _finish_surface(surface: SurfaceTool, label: String, shadow := false) -> MeshInstance3D:
+	if vertex_material == null:
+		vertex_material = StandardMaterial3D.new()
+		vertex_material.vertex_color_use_as_albedo = true
+		vertex_material.roughness = 1.0
+		vertex_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var node := MeshInstance3D.new()
+	node.name = label
+	node.mesh = surface.commit()
+	node.material_override = vertex_material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	terrain.add_child(node)
+	return node
+
+func _trail(points: Array, width: float) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(points.size() - 1):
+		var from: Vector2 = points[i]
+		var to: Vector2 = points[i + 1]
+		var side := (to - from).normalized().orthogonal() * width * 0.5
+		var a := Vector3(from.x + side.x, _terrain_height(from.x, from.y) + 0.026, from.y + side.y)
+		var b := Vector3(from.x - side.x, a.y, from.y - side.y)
+		var c := Vector3(to.x - side.x, _terrain_height(to.x, to.y) + 0.026, to.y - side.y)
+		var d := Vector3(to.x + side.x, c.y, to.y + side.y)
+		_ground_triangle(surface, a, b, c, _color("bdc39c", "e2c390"))
+		_ground_triangle(surface, a, c, d, _color("bdc39c", "e2c390"))
+	_finish_surface(surface, "WanderingTrail")
+
+func _build_backdrop() -> void:
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	# Soft, distant silhouettes close every gap behind the nearer mountain/canyon range.
+	for i in range(9):
+		var p := away * (35.0 + sin(i * 1.3) * 1.4) + across * (-46.0 + i * 11.5)
+		p.y = -8.0
+		_peak(p, 13.0, 10.5 + fmod(i * 1.9, 3.0), i + 101, false, true, true)
+	if landscape == "cactus":
+		for i in range(7):
+			var p := away * (25.0 + sin(i) * 2.0) + across * (-34.0 + i * 11.0)
+			p.y = -2.0
+			_mesa(p, 6.8 + fmod(i * 1.1, 3.0), 7.0 + fmod(i * 1.7, 3.0), true)
+		for p in [Vector3(-22, 0, -8), Vector3(21, 0, -9), Vector3(23, 0, 8), Vector3(-28, 0, 6)]:
+			_mesa(p, 3.4, 4.2 + fmod(absf(p.x), 2.0), false)
+	else:
+		# Different ridge widths, summit offsets and snowlines make a connected range.
+		for i in range(7):
+			var p := away * (26.0 + sin(i * 1.7) * 2.0) + across * (-34.0 + i * 11.0)
+			p.y = -3.2
+			_peak(p, 8.5 + fmod(i * 2.1, 4.0), 9.0 + fmod(i * 2.7, 5.0), i + 17, true, true)
+		for i in range(6):
+			var p := away * (18.5 + cos(i) * 1.5) + across * (-28.0 + i * 11.0)
+			p.y = -0.7
+			_peak(p, 7.0 + fmod(i * 1.7, 3.0), 4.2 + fmod(i * 1.9, 3.0), i + 53, false, false)
+		for p in [Vector3(-23, 0, -3), Vector3(23, 0, -3), Vector3(-25, 0, 10)]:
+			_peak(p, 6.5, 3.5, int(absf(p.x) + p.z), false, false)
+		for i in range(19):
+			var x := -27.0 + i * 3.3
+			var z := -14.8 - 1.0 * sin(i * 2.3)
+			if absf(x) > 2.6:
+				_pine(Vector3(x, _terrain_height(x, z), z), 0.72 + fmod(i * 0.39, 0.45))
+
+func _peak(pos: Vector3, radius: float, height: float, seed_value: int, snow: bool, distant: bool, hazy := false) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: Array = []
+	var count := 9
+	var summit := Vector3(rng.randf_range(-1.8, 1.8), height, rng.randf_range(-1.2, 1.2))
+	for level in range(3):
+		var ring: Array[Vector3] = []
+		var ring_radius := [1.0, 0.63, 0.25][level] as float
+		var elevation := [0.0, 0.36, 0.72][level] as float
+		for i in range(count):
+			var angle := TAU * i / count + 0.1 * sin(seed_value)
+			var stretch := rng.randf_range(0.82, 1.16)
+			ring.append(pos + Vector3(cos(angle) * radius * ring_radius * stretch + summit.x * elevation, height * elevation + rng.randf_range(-0.55, 0.55), sin(angle) * radius * ring_radius * stretch * 0.62))
+		rings.append(ring)
+	var stone := Color("9baeb4") if distant else Color("819181")
+	if hazy:
+		stone = _color("afc3c7", "c8b59f")
+	for level in range(2):
+		for i in range(count):
+			var j := (i + 1) % count
+			var color := stone.lightened(rng.randf_range(-0.025, 0.025) if hazy else rng.randf_range(-0.10, 0.10))
+			if level == 0 and not distant:
+				color = Color("91a27e").lightened(rng.randf_range(-0.08, 0.05))
+			_triangle(surface, rings[level][i], rings[level][j], rings[level + 1][i], color)
+			_triangle(surface, rings[level][j], rings[level + 1][j], rings[level + 1][i], color.lightened(0.035))
+	for i in range(count):
+		var color := Color("edf1e7").lightened(rng.randf_range(-0.06, 0.01)) if snow else stone.lightened(rng.randf_range(-0.025, 0.025) if hazy else rng.randf_range(-0.1, 0.08))
+		_triangle(surface, rings[2][i], rings[2][(i + 1) % count], pos + summit, color)
+	var ridge := _finish_surface(surface, "DistantHorizon" if hazy else ("SnowRidge" if snow else "Foothill"))
+	if hazy:
+		if horizon_material == null:
+			horizon_material = StandardMaterial3D.new()
+			horizon_material.vertex_color_use_as_albedo = true
+			horizon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			horizon_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		ridge.material_override = horizon_material
+
+func _mesa(pos: Vector3, radius: float, height: float, distant: bool) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var count := 7
+	var rings: Array = []
+	for level in range(4):
+		var ring: Array[Vector3] = []
+		var fraction := [0.0, 0.23, 0.78, 1.0][level] as float
+		var width := [1.0, 0.78, 0.69, 0.48][level] as float
+		for i in range(count):
+			var angle := TAU * i / count
+			var jagged := 1.0 + sin(i * 3.7 + pos.x) * 0.15
+			ring.append(pos + Vector3(cos(angle) * radius * width * jagged, height * fraction, sin(angle) * radius * width * 0.65 * jagged))
+		rings.append(ring)
+	var palette := [Color("c99774"), Color("b57f66"), Color("d8ab80")] if distant else [Color("b98259"), Color("a57050"), Color("c69264")]
+	for level in range(3):
+		for i in range(count):
+			var j := (i + 1) % count
+			_triangle(surface, rings[level][i], rings[level][j], rings[level + 1][i], palette[level])
+			_triangle(surface, rings[level][j], rings[level + 1][j], rings[level + 1][i], palette[level])
+	for i in range(count):
+		_triangle(surface, rings[3][i], rings[3][(i + 1) % count], pos + Vector3(0, height, 0), Color("dfb78a"))
+	_finish_surface(surface, "SandstoneMesa")
+
+func _build_boundaries() -> void:
+	# Broken boulders and dense low brush mark the actual walkable limits without a wall grid.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9401
+	for side in [-1, 1]:
+		for i in range(13):
+			var z := -10.9 + i * 1.9
+			var x: float = side * (17.7 + rng.randf_range(0, 1.4))
+			_rock(Vector3(x, 0.2, z), Vector3(rng.randf_range(1.3, 2.8), rng.randf_range(0.7, 2.0), 1.5))
+			if i % 2 == 0:
+				_shrub(Vector3(side * 17.4, 0.08, z + 0.8), 0.75)
+		for i in range(20):
+			var x := -17.0 + i * 1.8
+			if absf(x) < 2.0:
+				continue
+			var z: float = side * (11.5 + rng.randf_range(0.0, 0.65))
+			_shrub(Vector3(x, 0.08, z), 0.74 if side > 0 else 1.0)
+			if i % 3 == 0:
+				_rock(Vector3(x + 0.7, 0.12, z + side * 0.5), Vector3(1.8, 0.75 if side > 0 else 1.6, 1.5))
+	# A few far foreground details imply that this valley belongs to a larger place.
+	for p in [Vector3(-26, 0, 17), Vector3(26, 0, 17), Vector3(-14, 0, 22), Vector3(13, 0, 21)]:
+		if landscape == "cactus":
+			_cactus(p, 1.3)
+		else:
+			_pine(p, 1.2)
+
+func _rock(pos: Vector3, scale_value: Vector3) -> void:
+	var rock := ball(terrain, pos, scale_value, _color("a1a692", "b88a63"))
+	rock.rotation = Vector3(0.2, pos.x * 0.3, -0.14)
+
+func _shrub(pos: Vector3, size: float) -> void:
+	ball(terrain, pos + Vector3(0, size * 0.32, 0), Vector3(size * 1.85, size, size * 1.3), _color("72916e", "929b68"))
+	if landscape == "cactus":
+		_agave(pos + Vector3(0.6, 0, 0.25), size * 0.75)
 
 func _build_bridge() -> void:
 	for i in range(12):
-		box(self, Vector3(-1.78 + i * 0.325, 0.13, 0), Vector3(0.305, 0.20, 3.9), Color("cda77a") if i % 3 else Color("bf966b"))
+		box(terrain, Vector3(-1.78 + i * 0.325, 0.13, 0), Vector3(0.305, 0.20, 3.9), _color("cda77a", "b68e67") if i % 3 else _color("bf966b", "a8805c"))
 	for z in [-2.0, 2.0]:
 		for x in [-1.9, 0.0, 1.9]:
-			box(self, Vector3(x, 0.62, z), Vector3(0.14, 1.16, 0.14), Color("8d7656"))
-		box(self, Vector3(0, 0.92, z), Vector3(4.0, 0.12, 0.12), Color("b09066"))
+			box(terrain, Vector3(x, 0.62, z), Vector3(0.14, 1.16, 0.14), Color("8d7656"))
+		box(terrain, Vector3(0, 0.92, z), Vector3(4.0, 0.12, 0.12), Color("b09066"))
 
 func _build_fence() -> void:
 	for side in [-1, 1]:
 		for i in range(6):
 			var z: float = side * (2.0 + i * 1.7)
-			box(self, Vector3(6, 0.62, z), Vector3(0.18, 1.18, 0.18), Color("9e8361"))
+			box(terrain, Vector3(6, 0.62, z), Vector3(0.18, 1.18, 0.18), Color("9e8361"))
 			if i < 5:
 				for y in [0.4, 0.87]:
-					box(self, Vector3(6, y, z + side * 0.85), Vector3(0.10, 0.13, 1.7), Color("c5a47a"))
+					box(terrain, Vector3(6, y, z + side * 0.85), Vector3(0.10, 0.13, 1.7), Color("c5a47a"))
 	gate = Node3D.new()
 	gate.position = Vector3(6, 0, -2)
-	add_child(gate)
+	terrain.add_child(gate)
 	for z in [0.15, 1.0, 2.0, 3.0, 3.85]:
 		box(gate, Vector3(0, 0.60, z), Vector3(0.13, 1.0, 0.14), Color("ae8960"))
 	for y in [0.25, 0.9]:
@@ -162,34 +422,96 @@ func _build_details() -> void:
 		var z := rng.randf_range(-10.4, 10.4)
 		if absf(x) < 2.2 or absf(z) < 2.0 or absf(x - 6) < 0.8:
 			continue
-		var grass := cylinder(self, Vector3(x, 0.17, z), 0.0, 0.11, rng.randf_range(0.14, 0.3), Color("7c9966"), 4)
+		var grass := cylinder(terrain, Vector3(x, 0.17, z), 0.0, 0.11, rng.randf_range(0.14, 0.3), _color("7c9966", "ad9e6d"), 4)
 		grass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if i % 3 == 0:
-			ball(self, Vector3(x, 0.30, z), Vector3(0.12, 0.10, 0.12), Color("f5e4ae") if i % 2 else Color("d0aec3"))
+			ball(terrain, Vector3(x, 0.30, z), Vector3(0.12, 0.10, 0.12), Color("f5e4ae") if i % 2 else _color("d0aec3", "ce977e"))
 	for p in [Vector3(-14, 0, -8), Vector3(-10, 0, -9.5), Vector3(-15.2, 0, 5.7), Vector3(13, 0, -8.8), Vector3(15.6, 0, -5.8), Vector3(13.8, 0, 8.3)]:
-		_tree(p, rng.randf_range(0.85, 1.15))
+		if landscape == "cactus":
+			_cactus(p, rng.randf_range(0.9, 1.25))
+			_agave(p + Vector3(1.1, 0.1, 0.6), 0.8)
+		else:
+			_tree(p, rng.randf_range(0.85, 1.15))
 	for p in [Vector3(-2.4, 0, 7), Vector3(2.3, 0, -5), Vector3(-2.6, 0, -7.4), Vector3(15, 0, 4)]:
-		ball(self, p + Vector3(0, 0.17, 0), Vector3(0.85, 0.50, 0.7), Color("b3b29b"))
-		ball(self, p + Vector3(0.45, 0.12, 0.22), Vector3(0.4, 0.30, 0.4), Color("bcbba4"))
+		ball(terrain, p + Vector3(0, 0.17, 0), Vector3(0.85, 0.50, 0.7), _color("b3b29b", "b99a75"))
+		ball(terrain, p + Vector3(0.45, 0.12, 0.22), Vector3(0.4, 0.30, 0.4), _color("bcbba4", "c6a681"))
 	# A place to rest, with no menu or reward machine.
-	box(self, Vector3(11.6, 0.12, 5.5), Vector3(2.8, 0.04, 1.8), Color("d6bda0"))
+	box(terrain, Vector3(11.6, 0.12, 5.5), Vector3(2.8, 0.04, 1.8), _color("d6bda0", "bc8165"))
 	for x in [10.8, 12.4]:
-		box(self, Vector3(x, 0.145, 5.5), Vector3(0.12, 0.03, 1.8), Color("f1dcc0"))
-	var basket := cylinder(self, Vector3(12.8, 0.38, 4.9), 0.27, 0.23, 0.55, Color("b68d57"))
+		box(terrain, Vector3(x, 0.145, 5.5), Vector3(0.12, 0.03, 1.8), Color("f1dcc0"))
+	var basket := cylinder(terrain, Vector3(12.8, 0.38, 4.9), 0.27, 0.23, 0.55, Color("b68d57"))
 	basket.rotation.z = 0.07
 	# One small wooden trail sign, shaped in world space.
-	box(self, Vector3(4.4, 0.7, -3.1), Vector3(0.12, 1.4, 0.12), Color("9e8361"))
-	box(self, Vector3(4.4, 1.15, -3.1), Vector3(1.0, 0.37, 0.12), Color("c6a475"))
+	box(terrain, Vector3(4.4, 0.7, -3.1), Vector3(0.12, 1.4, 0.12), Color("9e8361"))
+	box(terrain, Vector3(4.4, 1.15, -3.1), Vector3(1.0, 0.37, 0.12), Color("c6a475"))
+	if landscape == "alpine":
+		# A distant chalet and hay shelter are quiet hints of life beyond this stop.
+		_chalet(Vector3(24, 0.25, -15), 0.85)
+		_chalet(Vector3(-26, 0.1, -13), 0.60)
+	else:
+		for p in [Vector3(-23, 0, -15), Vector3(21, 0, -14), Vector3(-20, 0, 8), Vector3(25, 0, 5), Vector3(9, 0, -17)]:
+			_cactus(p, 1.25)
+			_agave(p + Vector3(1.2, 0, 0.5), 1.0)
 
 func _tree(pos: Vector3, tree_scale: float) -> void:
 	var tree := Node3D.new()
 	tree.position = pos
 	tree.scale = Vector3.ONE * tree_scale
-	add_child(tree)
+	terrain.add_child(tree)
 	cylinder(tree, Vector3(0, 1.0, 0), 0.13, 0.23, 2, Color("8e7e5f"))
 	ball(tree, Vector3(0, 2.7, 0), Vector3(2.5, 3.2, 2.5), Color("718d62"))
 	ball(tree, Vector3(-0.7, 2.3, 0.2), Vector3(1.8, 1.9, 1.8), Color("88a071"))
 	ball(tree, Vector3(0.55, 3.2, -0.15), Vector3(1.9, 2.2, 1.9), Color("91a778"))
+
+func _pine(pos: Vector3, tree_scale: float) -> void:
+	var tree := Node3D.new()
+	tree.position = pos
+	tree.scale = Vector3.ONE * tree_scale
+	terrain.add_child(tree)
+	cylinder(tree, Vector3(0, 0.75, 0), 0.09, 0.16, 1.5, Color("8d8065"), 7)
+	for i in range(3):
+		cylinder(tree, Vector3(0, 1.6 + i * 0.74, 0), 0.03, 1.10 - i * 0.23, 2.0 - i * 0.26, Color("608271").lightened(i * 0.035), 7)
+
+func _cactus(pos: Vector3, cactus_scale: float) -> void:
+	var cactus := Node3D.new()
+	cactus.position = pos
+	cactus.scale = Vector3.ONE * cactus_scale
+	cactus.rotation.y = pos.x * 0.31
+	terrain.add_child(cactus)
+	var green := Color("779771")
+	cylinder(cactus, Vector3(0, 1.35, 0), 0.22, 0.27, 2.7, green, 9)
+	ball(cactus, Vector3(0, 2.70, 0), Vector3(0.45, 0.46, 0.45), green)
+	for side in [-1, 1]:
+		var height := 1.15 if side < 0 else 1.65
+		var branch := cylinder(cactus, Vector3(side * 0.40, height, 0), 0.15, 0.18, 0.8, green, 8)
+		branch.rotation.z = PI / 2
+		cylinder(cactus, Vector3(side * 0.75, height + 0.36, 0), 0.15, 0.17, 0.72, green, 8)
+		ball(cactus, Vector3(side * 0.75, height + 0.72, 0), Vector3(0.31, 0.32, 0.31), green)
+	# A single small bloom replaces collectible-looking visual noise.
+	ball(cactus, Vector3(0.05, 2.96, 0), Vector3(0.19, 0.11, 0.18), Color("d99591"))
+
+func _agave(pos: Vector3, size: float) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(7):
+		var angle := i * TAU / 7
+		var tip := pos + Vector3(cos(angle) * 0.7, 0.68, sin(angle) * 0.7) * size
+		var side := Vector3(-sin(angle), 0, cos(angle)) * size * 0.13
+		_triangle(surface, pos - side, pos + side, tip, Color("8a9e88").lightened((i % 3) * 0.045))
+	_finish_surface(surface, "Agave")
+
+func _chalet(pos: Vector3, cabin_scale: float) -> void:
+	var cabin := Node3D.new()
+	cabin.position = pos
+	cabin.scale = Vector3.ONE * cabin_scale
+	cabin.rotation.y = 0.24
+	terrain.add_child(cabin)
+	box(cabin, Vector3(0, 0.9, 0), Vector3(3.0, 1.8, 2.6), Color("c8b796"))
+	box(cabin, Vector3(0, 0.55, 1.32), Vector3(0.55, 1.1, 0.06), Color("756c59"))
+	for side in [-1, 1]:
+		var roof := box(cabin, Vector3(side * 0.87, 2.05, 0), Vector3(2.15, 0.16, 3.1), Color("918c7a"))
+		roof.rotation.z = side * -0.5
+		box(cabin, Vector3(side * 0.9, 1.13, 1.33), Vector3(0.48, 0.54, 0.07), Color("57716b"))
 
 func make_actor(kind: String, identity: String, second_herder := false) -> Node3D:
 	var actor := Node3D.new()
@@ -289,6 +611,9 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 
 func _process(delta: float) -> void:
 	elapsed += delta
+	camera_focus = camera_focus.lerp(desired_focus, 1.0 - exp(-delta * 1.5))
+	camera.position = camera_focus + CAMERA_OFFSET
+	camera.look_at(camera_focus)
 	marker_age += delta
 	destination.visible = marker_age < 2.0
 	destination.scale = Vector3.ONE * (1.0 + sin(marker_age * 5) * 0.1)

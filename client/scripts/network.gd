@@ -47,8 +47,8 @@ func configure(base_url: String, player_name: String) -> bool:
 	_save_config()
 	return true
 
-func create_herd() -> void:
-	_request("/api/herds")
+func create_herd(landscape := "alpine") -> void:
+	_request("/api/herds", {"landscape": landscape})
 
 func join_herd(code: String) -> void:
 	var clean := code.strip_edges().to_upper()
@@ -108,9 +108,11 @@ func send(message: Dictionary) -> void:
 	if socket != null and socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		socket.send_text(JSON.stringify(message))
 
-func _request(path: String) -> void:
+func _request(path: String, extra: Dictionary = {}) -> void:
 	status_changed.emit("Opening a little world…", false)
-	var error := http.request(endpoint + path, ["Content-Type: application/json"], HTTPClient.METHOD_POST, JSON.stringify({"name": display_name}))
+	var body := extra.duplicate()
+	body["name"] = display_name
+	var error := http.request(endpoint + path, ["Content-Type: application/json"], HTTPClient.METHOD_POST, JSON.stringify(body))
 	if error != OK:
 		request_failed.emit("A request is already in progress. Try again in a moment.")
 

@@ -9,6 +9,15 @@ import (
 
 const TickRate = 20
 
+const (
+	LandscapeAlpine = "alpine"
+	LandscapeCactus = "cactus"
+)
+
+func ValidLandscape(landscape string) bool {
+	return landscape == LandscapeAlpine || landscape == LandscapeCactus
+}
+
 type Vec2 struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -57,14 +66,15 @@ type Sheep struct {
 }
 
 type World struct {
-	Type     string   `json:"type"`
-	Tick     uint64   `json:"tick"`
-	Code     string   `json:"code"`
-	GateOpen bool     `json:"gate_open"`
-	Settled  int      `json:"settled"`
-	Players  []Player `json:"players"`
-	Dogs     []Dog    `json:"dogs"`
-	Sheep    []Sheep  `json:"sheep"`
+	Type      string   `json:"type"`
+	Tick      uint64   `json:"tick"`
+	Code      string   `json:"code"`
+	Landscape string   `json:"landscape"`
+	GateOpen  bool     `json:"gate_open"`
+	Settled   int      `json:"settled"`
+	Players   []Player `json:"players"`
+	Dogs      []Dog    `json:"dogs"`
+	Sheep     []Sheep  `json:"sheep"`
 }
 
 type Input struct {
@@ -79,7 +89,7 @@ type Input struct {
 }
 
 func New(code string) *World {
-	w := &World{Type: "snapshot", Code: code, Players: []Player{}, Dogs: []Dog{
+	w := &World{Type: "snapshot", Code: code, Landscape: LandscapeAlpine, Players: []Player{}, Dogs: []Dog{
 		{ID: "mochi", Name: "Mochi", Position: Vec2{-11, -2}, Target: Vec2{-11, -2}, State: "wander"},
 		{ID: "maple", Name: "Maple", Position: Vec2{-11, 2}, Target: Vec2{-11, 2}, State: "wander"},
 	}}

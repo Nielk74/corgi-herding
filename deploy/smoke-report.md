@@ -2,9 +2,26 @@
 
 Verified on 2026-09-08 (Europe/Paris), including the first live deployment.
 
+## Portrait and landscape revision
+
+The signed Android candidate was installed and exercised at 1080×2400 in a
+read-only Android emulator connected to an isolated Go server. Both Alpine valley
+and Cactus canyon were created from the touch UI. A second authenticated network
+client joined each landscape. Portrait gameplay and the contextual corgi menu
+were captured directly from Android in `docs/images/`; these are rendered game
+screenshots, not concept art. The previous landscape screenshot was replaced.
+
+Scene regressions verify portrait orientation, hidden controls by default,
+temporary shared-dog commands, nearest-target selection for overlapping taps,
+bridge destination convergence from either bank, and rejection of fence targets
+before advancing the movement sequence. The real two-Godot-client network test
+checks shared cactus snapshots, commands, movement and reconnect sequencing.
+Go race/vet, workflow lint, Android signing and 16 KiB alignment checks passed.
+Physical two-phone playtesting and frame-rate profiling remain outstanding.
+
 ## Release updater
 
-`bash tools/deploy-test-updater.sh` passed all eight cases using isolated GitHub,
+`bash tools/deploy-test-updater.sh` passed the following cases using isolated GitHub,
 launchd, and HTTP stand-ins with real SHA-256 checks and filesystem swaps:
 
 - Initial verified release staging.
@@ -15,9 +32,18 @@ launchd, and HTTP stand-ins with real SHA-256 checks and filesystem swaps:
 - Successful retry from the verified cached release.
 - Saved background user domain selected for a headless installation.
 - Invalid launch domain rejected before any service operation.
+- Final shutdown writes included in the checkpoint backup.
+- Candidate writes an incompatible save, fails health, and restores the exact
+  old checkpoint before the old binary is checked.
+- Successful update keeps the new live save and retains previous backup evidence.
+- Rollback restores checkpoint absence when no previous save existed.
+- A failed launchd bootstrap restores the old server and checkpoint.
 
-Both forward replacement and rollback requested `SIGTERM`; the test rejects
-forced `kickstart -k` calls. All deployment scripts passed `bash -n`.
+Both forward replacement and rollback unload only the known server launch agent,
+allowing its configured 30-second graceful exit before copying or restoring a
+checkpoint. The updater verifies that its recorded process has exited before
+starting another writer. The test accepts only the expected `bootout` and
+`bootstrap` lifecycle calls. All deployment scripts passed `bash -n`.
 
 ## Actual container
 
@@ -54,3 +80,23 @@ exited successfully. The deployed updater matched the repository copy.
 This headless macOS session required `Background` in `LimitLoadToSessionType`;
 the generated plists now support both `Aqua` and `Background`, and the selected
 domain is saved for subsequent restarts and updates.
+
+## Unattended release update
+
+At 2026-09-07 22:21:41 UTC, the registered 300-second job independently detected
+`build-3`. It downloaded, verified, and accepted the release at 22:21:43 UTC.
+No manual update or restart command was used. Server logs recorded a clean
+`build-2` shutdown followed by `build-3` startup; the updater's second scheduled
+run exited with code zero. `/healthz` returned `status: ok`, `version: build-3`,
+and `sessions: 1`.
+
+The active binary's SHA-256 was
+`6e63ca3f6a5bdee24410026a4ebd156c3278d7d08ec9b118c7f1c8271d1ecb33`,
+matching `corgi-server-darwin-arm64` in a fresh download of the published
+`build-3` checksum manifest. The binary symlink selected the `build-3` release
+directory.
+
+The existing Android-created herd retained its open gate, seated player with
+input sequence 1, two dogs, and ten sheep. Its saved tick was 1696; server logs
+then recorded the same player reconnecting to that herd at that tick. No
+reconnect credentials are included in this report.

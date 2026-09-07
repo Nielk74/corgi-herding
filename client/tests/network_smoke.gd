@@ -23,7 +23,7 @@ func _run() -> void:
 	game.network.endpoint = endpoint
 	game.network.display_name = "Smoke herder A"
 	game.network.request_failed.connect(func(message: String) -> void: error_message = message)
-	game.network.create_herd()
+	game.network.create_herd("cactus")
 	if not await _until(func() -> bool: return game.network.connected):
 		_fail("first Godot HTTP creation/WebSocket authentication")
 		return
@@ -37,6 +37,9 @@ func _run() -> void:
 	other.join_herd(str(game.network.credentials.code))
 	if not await _until(func() -> bool: return other.connected and game.actors.size() == 14):
 		_fail("second Godot client joins the same 14-actor world")
+		return
+	if game.latest.get("landscape") != "cactus" or other_snapshot.get("landscape") != "cactus" or game.selected_landscape != "cactus":
+		_fail("both clients display the creator's cactus landscape")
 		return
 	game.network.seq = 50
 	game.network.move_to(Vector2(-10, -1.5))
@@ -68,7 +71,7 @@ func _run() -> void:
 		return
 	game.network.disconnect_herd()
 	other.disconnect_herd()
-	print("CLIENT_NETWORK_SMOKE_OK: HTTP invite/join, two authenticated WebSockets, 14 rendered actors, shared commands, movement, reconnect sequence")
+	print("CLIENT_NETWORK_SMOKE_OK: shared cactus landscape, HTTP invite/join, two authenticated WebSockets, 14 rendered actors, shared commands, movement, reconnect sequence")
 	quit(0)
 
 func _until(condition: Callable) -> bool:

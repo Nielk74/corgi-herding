@@ -301,3 +301,86 @@ func TestFailedPersistenceDoesNotConsumeInviteSlot(t *testing.T) {
 	s.saveMu.Unlock()
 	post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201)
 }
+
+func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"default", `{"name":"Ada"}`, "alpine"},
+		{"alpine", `{"name":"Ada","landscape":"alpine"}`, "alpine"},
+		{"cactus", `{"name":"Ada","landscape":"cactus"}`, "cactus"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			s, h := newTestServer(t, dir, 10)
+			var a, b credentials
+			if err := json.Unmarshal(post(t, h.URL+"/api/herds", tc.body, 201), &a); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
+				t.Fatal(err)
+			}
+			for _, creds := range []credentials{a, b} {
+				conn := connect(t, h.URL, creds)
+				w := snapshot(t, conn, func(w *game.World) bool { return true })
+				if w.Landscape != tc.want {
+					t.Fatalf("player received landscape %q, want %q", w.Landscape, tc.want)
+				}
+				_ = conn.CloseNow()
+			}
+			if err := s.Close(); err != nil {
+				t.Fatal(err)
+			}
+			_, restored := newTestServer(t, dir, 10)
+			conn := connect(t, restored.URL, a)
+			w := snapshot(t, conn, func(w *game.World) bool { return true })
+			if w.Landscape != tc.want {
+				t.Fatalf("restart changed landscape to %q, want %q", w.Landscape, tc.want)
+			}
+		})
+	}
+}
+
+func TestLandscapeValidationAndLegacyCheckpoint(t *testing.T) {
+	dir := t.TempDir()
+	s, h := newTestServer(t, dir, 10)
+	for _, body := range []string{
+		`{"name":"Ada","landscape":"ocean"}`,
+		`{"name":"Ada","landscape":""}`,
+		`{"name":"Ada","landscape":42}`,
+		`{"name":"Ada","landscape":null}`,
+	} {
+		post(t, h.URL+"/api/herds", body, 400)
+	}
+	a := createHerd(t, h.URL)
+	post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea","landscape":"cactus"}`, 400)
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "herds.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := bytes.Replace(data, []byte(`,"landscape":"alpine"`), nil, 1)
+	if bytes.Equal(legacy, data) {
+		t.Fatal("fixture did not remove landscape field")
+	}
+	if err = os.WriteFile(path, legacy, 0600); err != nil {
+		t.Fatal(err)
+	}
+	restored, restoredHTTP := newTestServer(t, dir, 10)
+	conn := connect(t, restoredHTTP.URL, a)
+	w := snapshot(t, conn, func(w *game.World) bool { return true })
+	if w.Landscape != "alpine" {
+		t.Fatalf("legacy meadow loaded as %q", w.Landscape)
+	}
+	if err = restored.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(data, []byte(`"landscape":"alpine"`)) {
+		t.Fatal("migration was not saved")
+	}
+}

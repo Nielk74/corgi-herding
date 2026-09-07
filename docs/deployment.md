@@ -30,6 +30,7 @@ Files live under `~/Library/Application Support/Corgi Herding/`:
 | --- | --- |
 | `state/` | Persistent herd checkpoints, including private reconnect credentials. |
 | `releases/` | Downloaded binaries and checksums; previous releases are retained for recovery. |
+| `checkpoint-backups/` | A private checkpoint backup for each update attempt, plus any rejected release's checkpoint. |
 | `current-version` | Last accepted release tag. |
 | `launch-domain` | Selected launchd domain: `gui/UID` for a graphical login or `user/UID` for a background user manager. |
 | `logs/` | Server and update logs. |
@@ -37,15 +38,25 @@ Files live under `~/Library/Application Support/Corgi Herding/`:
 The updater only reads GitHub's latest non-draft, non-prerelease release. CI
 uploads all artifacts into a draft before publishing it. The downloaded Apple
 Silicon binary is checked against that release's `SHA256SUMS`. The binary link
-is swapped atomically, the exact server launch agent restarts, and `/healthz`
-must return `status: ok` and the expected release version. If that check fails,
-the previous binary is restored, restarted, and checked again. Saved state is
-kept outside the release directories. Future incompatible save-format changes
-must include migrations and a backup strategy before they ship.
+is changed only after the exact server launch agent has stopped and completed
+its final save. The updater retains that checkpoint in a new private backup
+directory, selects the new binary atomically, and starts its launch agent.
+`/healthz` must return `status: ok` and the expected release version.
+
+If startup or that check fails, the updater stops the rejected release, retains
+any checkpoint it wrote as `herds.failed.json`, restores the previous binary
+and its matching `herds.before.json` checkpoint, then starts and checks the old
+version again. This also handles an older binary being unable to read new save
+fields. Successful updates keep their backup without replacing live state.
+Each attempt gets its own backup directory; retries preserve earlier evidence.
+These backups contain private reconnect credentials and must not be published.
+Future schema changes still need explicit migration logic and compatibility
+tests. Saved state and its backups remain outside the release directories.
 
 `bash tools/deploy-test-updater.sh` exercises initial installation, a healthy
-update, no-op checks, checksum rejection, rollback, cached-release retry, and
-both graphical/background launchd domains using isolated service and network
+update, no-op checks, checksum rejection, post-shutdown checkpoint backups,
+incompatible-save rollback, cached retries, startup failure recovery, and both
+graphical/background launchd domains using isolated service and network
 stand-ins. It never stops a real service.
 
 Updates briefly disconnect players. The Android client reconnects with its saved

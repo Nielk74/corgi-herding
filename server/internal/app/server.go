@@ -357,7 +357,34 @@ func decodeName(w http.ResponseWriter, r *http.Request) (string, error) {
 	if err := decodeStrict(http.MaxBytesReader(w, r.Body, 1024), &body); err != nil {
 		return "", errors.New("send a JSON name")
 	}
-	name := strings.TrimSpace(body.Name)
+	return cleanName(body.Name)
+}
+
+func decodeCreation(w http.ResponseWriter, r *http.Request) (string, string, error) {
+	var body struct {
+		Name      string          `json:"name"`
+		Landscape json.RawMessage `json:"landscape"`
+	}
+	if err := decodeStrict(http.MaxBytesReader(w, r.Body, 1024), &body); err != nil {
+		return "", "", errors.New("send a JSON name and optional landscape")
+	}
+	landscape := game.LandscapeAlpine
+	if len(body.Landscape) > 0 {
+		var selected string
+		if err := json.Unmarshal(body.Landscape, &selected); err != nil {
+			return "", "", errors.New("landscape must be alpine or cactus")
+		}
+		landscape = selected
+	}
+	if !game.ValidLandscape(landscape) {
+		return "", "", errors.New("landscape must be alpine or cactus")
+	}
+	name, err := cleanName(body.Name)
+	return name, landscape, err
+}
+
+func cleanName(raw string) (string, error) {
+	name := strings.TrimSpace(raw)
 	if name == "" {
 		name = "Herder"
 	}
@@ -388,7 +415,7 @@ func decodeStrict(r io.Reader, dst any) error {
 func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 	s.mutationMu.Lock()
 	defer s.mutationMu.Unlock()
-	name, err := decodeName(w, r)
+	name, landscape, err := decodeCreation(w, r)
 	if err != nil {
 		problem(w, 400, err.Error())
 		return
@@ -428,6 +455,7 @@ func (s *Server) create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	world := game.New(code)
+	world.Landscape = landscape
 	_ = world.AddPlayer(id, name)
 	h := newHerd(savedHerd{World: world, Secrets: map[string]string{id: hashToken(token)}}, s.cfg.Logger)
 	s.herds[code] = h
@@ -691,6 +719,13 @@ func (s *Server) load() error {
 			return errors.New("invalid saved herd")
 		}
 		seen[saved.World.Code] = true
+		// Checkpoints from the first meadow build have no landscape field.
+		if saved.World.Landscape == "" {
+			saved.World.Landscape = game.LandscapeAlpine
+		}
+		if !game.ValidLandscape(saved.World.Landscape) {
+			return errors.New("invalid saved landscape")
+		}
 		for _, p := range saved.World.Players {
 			if len(saved.Secrets[p.ID]) != 64 || !p.Position.Valid() || !p.Target.Valid() {
 				return errors.New("invalid saved herder")
