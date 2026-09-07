@@ -50,4 +50,4 @@ for the session. There is no timer, score or failure state.
 
 Use TLS/WSS at a reverse proxy before exposing this server to the public
 internet. Plain HTTP is supported for the initial local network Android build.
-See [the wire contract](../protocol/README.md) and [deployment](../deploy/README.md).
+See [the wire contract](../protocol/README.md) and [deployment](../docs/deployment.md).

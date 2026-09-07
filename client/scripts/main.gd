@@ -213,7 +213,7 @@ func _build_welcome() -> void:
 	menu_error.custom_minimum_size.x = 440
 	menu_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(menu_error)
-	column.add_child(_label("A quiet cooperative prototype · v0.1.0", 15, MUTED))
+	column.add_child(_label("A quiet cooperative prototype · v" + str(ProjectSettings.get_setting("application/config/version", "0.1.0")), 15, MUTED))
 	var right := _column(layout)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.alignment = BoxContainer.ALIGNMENT_END
@@ -477,8 +477,18 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 			present[id] = true
 			var pos := Vector3(float(data.position.x), 0.11, float(data.position.y))
 			if not actors.has(id):
-				var node := meadow.make_actor(kind, id)
+				var node := meadow.make_actor(kind, id, kind == "player" and id != local_id)
 				node.position = pos
+				if kind == "player":
+					var name_tag := Label3D.new()
+					name_tag.text = "You" if id == local_id else str(data.get("name", "Your other herder"))
+					name_tag.font_size = 36
+					name_tag.pixel_size = 0.012
+					name_tag.position.y = 2.7
+					name_tag.modulate = Color("fff2d5")
+					name_tag.outline_modulate = Color("4f6453")
+					name_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+					node.add_child(name_tag)
 				actors[id] = {"node": node, "target": pos, "kind": kind, "state": "idle", "phase": float(id.hash() % 100) / 10.0, "ack": 0.0}
 			var actor: Dictionary = actors[id]
 			actor.state = str(data.get("state", "idle"))

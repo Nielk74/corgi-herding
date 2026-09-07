@@ -189,7 +189,7 @@ func _tree(pos: Vector3, tree_scale: float) -> void:
 	ball(tree, Vector3(-0.7, 2.3, 0.2), Vector3(1.8, 1.9, 1.8), Color("88a071"))
 	ball(tree, Vector3(0.55, 3.2, -0.15), Vector3(1.9, 2.2, 1.9), Color("91a778"))
 
-func make_actor(kind: String, identity: String) -> Node3D:
+func make_actor(kind: String, identity: String, second_herder := false) -> Node3D:
 	var actor := Node3D.new()
 	actor.name = identity
 	add_child(actor)
@@ -199,7 +199,7 @@ func make_actor(kind: String, identity: String) -> Node3D:
 	match kind:
 		"dog": _dog(body, identity == "maple")
 		"sheep": _sheep(body, identity)
-		"player": _herder(body, identity.ends_with("2"))
+		"player": _herder(body, second_herder)
 	return actor
 
 func _dog(parent: Node3D, maple: bool) -> void:

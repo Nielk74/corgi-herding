@@ -23,6 +23,7 @@ var connecting_time := 0.0
 var snapshot_age := 0.0
 var seq := 0
 var paused := false
+var persist_config := true
 
 func _ready() -> void:
 	_load_config()
@@ -198,6 +199,8 @@ func _notification(what: int) -> void:
 
 func _load_config() -> void:
 	endpoint = str(ProjectSettings.get_setting("corgi/server_url", DEFAULT_SERVER))
+	if not persist_config:
+		return
 	var config := ConfigFile.new()
 	if config.load(CONFIG_PATH) == OK:
 		endpoint = str(config.get_value("connection", "endpoint", endpoint))
@@ -205,6 +208,8 @@ func _load_config() -> void:
 		credentials = config.get_value("connection", "credentials", {})
 
 func _save_config() -> void:
+	if not persist_config:
+		return
 	var config := ConfigFile.new()
 	config.set_value("connection", "endpoint", endpoint)
 	config.set_value("connection", "name", display_name)
