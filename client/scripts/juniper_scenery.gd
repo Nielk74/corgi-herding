@@ -4,6 +4,7 @@ extends RefCounted
 
 const Profile = preload("res://scripts/juniper_profile.gd")
 const Navigation = preload("res://scripts/shore_navigation.gd")
+const WaterShader = preload("res://shaders/juniper_water.gdshader")
 
 static func build_land(host) -> void:
 	var near := SurfaceTool.new()
@@ -39,8 +40,8 @@ static func build_land(host) -> void:
 	far_material.disable_receive_shadows = true
 	combined.surface_set_material(1, far_material)
 	host.water = host._finish_surface(lake, "JuniperLake")
-	var water_material := host.vertex_material.duplicate() as StandardMaterial3D
-	water_material.disable_receive_shadows = true
+	var water_material := ShaderMaterial.new()
+	water_material.shader = WaterShader
 	host.water.material_override = water_material
 
 static func ground_color(host, point: Vector3, normal: Vector3) -> Color:
@@ -98,20 +99,22 @@ static func build_details(host) -> void:
 	rng.seed = 579321
 	var crowns := SurfaceTool.new()
 	crowns.begin(Mesh.PRIMITIVE_TRIANGLES)
-	# Unequal near trees sit off-route; distant small clusters supply scale.
-	var trees := [Vector3(-18, 0, -2), Vector3(-17, 0, -6), Vector3(-14.5, 0, -9.0),
-		Vector3(-9.5, 0, -10.4), Vector3(-6.8, 0, -11.8), Vector3(-4.2, 0, -12.6),
-		Vector3(7.1, 0, -11.2), Vector3(11.3, 0, -9.3), Vector3(15.7, 0, -6.4),
-		Vector3(18.2, 0, -3.6), Vector3(18.0, 0, 1.2)]
-	for p in trees:
-		if Navigation.signed_clearance(Vector2(p.x, p.z)) < -1.2:
-			_juniper(host, crowns, p, rng.randf_range(0.7, 1.15), rng)
+	# Broad gaps and depth offsets matter more than the number of trees. Each
+	# conservative crown disk is wholly outside the true walking union, not an
+	# approximate oval shoreline. Rejection sampling avoids a planted tree row.
+	var plantings: Array[Dictionary] = []
+	_plant_group(host, crowns, plantings, Vector2(-18.0, -7.3), Vector2(4.3, 4.0), 5, Vector2(0.62, 1.02), 0, rng)
+	_plant_group(host, crowns, plantings, Vector2(-3.5, -14.4), Vector2(4.4, 2.7), 3, Vector2(0.66, 0.92), 1, rng)
+	_plant_group(host, crowns, plantings, Vector2(19.0, -4.7), Vector2(3.5, 4.5), 4, Vector2(0.68, 1.08), 2, rng)
 	var across := Vector3(0.9785, 0, -0.2063)
 	var away := Vector3(-0.2063, 0, -0.9785)
-	for p: Vector2 in [Vector2(-22, 15), Vector2(-19.5, 16.2), Vector2(-21.4, 18.2), Vector2(-15.2, 18.5),
-		Vector2(-4.8, 21.6), Vector2(-2.6, 22.1), Vector2(0.1, 20.5), Vector2(16.8, 20.6), Vector2(19.5, 22.0)]:
-		_juniper(host, crowns, across * p.x + away * p.y, rng.randf_range(0.35, 0.53), rng)
-	host._finish_surface(crowns, "JuniperWoodland", true)
+	var distant_centers := [Vector2(-22, 18), Vector2(-0.5, 23), Vector2(20, 20)]
+	for i in distant_centers.size():
+		var p: Vector2 = distant_centers[i]
+		var center := across * p.x + away * p.y
+		_plant_group(host, crowns, plantings, Vector2(center.x, center.z), Vector2(3.3, 2.4), [3, 2, 4][i], Vector2(0.32, 0.55), i + 3, rng)
+	var woodland: MeshInstance3D = host._finish_surface(crowns, "JuniperWoodland", true)
+	woodland.set_meta("plantings", plantings)
 	for p in [Vector3(-16, 0, -4), Vector3(-11, 0, -10), Vector3(5.5, 0, -11.5), Vector3(15.8, 0, -5), Vector3(17.4, 0, 8.6)]:
 		if Navigation.signed_clearance(Vector2(p.x, p.z)) < -0.8:
 			host._rock(p + Vector3(0, 0.16, 0), Vector3(1.1, 0.5, 0.85))
@@ -128,16 +131,63 @@ static func build_details(host) -> void:
 			host._triangle(tufts, base + Vector3(-0.05, 0.13, 0), base + Vector3(0.05, 0.13, 0), base + Vector3(0, 0.19, 0), Color("d5c896"))
 	host._finish_surface(tufts, "JuniperMeadowFlowers")
 
-static func _juniper(host, surface: SurfaceTool, p: Vector3, scale_value: float, rng: RandomNumberGenerator) -> void:
+static func _plant_group(host, surface: SurfaceTool, plantings: Array[Dictionary], center: Vector2,
+		spread: Vector2, count: int, scales: Vector2, group: int, rng: RandomNumberGenerator) -> void:
+	var placed := 0
+	for attempt in range(count * 80):
+		if placed == count:
+			break
+		var angle := rng.randf() * TAU
+		var offset := Vector2(cos(angle), sin(angle)) * sqrt(rng.randf()) * spread
+		var point := center + offset
+		var scale_value := rng.randf_range(scales.x, scales.y)
+		var radius := 2.25 * scale_value
+		if Navigation.signed_clearance(point) >= -radius - 0.35:
+			continue
+		var separated := true
+		for previous in plantings:
+			if point.distance_to(previous.position) < (radius + float(previous.radius)) * 0.8:
+				separated = false
+				break
+		if not separated:
+			continue
+		var form: String = ["spreading", "crooked", "windward"][(group + placed) % 3]
+		_juniper(host, surface, Vector3(point.x, 0, point.y), scale_value, form, rng)
+		plantings.append({"position": point, "radius": radius, "form": form, "group": group})
+		placed += 1
+
+static func _juniper(host, surface: SurfaceTool, p: Vector3, scale_value: float, form: String, rng: RandomNumberGenerator) -> void:
 	var base: Vector3 = host._grounded(p)
-	var lean := Vector3(rng.randf_range(0.18, 0.5), 0, rng.randf_range(-0.16, 0.12)) * scale_value
-	var trunk = host.cylinder(host.terrain, base + Vector3(0, 0.65, 0) * scale_value, 0.075 * scale_value, 0.13 * scale_value, 1.3 * scale_value, Color("786a53"), 7)
-	trunk.rotation.z = -0.16
-	for i in range(4):
-		var angle := i * 2.4 + rng.randf_range(-0.25, 0.25)
-		var center := base + lean + Vector3(cos(angle) * 0.5, 1.0 + i * 0.18, sin(angle) * 0.35) * scale_value
-		var size := Vector3(rng.randf_range(0.68, 0.96), rng.randf_range(0.50, 0.75), rng.randf_range(0.65, 0.9)) * scale_value
-		_crown(host, surface, center, size, Color("516e57").lightened(i * 0.025), angle)
+	var phase := rng.randf_range(-0.65, 0.65)
+	var green := Color("4c6655").lerp(Color("687c5b"), rng.randf_range(0.0, 0.7))
+	for i in range(3):
+		var side := float(i - 1)
+		var offset: Vector3
+		var size: Vector3
+		var fork: Vector3
+		if form == "spreading":
+			offset = Vector3(side * 0.57, 0.43 + i * 0.09, sin(i * 2.2 + phase) * 0.22)
+			size = Vector3(rng.randf_range(0.97, 1.26), rng.randf_range(0.31, 0.46), 0.73)
+			fork = Vector3(0.03, 0.13, 0)
+		elif form == "crooked":
+			offset = Vector3(side * 0.54 + 0.24, 1.35 + i * 0.21, side * 0.22)
+			size = Vector3(rng.randf_range(0.64, 0.84), rng.randf_range(0.55, 0.78), 0.73)
+			fork = Vector3(0.2, 0.72, -0.06)
+		else:
+			offset = Vector3(0.12 + i * 0.37, 0.73 + i * 0.17, sin(i * 2.4 + phase) * 0.18)
+			size = Vector3(0.85 + i * 0.10, rng.randf_range(0.36, 0.54), 0.68)
+			fork = Vector3(-0.08, 0.28, 0)
+		var center := base + offset * scale_value
+		_branch(host, base + fork * scale_value, center, scale_value * (0.047 if form == "spreading" else 0.064))
+		if i == 0:
+			_branch(host, base, base + fork * scale_value, scale_value * 0.09)
+		_crown(host, surface, center, size * scale_value, green.lightened(i * 0.018), phase + i * 2.3)
+
+static func _branch(host, from: Vector3, to: Vector3, radius: float) -> void:
+	var direction := to - from
+	var branch = host.cylinder(host.terrain, (from + to) * 0.5, radius * 0.65, radius,
+		direction.length(), Color("786a53"), 6)
+	branch.quaternion = Quaternion(Vector3.UP, direction.normalized())
 
 static func _crown(host, surface: SurfaceTool, center: Vector3, size: Vector3, color: Color, phase: float) -> void:
 	var lower: Array[Vector3] = []
