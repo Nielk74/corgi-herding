@@ -253,12 +253,28 @@ func _add_occluder(mesh: Mesh, transform: Transform3D, end: float, center: Vecto
 	if mesh == null:
 		return
 	var surfaces: Array = []
+	var moving_crown := AABB()
+	var moving_surface := -1
 	for i in mesh.get_surface_count():
 		var arrays := mesh.surface_get_arrays(i)
 		surfaces.append({"vertices": arrays[Mesh.ARRAY_VERTEX], "indices": arrays[Mesh.ARRAY_INDEX]})
+		# Only per-world private pine clones carry this tag. The world-space
+		# .08m bound includes every phase, yaw and supported instance scale.
+		# Conservative crown obstruction never changes the dry walking union.
+		if i == 1 and mesh.get_meta("pine_wind_surface", -1) == i and mesh.get_meta("pine_wind_reach", 0.0) == 0.08:
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			if not vertices.is_empty():
+				moving_crown = AABB(transform * vertices[0], Vector3.ZERO)
+				for vertex in vertices:
+					moving_crown = moving_crown.expand(transform * vertex)
+				moving_crown = moving_crown.grow(0.08)
+				moving_surface = i
 	var bounds: AABB = transform * mesh.get_aabb()
+	if moving_surface >= 0:
+		bounds = bounds.merge(moving_crown)
 	var id := _occluders.size()
-	_occluders.append({"surfaces": surfaces, "transform": transform, "inverse": transform.affine_inverse(), "bounds": bounds, "end": end, "center": center})
+	_occluders.append({"surfaces": surfaces, "transform": transform, "inverse": transform.affine_inverse(), "bounds": bounds, "end": end, "center": center,
+		"moving_crown": moving_crown, "moving_surface": moving_surface})
 	for x in range(floori(bounds.position.x / 16), floori(bounds.end.x / 16) + 1):
 		for z in range(floori(bounds.position.z / 16), floori(bounds.end.z / 16) + 1):
 			var key := Vector2i(x, z)
@@ -317,10 +333,19 @@ func _ground_hit(origin: Vector3, direction: Vector3, limit: float) -> Vector3:
 	return Vector3.INF
 
 func _mesh_hit(record: Dictionary, origin: Vector3, direction: Vector3, limit: float) -> Vector3:
+	if record.moving_surface >= 0:
+		var span := _box_interval(origin, direction, record.moving_crown, limit)
+		if not span.is_empty() and float(span[0]) < limit - 0.0001:
+			# A small crown-envelope false positive is preferable to accepting a
+			# tap through a visibly moving foreground needle. Trunk stays exact.
+			return origin + direction * float(span[0])
 	var inverse: Transform3D = record.inverse
 	var local_origin := inverse * origin
 	var local_direction := inverse.basis * direction
-	for surface in record.surfaces:
+	for surface_index in record.surfaces.size():
+		if surface_index == record.moving_surface:
+			continue
+		var surface: Dictionary = record.surfaces[surface_index]
 		var vertices: PackedVector3Array = surface.vertices
 		var indices: Variant = surface.indices
 		var indexed: bool = indices is PackedInt32Array and not indices.is_empty()

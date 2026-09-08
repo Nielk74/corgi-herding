@@ -17,6 +17,7 @@ const RegionPresentation = preload("res://scripts/region_presentation.gd")
 const RegionRecipe = preload("res://scripts/landscape_recipe.gd")
 const RegionSceneBuilder = preload("res://scripts/landscape_scene_builder.gd")
 const ValleyLife = preload("res://scripts/valley_life.gd")
+const ValleyPineBinding = preload("res://scripts/valley_pine_binding.gd")
 const ActorBatch = preload("res://scripts/actor_batch.gd")
 var camera: Camera3D
 var gate: Node3D
@@ -64,6 +65,7 @@ var region_profile: RefCounted
 var region_navigation: RefCounted
 var region_presentation: RefCounted
 var valley_life: Node3D
+var valley_pines: Node
 var _legacy_camera_state: Dictionary = {}
 var _legacy_environment: Dictionary = {}
 var _lighting_rig: Node3D
@@ -228,6 +230,11 @@ func _set_region_landscape(incoming: Dictionary) -> void:
 	terrain = RegionSceneBuilder.load_or_build(region_profile)
 	terrain.name = "Landscape_alpine_valley"
 	add_child(terrain)
+	valley_pines = ValleyPineBinding.new()
+	add_child(valley_pines)
+	if not valley_pines.configure(terrain):
+		valley_pines.queue_free()
+		valley_pines = null
 	region_presentation = RegionPresentation.new(terrain, region_profile, region_navigation)
 	valley_life = ValleyLife.new()
 	add_child(valley_life)
@@ -288,6 +295,10 @@ func _apply_region_environment() -> void:
 	world_environment.fog_light_color = Color("a6bac5")
 
 func _leave_region_landscape() -> void:
+	if is_instance_valid(valley_pines):
+		valley_pines.detach()
+		valley_pines.queue_free()
+	valley_pines = null
 	if is_instance_valid(valley_life):
 		valley_life.set_active(false)
 		valley_life.queue_free()
