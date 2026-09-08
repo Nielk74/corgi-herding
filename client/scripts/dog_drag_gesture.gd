@@ -129,8 +129,15 @@ func _release(position: Vector2) -> void:
 		_clear() # A normal tap leaves the stable four-slot menu open.
 		return
 	_refresh_target() # Re-pick after any camera movement or received snapshot.
-	if not _valid_session() or not target.is_finite() or over_ui(position):
+	if not _valid_session() or over_ui(position):
 		cancel()
+		return
+	if not target.is_finite():
+		# Explain only an intentional release beyond valid ground. Lifecycle,
+		# UI and stale-pointer cancellations remain silent, and ownership is
+		# cleared before the temporary feedback can trigger any callbacks.
+		cancel()
+		host._hint("That spot is beyond the path. Try nearer grass.", 2.0)
 		return
 	var id := dog_id
 	var ground := target

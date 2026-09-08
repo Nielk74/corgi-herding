@@ -1,6 +1,16 @@
 extends SceneTree
 ## Real GUI/world dispatch, including native touch + Godot mouse emulation.
 
+const INVALID_GROUND_HINT := "That spot is beyond the path. Try nearer grass."
+
+class RecordingGame:
+	extends "res://scripts/main.gd"
+	var hint_calls: Array[Dictionary] = []
+	func _hint(text: String, duration := 4.0) -> void:
+		hint_calls.append({"text": text, "duration": duration,
+			"ownership_cleared": dog_drag == null or (not dog_drag.armed and not dog_drag.dragging and dog_drag.dog_id.is_empty())})
+		super._hint(text, duration)
+
 class RecordingConnection:
 	extends "res://scripts/network.gd"
 	var sent: Array[Dictionary] = []
@@ -32,9 +42,11 @@ func _initialize() -> void:
 func _run() -> void:
 	var herd_before := _digest("user://herd.cfg")
 	var audio_before := _digest("user://audio.cfg")
+	var guide_before := _digest("user://guide.cfg")
 	old_mouse_emulation = Input.is_emulating_mouse_from_touch()
 	old_touch_emulation = Input.is_emulating_touch_from_mouse()
 	game = load("res://main.tscn").instantiate()
+	game.set_script(RecordingGame)
 	root.add_child(game)
 	await process_frame
 	game.set_process(false)
@@ -71,6 +83,7 @@ func _run() -> void:
 				_motion(mode, start + Vector2(5, 2), start)
 				_press(mode, start + Vector2(5, 2), false)
 				_check(recorder.sent.is_empty() and game.command_panel.visible and game.pet_button.visible and not game.dog_drag.armed, "Small tap motion retains stable Come/Stay/Go/Pet, without a command")
+				_check(_invalid_hint_calls().is_empty(), "A small native or mouse tap never displays invalid-drag feedback")
 				await _fixture()
 				start = _dog_screen(dog)
 				var target := _ground_screen(Vector2(-7, -5))
@@ -92,12 +105,13 @@ func _run() -> void:
 	await _existing_walk()
 	await _release_revalidation()
 	await _terrain_validation()
+	await _invalid_release_feedback()
 	Input.set_emulate_mouse_from_touch(old_mouse_emulation)
 	Input.set_emulate_touch_from_mouse(old_touch_emulation)
 	game.queue_free()
 	await _layout()
-	_check(_digest("user://herd.cfg") == herd_before and _digest("user://audio.cfg") == audio_before, "Gesture tests preserve invitation and audio preference files")
-	print("DOG_DRAG_SMOKE: %d checks / %d failures; both dogs and portrait aspects; real mouse/native/synthetic dispatch, stable taps, one-shot Go, GUI cancellation, lifecycle and missing actors, canonical targets, accepted-walk preservation" % [checks, failures])
+	_check(_digest("user://herd.cfg") == herd_before and _digest("user://audio.cfg") == audio_before and _digest("user://guide.cfg") == guide_before, "Gesture tests preserve invitation, audio and guide preference files")
+	print("DOG_DRAG_SMOKE: %d checks / %d failures; both dogs and portrait aspects; real mouse/native/synthetic dispatch, stable taps, one-shot Go, silent UI/lifecycle cancellation, two-second invalid-ground feedback, canonical targets, accepted-walk and tutorial-evidence preservation" % [checks, failures])
 	quit(1 if failures else 0)
 
 func _fixture(landscape := "alpine") -> void:
@@ -123,6 +137,8 @@ func _fixture(landscape := "alpine") -> void:
 	game.meadow.destination_calls = 0
 	game.meadow.last_destination = Vector3.INF
 	game.meadow.destination.hide()
+	game._hint("", 0.0)
+	game.hint_calls.clear()
 
 func _gui_release(mode: String) -> void:
 	await _fixture()
@@ -141,6 +157,7 @@ func _gui_release(mode: String) -> void:
 	_check(game.dog_drag.dragging and not game.dog_drag.marker.visible, "GUI is never a dog destination preview")
 	_press(mode, center, false)
 	_check(recorder.sent.is_empty() and gui_activations == before and not game.dog_drag.armed and game.meadow.destination_calls == 0, "Release over GUI cancels without activating its button, herder movement or destination feedback")
+	_check(_invalid_hint_calls().is_empty(), "UI release remains silent instead of misreporting invalid ground")
 	_press(mode, center, true)
 	_press(mode, center, false)
 	_check(gui_activations == before + 1 and recorder.sent.is_empty(), "Positive GUI tap still works exactly once, including native mouse emulation")
@@ -150,7 +167,7 @@ func _gui_release(mode: String) -> void:
 func _cancellations() -> void:
 	for mode in ["mouse", "native"]:
 		_configure_input(mode)
-		for cause in ["invalid", "menu", "escape", "disconnect", "focus", "background", "missing_dog", "missing_player", "second_touch", "pointer_cancel", "landscape", "fresh_snapshot"]:
+		for cause in ["invalid", "menu", "escape", "disconnect", "focus", "background", "missing_dog", "missing_player", "second_touch", "pointer_cancel", "landscape", "fresh_snapshot", "herd_changed"]:
 			await _fixture()
 			var start := _dog_screen("mochi")
 			var target := _ground_screen(Vector2(-7, -5))
@@ -191,8 +208,10 @@ func _cancellations() -> void:
 				"fresh_snapshot":
 					game.awaiting_authoritative_snapshot = true
 					game.dog_drag._process(0.0)
+				"herd_changed": recorder.credentials.code = "DIFFERENT"
 			_press(mode, target, false)
 			_check(recorder.sent.is_empty() and not game.dog_drag.armed and not game.dog_drag.marker.visible and game.meadow.destination_calls == 0, cause + " cancels without issuing any command or destination feedback")
+			_check(_invalid_hint_calls().size() == (1 if cause == "invalid" else 0), cause + " gives invalid-ground feedback only for a valid-session ground release")
 			if cause == "focus":
 				game.propagate_notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
 			if cause == "background":
@@ -201,6 +220,7 @@ func _cancellations() -> void:
 				game.propagate_notification(Node.NOTIFICATION_APPLICATION_RESUMED)
 			_press(mode, target, false)
 			_check(recorder.sent.is_empty(), cause + " cannot replay a stale release after reopening gates")
+			_check(_invalid_hint_calls().size() == (1 if cause == "invalid" else 0), cause + " cannot replay stale feedback after reopening gates")
 		await _fixture()
 		# An invalid transient point is not a command; dragging across the river
 		# may still end on a valid bank, routed by the authoritative server.
@@ -209,6 +229,73 @@ func _cancellations() -> void:
 		_motion(mode, _ground_screen(Vector2(0, 5)), start)
 		_press(mode, _ground_screen(Vector2(-7, -5)), false)
 		_assert_one_go("mochi", Vector2(-7, -5), "valid final point after invalid transit")
+		_check(_invalid_hint_calls().is_empty(), "Crossing invalid ground without releasing there stays silent")
+
+func _invalid_hint_calls() -> Array:
+	return game.hint_calls.filter(func(call: Dictionary) -> bool: return call.text == INVALID_GROUND_HINT)
+
+func _placement_guide_fixture() -> void:
+	# Use an accepted, complete practice snapshot and public lesson skips, so
+	# the negative release is tested against an active guide, not a disabled one.
+	var snapshot: Dictionary = game.latest.duplicate(true)
+	tick += 1
+	snapshot.tick = tick
+	snapshot.type = "snapshot"
+	snapshot.code = "TEST"
+	for actor: Dictionary in snapshot.players + snapshot.dogs:
+		actor.target = actor.position.duplicate()
+	for dog: Dictionary in snapshot.dogs:
+		dog.command = "stay"
+		dog.caller = "p1"
+	for i in 10:
+		snapshot.sheep.append({"id": "feedback-sheep-%d" % i, "position": {"x": -4.0 + i % 3, "y": floorf(i / 3.0)}, "velocity": {"x": 0.0, "y": 0.0}, "state": "grazing"})
+	var epoch: int = game.practice_guide.tutorial.debug_state().epoch
+	game.practice_guide.tutorial.configure(true, "TEST", "p1", "bellflower")
+	game.practice_guide.tutorial.set_connection(epoch, true)
+	game._on_snapshot(snapshot)
+	for i in 4:
+		game.practice_guide.tutorial.skip_current_lesson()
+	_check(game.practice_guide.visible and game.practice_guide.tutorial.stage() == "place" and game.practice_guide.tutorial.debug_state().fresh, "Invalid-release evidence fixture has a genuinely fresh active placement lesson")
+
+func _invalid_release_feedback() -> void:
+	for mode in ["mouse", "native", "mouse_emulates_touch"]:
+		_configure_input(mode)
+		for coalesced in [false, true]:
+			for dog in ["mochi", "maple"]:
+				await _fixture("bellflower")
+				_placement_guide_fixture()
+				game.meadow.reset_player_follow()
+				game.meadow.follow_player(game.actors[game.local_id].node.position, false)
+				game.meadow._process(0.0)
+				var start := _dog_screen(dog)
+				# Exact native 1080x2400 playtest release, scaled to720x1600.
+				# It hits visible grass only~19cm beyond the central clearing.
+				var invalid := Vector2(320, 1053.3333333)
+				_check(not game.dog_drag.over_ui(invalid) and not game.meadow.ground_at(invalid).is_finite(), "Literal practice release is invalid ground, not a UI target")
+				game.moving = true
+				game.movement_target = Vector2(-11, 0)
+				var old_seq: int = game.movement_seq
+				var wire_seq: int = recorder.seq
+				var old_position: Vector3 = game.actors[game.local_id].node.position
+				_press(mode, start, true)
+				if not coalesced:
+					_motion(mode, invalid, start)
+					_check(_invalid_hint_calls().is_empty(), "Invalid preview alone gives no release hint")
+				var evidence: Dictionary = game.practice_guide.tutorial.debug_state().duplicate(true)
+				_press(mode, invalid, false)
+				var calls := _invalid_hint_calls()
+				_check(calls.size() == 1 and calls[0].duration == 2.0 and calls[0].ownership_cleared, "Invalid drag gives exactly one two-second hint after clearing pointer ownership")
+				_check(game.hint_label.text == INVALID_GROUND_HINT and game.hint_time == 2.0, "Exact approved feedback uses the existing transient hint, not a new persistent control")
+				_check(recorder.sent.is_empty() and game.meadow.destination_calls == 0 and not game.dog_drag.marker.visible and not game.dog_drag.armed, "Invalid release sends zero wire commands and no optimistic destination")
+				_check(game.moving and game.movement_target == Vector2(-11, 0) and game.movement_seq == old_seq and recorder.seq == wire_seq and game.actors[game.local_id].node.position == old_position, "Feedback cannot stop, redirect or advance an accepted herder walk")
+				_check(game.practice_guide.tutorial.debug_state() == evidence and gesture_events.size() == 2 and gesture_events[0][0] == "started" and gesture_events[1][0] == "cancelled", "Invalid feedback creates no sent/acknowledged tutorial evidence or lesson advancement")
+				_press(mode, invalid, false)
+				_check(_invalid_hint_calls().size() == 1 and recorder.sent.is_empty(), "Duplicate native/synthetic release cannot repeat feedback or commands")
+				game.moving = false # Only the test stops motion to isolate the hint clock.
+				game._process(1.99)
+				_check(game.hint_label.text == INVALID_GROUND_HINT and game.hint_time > 0, "Invalid-ground feedback remains visible immediately before two seconds")
+				game._process(0.02)
+				_check(game.hint_label.text.is_empty() and game.hint_time <= 0, "Feedback expires through the existing hint clock after two seconds")
 
 func _remove_snapshot_actor(collection: String, id: String) -> void:
 	var snapshot: Dictionary = game.latest.duplicate(true)
