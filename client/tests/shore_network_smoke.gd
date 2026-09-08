@@ -33,8 +33,8 @@ func _run() -> void:
 	if not await _until(func() -> bool: return other.connected and game.actors.size() == 14):
 		_fail("second Juniper herder joins all14 rendered actors")
 		return
-	if game.network.advertised_layout_version != 5 or other.advertised_layout_version != 5 or not game._supported_layout("juniper", game.latest.layout) or other_snapshot.landscape != "juniper":
-		_fail("clients must negotiate and share the canonical v5 shore")
+	if game.network.advertised_layout_version != 7 or other.advertised_layout_version != 7 or not game._supported_layout("juniper", game.latest.layout) or other_snapshot.landscape != "juniper":
+		_fail("clients must negotiate current v7 capability and share the canonical v5 shore")
 		return
 	if game.meadow.gate != null or game.meadow.bridge != null:
 		_fail("Juniper inherited a phantom crossing")
