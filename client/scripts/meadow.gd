@@ -10,6 +10,8 @@ const SceneryBatch = preload("res://scripts/static_scenery_batch.gd")
 const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const ShoreNavigation = preload("res://scripts/shore_navigation.gd")
 const ShoreScenery = preload("res://scripts/juniper_scenery.gd")
+const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
+const CommonsScenery = preload("res://scripts/bellflower_scenery.gd")
 var camera: Camera3D
 var gate: Node3D
 var bridge: Node3D
@@ -48,6 +50,7 @@ var shore: Dictionary = {}
 var shore_path: Array[Vector2] = []
 var shore_half_width := 3.6
 var shore_clearings: Array = []
+var commons: Dictionary = {}
 
 func _ready() -> void:
 	_build_light()
@@ -60,8 +63,8 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud", "juniper"] else "alpine"
-	var expected_version := 5 if next == "juniper" else (4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1)))
+	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud", "juniper", "bellflower"] else "alpine"
+	var expected_version := 6 if next == "bellflower" else (5 if next == "juniper" else (4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1))))
 	var next_layout := {"version": int(incoming_layout.get("version", expected_version)),
 		"bridge_y": float(incoming_layout.get("bridge_y", 3.0 if next == "orchard" else (-4.0 if next == "larch" else 0.0))),
 		"gate_y": float(incoming_layout.get("gate_y", 2.0 if next == "orchard" else (4.0 if next == "larch" else 0.0)))}
@@ -83,6 +86,8 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		next_layout["ridge"] = incoming_layout.get("ridge", CloudNavigation.default_ridge()).duplicate(true)
 	elif next == "juniper":
 		next_layout["shore"] = incoming_layout.get("shore", ShoreNavigation.default_shore()).duplicate(true)
+	elif next == "bellflower":
+		next_layout["commons"] = incoming_layout.get("commons", CommonsNavigation.default_commons()).duplicate(true)
 	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	var previous_landscape := landscape
@@ -112,6 +117,8 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 			shore_path.append(Vector2(float(point.x), float(point.y)))
 		shore_half_width = float(shore.half_width)
 		shore_clearings = shore.clearings.duplicate(true)
+	elif next == "bellflower":
+		commons = next_layout.commons.duplicate(true)
 	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
@@ -124,12 +131,12 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	add_child(terrain)
 	if world_environment != null:
 		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1", "d8c7ac")
-		if next in ["cloud", "juniper"]:
+		if next in ["cloud", "juniper", "bellflower"]:
 			world_environment.background_color = Color("a9cbdc")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
-	if landscape not in ["oasis", "cloud", "juniper"]:
+	if landscape not in ["oasis", "cloud", "juniper", "bellflower"]:
 		_build_bridge()
 		_build_fence()
 	_build_details()
@@ -138,10 +145,13 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	if is_instance_valid(preview):
 		for i in preview.get_child_count():
 			var actor := preview.get_child(i) as Node3D
-			if landscape == "juniper":
+			if landscape == "bellflower":
+				actor.position.x = -6.7 + i % 3 if i < 10 else -8.2
+				actor.position.z = -0.4 + floorf(i / 3.0) * 1.05 if i < 10 else (-2.0 if i == 10 else 1.0)
+			elif landscape == "juniper":
 				actor.position.x = -10.7 + i % 3 if i < 10 else -12.2
 				actor.position.z = -0.4 + floorf(i / 3.0) * 1.05 if i < 10 else (-1.0 if i == 10 else 2.0)
-			elif previous_landscape == "juniper":
+			elif previous_landscape in ["juniper", "bellflower"]:
 				# Return the decorative welcome flock to its original arrangement
 				# when leaving the new shore; live actors are never repositioned here.
 				actor.position.x = -6.5 + sin(i * 2.3) * 2.9 if i < 10 else -10.0 + (i - 10) * 3.0
@@ -228,6 +238,9 @@ func follow_player(pos: Vector3) -> void:
 		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
 
 func _build_land() -> void:
+	if landscape == "bellflower":
+		CommonsScenery.build_land(self)
+		return
 	if landscape == "juniper":
 		ShoreScenery.build_land(self)
 		return
@@ -832,7 +845,7 @@ func _ground_horizon_gap(point: Vector3) -> float:
 	elif landscape == "oasis":
 		var across := point.x * 0.9785 - point.z * 0.2063
 		limit = _oasis_front_depth(across) + 0.10
-	elif landscape in ["cloud", "juniper"]:
+	elif landscape in ["cloud", "juniper", "bellflower"]:
 		limit = 49.0
 	return limit - depth
 
@@ -843,6 +856,14 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
+		if landscape == "bellflower":
+			var depth: float = -point.x * 0.2063 - point.z * 0.9785
+			if depth > 27.0:
+				normal = normal.lerp((c - a).cross(b - a).normalized(), smoothstep(27.0, 35.0, depth)).normalized()
+			surface.set_color(CommonsScenery.ground_color(self, point, normal))
+			surface.set_normal(normal)
+			surface.add_vertex(point)
+			continue
 		if landscape == "juniper":
 			var depth: float = -point.x * 0.2063 - point.z * 0.9785
 			if depth > 28.0:
@@ -924,6 +945,8 @@ func _trail(points: Array, width: float) -> void:
 	_finish_surface(surface, "WanderingTrail")
 
 func _build_backdrop() -> void:
+	if landscape == "bellflower":
+		return # Its common, foothills and mountain folds are one continuous mesh.
 	if landscape == "juniper":
 		return # Continuous mesh already includes the bay, foothills and snow peaks.
 	if landscape == "cloud":
@@ -1205,7 +1228,7 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	_finish_surface(surface, "DistantRidgeline" if hazy else ("GraniteFlank" if landscape == "larch" else ("AlpineCrags" if snow else "ErodedCanyon")))
 
 func _build_boundaries() -> void:
-	if landscape in ["oasis", "cloud", "juniper"]:
+	if landscape in ["oasis", "cloud", "juniper", "bellflower"]:
 		return # The canyon shoulders and planted outcrops are composed separately.
 	# Scattered outcrops follow the rising slopes. No rectangular necklace of shrubs.
 	var rng := RandomNumberGenerator.new()
@@ -1272,6 +1295,9 @@ func _build_fence() -> void:
 	diagonal.rotation.x = -0.16
 
 func _build_details() -> void:
+	if landscape == "bellflower":
+		CommonsScenery.build_details(self)
+		return
 	if landscape == "juniper":
 		ShoreScenery.build_details(self)
 		return
@@ -1556,6 +1582,8 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 			if landscape == "cloud" and not CloudNavigation.contains(Vector2(result.x, result.z), ridge):
 				return Vector3.INF
 			if landscape == "juniper" and not ShoreNavigation.contains(Vector2(result.x, result.z), shore):
+				return Vector3.INF
+			if landscape == "bellflower" and not CommonsNavigation.contains(Vector2(result.x, result.z), commons):
 				return Vector3.INF
 			result.y = surface_height(result.x, result.z)
 			return result
