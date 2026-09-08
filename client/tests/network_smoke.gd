@@ -93,7 +93,7 @@ func _run() -> void:
 			_fail("return journey navigates the offset gate before the bridge")
 			return
 	if landscape == "oasis":
-		if game.network.advertised_layout_version != 5 or game.meadow.gate != null or game.meadow.bridge != null:
+		if game.network.advertised_layout_version != 7 or game.meadow.gate != null or game.meadow.bridge != null:
 			_fail("Oasis negotiates the current capability and removes the old river/gate fixtures")
 			return
 		# Exercise both open sides outward and back through actual network inputs.
@@ -140,8 +140,8 @@ func _run() -> void:
 				_fail("first herder can return either shared dog around the rock")
 				return
 	if landscape == "cloud":
-		if game.network.advertised_layout_version != 5 or game.meadow.gate != null or game.meadow.bridge != null:
-			_fail("Cloud negotiates current v5 capability while retaining its v4 world without a river or gate")
+		if game.network.advertised_layout_version != 7 or game.meadow.gate != null or game.meadow.bridge != null:
+			_fail("Cloud negotiates current v7 capability while retaining its v4 world without a river or gate")
 			return
 		for destination in [Vector2(-2, -5), Vector2(11, 4), Vector2(-12, 4)]:
 			game._world_tap(game.meadow.camera.unproject_position(game._surface_position(destination)))
