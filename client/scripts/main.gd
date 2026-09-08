@@ -530,6 +530,11 @@ func _prepare_go() -> void:
 func _interact(action: String) -> void:
 	if not network.connected and not preview_mode:
 		return
+	# A dog may move between the snapshot/layout update and the tap's release.
+	# Keep this check at activation as well as on the disabled button state.
+	if action == "pet" and not _can_pet_selected_dog():
+		_update_context()
+		return
 	network.interact(action, selected_dog if action == "pet" else "")
 	_close_controls()
 	if action == "sit":
@@ -755,15 +760,19 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 		soundscape.observe_snapshot()
 
 func _update_context() -> void:
-	if not actors.has(local_id):
-		return
+	# Four stable slots: removing Pet lets Go expand under an already-aimed tap.
+	# The whole panel still disappears when closed; unavailable Pet only dims.
+	pet_button.disabled = not _can_pet_selected_dog()
+
+func _can_pet_selected_dog() -> bool:
+	if not actors.has(local_id) or not actors.has(selected_dog):
+		return false
 	var player: Node3D = actors[local_id].node
-	if actors.has(selected_dog):
-		var dog: Node3D = actors[selected_dog].node
-		# Interaction reach is authoritative in plan coordinates, not rendered height.
-		pet_button.visible = Vector2(player.position.x, player.position.z).distance_to(Vector2(dog.position.x, dog.position.z)) < 2.5
-	else:
-		pet_button.hide()
+	var dog: Node3D = actors[selected_dog].node
+	if not is_instance_valid(player) or not is_instance_valid(dog):
+		return false
+	# Interaction reach is authoritative in plan coordinates, not rendered height.
+	return Vector2(player.position.x, player.position.z).distance_to(Vector2(dog.position.x, dog.position.z)) < 2.5
 
 func _process(delta: float) -> void:
 	_sync_soundscape_gates()
@@ -835,6 +844,8 @@ func _process(delta: float) -> void:
 				var nibbling: bool = actor.state == "nibbling" and not walking
 				var head_angle := -0.82 + sin(phase * 0.75) * 0.06 if nibbling else 0.0
 				head.rotation.x = lerpf(head.rotation.x, head_angle, minf(delta * 7.0, 1.0))
+	if command_panel.visible:
+		_update_context()
 	if actors.has(local_id) and hud.visible:
 		meadow.follow_player(actors[local_id].node.position)
 		soundscape.set_listener_position(actors[local_id].node.position)
