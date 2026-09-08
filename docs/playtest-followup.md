@@ -234,6 +234,12 @@ layouts 1–7. No live herd was created or changed for that preservation check.
 
 This release includes guided practice, direct dog dragging and the large valley.
 The later invalid-drag explanation, scree hints and subsequent pine/grass studies
-remain private follow-up candidates, not features of public build 15. Candidate
-Android observations above are not claimed as a completed return test of the
-exact published APK; that separate check is still pending here.
+remain private follow-up candidates, not features of public build 15.
+
+The exact published APK subsequently upgraded the existing Android installation
+and returned to its saved Juniper herd on the updated server. The same herder,
+two dogs and ten sheep were visible, with Sound off retained. No movement command
+or new-herd creation was needed. The disconnected checkpoint preserved the
+original player position, target and sequence 1, credentials and animal identities;
+the other eight herds stayed exact. This separates the public upgrade/Return
+check from the earlier private-candidate tutorial and large-valley play checks.

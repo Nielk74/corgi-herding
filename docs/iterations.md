@@ -484,3 +484,12 @@ herds exactly, including credentials, retained routes and feeding state. Health
 and readiness advertise layouts 1–7. This establishes release and deployment
 verification; it does not substitute for public-APK Return testing, two-human
 playtesting or physical-phone performance measurements.
+
+The exact published APK then installed over build 13 and used Return to resume
+the existing Juniper herd on the updated server. Android showed the same herder,
+two corgis and ten sheep; the separate Sound-off preference survived. No movement
+or dog command was sent and no herd was created. A later disconnected checkpoint
+retained that player's identity, credentials, position, target and sequence 1,
+while the world's idle simulation advanced normally. The other eight complete
+herds remained exact. This was an emulator upgrade/reconnection check, not a
+two-human playtest or a frame-rate measurement.
