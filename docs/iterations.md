@@ -183,3 +183,13 @@ sound are still sparse. Emulator checks establish rendering and interaction,
 not real-phone frame rates or the feel of two humans herding together. The next
 candidate is an open Alpine ridge pasture with valley depth, described in the
 [landscape experiments](next-landscape.md); it is not implemented in this build.
+
+The first release attempt stopped at a new Orchard compatibility hash on Linux.
+Matched Go 1.26.7 tests of the previous build and the new simulation produced
+byte-identical full snapshots for all 700 ticks on Linux amd64, as they did on
+Mac arm64. The cross-platform hash difference came from signed zero, not changed
+behavior; raw coordinate differences were at most 3.56e-14 world units. The
+replacement Orchard regression compares a full previous-build trace with exact
+gameplay states and a 1e-12 bound only on actor position, velocity and target coordinates, stricter
+than the former 1e-6 rounding. The failed workflow published nothing and left
+the live server untouched.
