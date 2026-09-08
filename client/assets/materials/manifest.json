@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "provider": "Poly Haven",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "provider_license_url": "https://polyhaven.com/license",
+  "retrieved_at_utc": "2026-09-08T06:31:38Z",
+  "source_budget_bytes": 15000000,
+  "source_total_bytes": 14825301,
+  "notes": "Original provider files, not resized or recompressed. Provider MD5 and size verified before inclusion; SHA256 computed independently. API files_hash is an opaque upstream revision marker, not a SHA256 checksum.",
+  "materials": [
+    {
+      "id": "aerial_grass_rock",
+      "title": "Aerial Grass Rock",
+      "authors": [
+        {
+          "name": "Rob Tuytel",
+          "contribution": "All"
+        }
+      ],
+      "source_page": "https://polyhaven.com/a/aerial_grass_rock",
+      "info_metadata_url": "https://api.polyhaven.com/info/aerial_grass_rock",
+      "files_metadata_url": "https://api.polyhaven.com/files/aerial_grass_rock",
+      "provider_files_hash": "d610669c24e20d7c2effc4c116c718176f5b044a",
+      "source_publication_unix": 1582514587,
+      "files": [
+        {
+          "path": "aerial_grass_rock/aerial_grass_rock_diff_1k.jpg",
+          "role": "albedo",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_grass_rock/aerial_grass_rock_diff_1k.jpg",
+          "size_bytes": 666655,
+          "provider_md5": "e920ce36afd0abff000b8366d3d768d3",
+          "sha256": "57b8041bfe0d0f01430e4dbaad45e7ddddf0a9fc97317f90dbc51f7b0d9e1b5d",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "srgb"
+        },
+        {
+          "path": "aerial_grass_rock/aerial_grass_rock_nor_gl_1k.png",
+          "role": "normal_opengl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/aerial_grass_rock/aerial_grass_rock_nor_gl_1k.png",
+          "size_bytes": 6366521,
+          "provider_md5": "7f8e7115d05196a294c10e545fa35fd5",
+          "sha256": "23bf3adc3f0d2a59eac317718377ca681dab9398fe824eb89925f89a2469f62e",
+          "width": 1024,
+          "height": 1024,
+          "format": "png",
+          "color_space": "linear",
+          "normal_convention": "OpenGL +X +Y +Z"
+        },
+        {
+          "path": "aerial_grass_rock/aerial_grass_rock_rough_1k.jpg",
+          "role": "roughness",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_grass_rock/aerial_grass_rock_rough_1k.jpg",
+          "size_bytes": 362214,
+          "provider_md5": "f78c5cdc565f990299ae7c5a81f68cf7",
+          "sha256": "b9f3f76aba74007f708333c0dbe73c52eb83ea0c4187a13e2e994f888a25114a",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "linear"
+        }
+      ]
+    },
+    {
+      "id": "rock_01",
+      "title": "Rock 01",
+      "authors": [
+        {
+          "name": "Rob Tuytel",
+          "contribution": "All"
+        }
+      ],
+      "source_page": "https://polyhaven.com/a/rock_01",
+      "info_metadata_url": "https://api.polyhaven.com/info/rock_01",
+      "files_metadata_url": "https://api.polyhaven.com/files/rock_01",
+      "provider_files_hash": "4b1a673750efae534c749458f29458296f27fa78",
+      "source_publication_unix": 1533797188,
+      "files": [
+        {
+          "path": "rock_01/rock_01_diff_1k.jpg",
+          "role": "albedo",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_01/rock_01_diff_1k.jpg",
+          "size_bytes": 688083,
+          "provider_md5": "5897cd4496982b03cad0c3e2358486c0",
+          "sha256": "0b5f0418eb1e686190c5d33bb54c400b1f9ed58813b5e34aa5e573a5197302b5",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "srgb"
+        },
+        {
+          "path": "rock_01/rock_01_nor_gl_1k.png",
+          "role": "normal_opengl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/rock_01/rock_01_nor_gl_1k.png",
+          "size_bytes": 1913482,
+          "provider_md5": "74a313abbc4720f0bd413d7d88801fc1",
+          "sha256": "28ed28b8109590352fce645896390fdff75aeb827ec41841fab94400e59238e5",
+          "width": 1024,
+          "height": 1024,
+          "format": "png",
+          "color_space": "linear",
+          "normal_convention": "OpenGL +X +Y +Z"
+        },
+        {
+          "path": "rock_01/rock_01_rough_1k.jpg",
+          "role": "roughness",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_01/rock_01_rough_1k.jpg",
+          "size_bytes": 383709,
+          "provider_md5": "d524d822733ce9958a74ef89285ca99b",
+          "sha256": "e98b9c8ffb35513bd7b36a8730bf9745d05325376a85fae87ebf56a7c071a123",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "linear"
+        }
+      ]
+    },
+    {
+      "id": "coast_sand_03",
+      "title": "Coast Sand 03",
+      "authors": [
+        {
+          "name": "Rob Tuytel",
+          "contribution": "All"
+        }
+      ],
+      "source_page": "https://polyhaven.com/a/coast_sand_03",
+      "info_metadata_url": "https://api.polyhaven.com/info/coast_sand_03",
+      "files_metadata_url": "https://api.polyhaven.com/files/coast_sand_03",
+      "provider_files_hash": "987449a430159bf9e6f2c81e03667e717f407e49",
+      "source_publication_unix": 1647475200,
+      "files": [
+        {
+          "path": "coast_sand_03/coast_sand_03_diff_1k.jpg",
+          "role": "albedo",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_03/coast_sand_03_diff_1k.jpg",
+          "size_bytes": 1164522,
+          "provider_md5": "d5129558972fa24e0cfdb164958e2920",
+          "sha256": "83f048d3d2931f193e498e7e9e687fba116c227fba827998614003707cd27c38",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "srgb"
+        },
+        {
+          "path": "coast_sand_03/coast_sand_03_nor_gl_1k.png",
+          "role": "normal_opengl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/coast_sand_03/coast_sand_03_nor_gl_1k.png",
+          "size_bytes": 2700129,
+          "provider_md5": "4a28cb8639eddd3319e84d5cc39560ea",
+          "sha256": "83f47aef53ca7cf104c042dd8c5fd79622b65071b1cec8b957f5be7b1c058787",
+          "width": 1024,
+          "height": 1024,
+          "format": "png",
+          "color_space": "linear",
+          "normal_convention": "OpenGL +X +Y +Z"
+        },
+        {
+          "path": "coast_sand_03/coast_sand_03_rough_1k.jpg",
+          "role": "roughness",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_03/coast_sand_03_rough_1k.jpg",
+          "size_bytes": 579986,
+          "provider_md5": "83c9584242d5222476d2aae8074c8cd3",
+          "sha256": "a241157bdfb97d00a097670081b219ea81b4642e2570f3f3084d9890c7798822",
+          "width": 1024,
+          "height": 1024,
+          "format": "jpg",
+          "color_space": "linear"
+        }
+      ]
+    }
+  ]
+}
