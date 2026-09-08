@@ -4,8 +4,8 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { runBoundedProcess } from './bounded-process.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -36,8 +36,14 @@ if (selfTest) {
   process.exit(0);
 }
 if (!checkOnly) {
-  const version = spawnSync(path.resolve(godot), ['--version'], { encoding: 'utf8' });
-  if (version.status !== 0 || !version.stdout.startsWith('4.6.3.')) throw new Error('Prepared scenes require the pinned Godot 4.6.3 compiler');
+  fs.mkdirSync(path.join(root, '.tools'), { recursive: true });
+  const probe = fs.mkdtempSync(path.join(root, '.tools/landscape-version-'));
+  const version = await runBoundedProcess(path.resolve(godot), ['--version'], {
+    cwd: root, timeoutMs: 10_000, logPath: path.join(probe, 'output.log'),
+  });
+  if (version.failure || version.code !== 0 || !version.stdout.startsWith('4.6.3.')) {
+    throw new Error(`Prepared scenes require the pinned Godot 4.6.3 compiler. Log: ${version.logPath}`);
+  }
 }
 const read = name => fs.readFileSync(path.join(root, name));
 const sources = [
@@ -47,6 +53,7 @@ const sources = [
   'client/scripts/landscape_scree.gd', 'client/scripts/region_navigation.gd',
   'client/shaders/meadow_grass.gdshader', 'client/shaders/landscape_surface.gdshader',
   'client/tools/build_landscape.gd', 'tools/build-landscapes.mjs',
+  'tools/bounded-process.mjs', 'tools/run-godot-check.sh',
   'client/assets/materials/manifest.json',
 ];
 for (const id of ['aerial_grass_rock', 'rock_01', 'coast_sand_03']) {
@@ -85,12 +92,12 @@ for (const id of ['long_valley', 'dry_wash']) {
   fs.mkdirSync(path.join(root, '.tools'), { recursive: true });
   const scratch = fs.mkdtempSync(path.join(root, '.tools/landscape-cook-'));
   const temporaryScene = path.join(scratch, id + '.scn');
-  const result = spawnSync('bash', [
+  const result = await runBoundedProcess('bash', [
     'tools/run-godot-check.sh', path.resolve(godot), '--headless', '--path', 'client',
     '--script', 'res://tools/build_landscape.gd', '--',
     '--recipe=res://worlds/' + id + '.recipe.json', '--out=' + temporaryScene, '--full',
-  ], { cwd: root, stdio: 'inherit' });
-  if (result.status !== 0) throw new Error(`Landscape cook failed: ${id}`);
+  ], { cwd: root, logPath: path.join(scratch, 'output.log') });
+  if (result.failure || result.code !== 0) throw new Error(`Landscape cook failed: ${id}. Log: ${result.logPath}`);
   const data = fs.readFileSync(temporaryScene);
   if (data.length < 1024) throw new Error(`Implausibly small landscape scene: ${id}`);
   const manifest = { format: 1, id, godot: '4.6.3', signature, sha256: hash(data), bytes: data.length, inputs };
