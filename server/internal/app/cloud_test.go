@@ -23,7 +23,7 @@ func TestCloudCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 	if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []int{0, 1, 2, 3, 8, 99} {
+	for _, version := range []int{0, 1, 2, 3, 9, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &version))
 	}
 	if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {
@@ -39,7 +39,7 @@ func TestCloudCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 		return w.Player(a.PlayerID).Seq == 7 && len(w.Player(a.PlayerID).Route) > 0 && len(w.Dogs[0].Route) > 0
 	})
 	// Unsupported future capabilities must not evict the already valid peer.
-	for _, unsupported := range []int{3, 8, 99} {
+	for _, unsupported := range []int{3, 9, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &unsupported))
 	}
 	write(t, ca, map[string]any{"type": "interact", "action": "gate"})

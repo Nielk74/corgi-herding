@@ -354,7 +354,7 @@ func TestLayoutCloneAndValidation(t *testing.T) {
 	if copy.ValidateLayout() == nil {
 		t.Fatal("accepted unknown layout version")
 	}
-	if !w.SupportsLayout(1) || w.SupportsLayout(0) || !w.SupportsLayout(2) || !w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || !w.SupportsLayout(6) || !w.SupportsLayout(7) || w.SupportsLayout(8) {
+	if !w.SupportsLayout(1) || w.SupportsLayout(0) || !w.SupportsLayout(2) || !w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || !w.SupportsLayout(6) || !w.SupportsLayout(7) || !w.SupportsLayout(8) || w.SupportsLayout(9) {
 		t.Fatal("Larch capability validation failed")
 	}
 	if !herderWorld(t).SupportsLayout(0) {

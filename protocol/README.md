@@ -3,7 +3,7 @@
 The Go server owns a 20 Hz simulation on an X/Y plane; Godot maps Y to Z.
 HTTP base is user configurable (default http://127.0.0.1:8790).
 
-`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4,5,6,7],sessions}`.
+`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4,5,6,7,8],sessions}`.
 The singular capability deliberately remains 1 so existing clients can still
 visit their version 1 herds. New clients choose the highest known advertised
 `layout_versions` entry, falling back to the singular field on older servers.
@@ -11,7 +11,7 @@ Clients can probe this before authentication: older servers omit `layout_version
 and strictly reject unknown auth fields, so omit the capability when connecting
 to those servers. Never discard saved credentials merely because a server has
 not yet upgraded to support layout negotiation.
-`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"|"juniper"|"bellflower"|"alpine_valley"}` creates a two-person herd and returns
+`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"|"juniper"|"bellflower"|"alpine_valley"|"dry_wash"}` creates a two-person herd and returns
 `{code,player_id,token}`. `POST /api/herds/{code}/join` with `{name:string}`
 returns the same fields for the second player. Save these credentials locally.
 No third member is accepted. Names are limited to 24 characters.
@@ -33,6 +33,7 @@ herd has an immutable layout included in every snapshot:
 | `juniper` | 5 | unused (0) | unused (0) |
 | `bellflower` | 6 | unused (0) | unused (0) |
 | `alpine_valley` | 7 | unused (0) | unused (0) |
+| `dry_wash` | 8 | unused (0) | unused (0) |
 
 Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 
@@ -82,9 +83,15 @@ forage, ridge, shoreline or finish region; `settled` always remains 0.
 
 Long Alpine Valley uses version 7, zero bridge/gate coordinates, and `region`
 equal to the exact object in [the canonical region](alpine-valley-region.json).
-Only this landscape includes `region`. The older `alpine` landscape and its
+Version 8 also uses `region`, with its own exact named recipe. The older `alpine` landscape and its
 saved herds remain unchanged. This new region also has no finish, gate or water
 obstacle, and its `settled` remains 0.
+
+The unpublished Dry Wash server prototype uses version 8 and `region` equal to
+[dry_wash_01](dry-wash-region.json). It is a separate broad wash with eastern
+terraces and western benches, not a replacement for `cactus` or `alpine_valley`.
+There is no river, gate, fence, forage, rock, ridge, shoreline or finish field.
+`bridge_y` and `gate_y` are unused zeroes; `settled` remains 0.
 
 Connect `GET /api/herds/{code}/ws` (WebSocket, no credentials in URL), then send
 `{type:"auth",player_id,token,layout_version:7}` within 5 seconds when the server
@@ -96,6 +103,9 @@ layouts only. Capability 1 accepts all version 1 layouts; capability 2 accepts
 versions 1 and 2; capability 3 accepts versions 1, 2 and 3; capability 4 accepts
 versions 1 through 4; capability 5 accepts versions 1 through 5; capability 6
 accepts versions 1 through 6; capability 7 accepts versions 1 through 7.
+Capability 8 accepts versions 1 through 8, but is sent only when advertised and
+implemented. Version 7 clients cannot enter Dry Wash. Unknown capabilities,
+including 9 and 99, are not forward-compatible guesses and are rejected.
 Authenticated clients lacking support for their herd's layout
 or sending an unknown capability receive `{type:"error",code:"update_required",message:...}`
 followed by WebSocket close 4002, before they receive a snapshot or replace an
@@ -358,6 +368,44 @@ local pressure, not graph waypoints or a scripted destination. Complete outward,
 return and side-loop herding, a real 3+7 split/reunion, quiet grazing and retained
 routes across reconnect/restart are server regression checks. Presentation and
 two-human fun still require actual playtesting.
+
+### Dry Wash region prototype
+
+Version 8 reuses the unchanged version 7 Region schema, binary64 math, strict
+whole-segment visibility and local sheep steering. Its exact canonical recipe
+has bounds X −72..72, Y −96..96, 14 anchors, 13 variable-width corridors and
+14 broad clearing disks. Every clearing can support quiet grazing; camps are
+places, not extra collision or objectives. There is no new action or speed.
+
+The server registry is keyed by landscape: `alpine_valley` maps only to version 7
+and `alpine_valley_01`; `dry_wash` maps only to version 8 and `dry_wash_01`.
+Each recipe has a separate immutable anchor visibility cache. World creation,
+snapshots and checkpoints use independent geometry slices. Loading first checks
+exact canonical equality and all actors/queues; valid JSON or a connected custom
+graph is not authority to change a world. Older saved geometry is never replaced
+by the new recipe. The approved Dry Wash file SHA-256 is
+`a17b3f8734cf8aed2377986077bf6104fcb96d9535fdf6b7725dc08725b25f54`.
+
+The planner uses its 14 unique anchors, source index 14 and target index 15.
+At most 14 unique canonical anchors may remain in a queue, excluding the target.
+Complete source, intermediate and final legs must remain inside the dry union.
+The existing `1e-9` tie rule, `0.08` arrival rule and retained-route pause/resume
+behavior are unchanged. [64 route fixtures](dry-wash-routes.json) and
+[36 exact IEEE boundary fixtures](dry-wash-boundaries.json) include both branch
+directions, disk/capsule edges, zero-length movement and invalid endpoints.
+The decimal coordinates and IEEE companion bits are both retained; neither is
+a collision tolerance. Actual JSON-to-float32 presentation remains a separate
+client test, not a reason to loosen authoritative geometry.
+
+New herders start at `(-44,79)` and `(-41,79)`; Mochi/Maple at `(-43,76.8)` and
+`(-40,76.8)`. Sheep i=0..9 start at `(-39.7+i%3,66.4+floor(i/3)*1.05)` with the
+same ten IDs. Checkpoint loading never reapplies those spawns. Regression tests
+use ordinary shared dog commands to guide the normal flock along the main wash,
+eastern terraces and western benches outward and back, then retreat for grazing.
+A genuine 2+8 branch split is returned by both dogs, with coordinated common-flock
+pressure once the groups meet at camp. There are no teleports, route-following
+sheep, forced attraction, relaxed collision or altered speeds. This server proof
+does not claim finished visuals, Android integration or two-human enjoyment.
 
 Older checkpoints without a landscape field load as `alpine`; existing Alpine
 and Cactus saves without a layout migrate to centered version 1 without changing

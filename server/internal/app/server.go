@@ -307,7 +307,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		status = "persistence_error"
 		code = http.StatusServiceUnavailable
 	}
-	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2, 3, 4, 5, 6, 7}, "sessions": n})
+	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2, 3, 4, 5, 6, 7, 8}, "sessions": n})
 }
 
 func (s *Server) allow(remote string) bool {

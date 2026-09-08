@@ -14,32 +14,43 @@ import (
 )
 
 func TestRegionCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
+	testRegionCapabilityReconnect(t, game.LandscapeAlpineValley, 7, game.Vec2{X: 30, Y: -63})
+}
+
+func TestDryWashCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
+	testRegionCapabilityReconnect(t, game.LandscapeDryWash, 8, game.Vec2{X: 32, Y: -76})
+}
+
+func testRegionCapabilityReconnect(t *testing.T, landscape string, version int, target game.Vec2) {
+	t.Helper()
 	dir := t.TempDir()
 	s, h := newTestServer(t, dir, 10)
 	var a, b credentials
-	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"alpine_valley"}`, 201), &a); err != nil {
+	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"`+landscape+`"}`, 201), &a); err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []int{0, 1, 2, 3, 4, 5, 6, 8, 99} {
+	for _, version := range []int{0, 1, 2, 3, 4, 5, 6, 9, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &version))
 	}
 	if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {
 		t.Fatal("unsupported client entered Region")
 	}
-	version := 7
+	if version == 8 {
+		previous := 7
+		expectUpdateRequired(t, connectVersion(t, h.URL, a, &previous))
+	}
 	ca, cb := connectVersion(t, h.URL, a, &version), connectVersion(t, h.URL, b, &version)
 	snapshot(t, ca, func(w *game.World) bool { return len(w.Players) == 2 && w.Player(b.PlayerID).Connected })
-	target := game.Vec2{X: 30, Y: -63}
 	write(t, ca, map[string]any{"type": "move", "seq": 7, "target": target})
 	write(t, cb, map[string]any{"type": "command", "dog_id": "mochi", "command": "go", "target": target})
 	snapshot(t, ca, func(w *game.World) bool {
 		return w.Player(a.PlayerID).Seq == 7 && len(w.Player(a.PlayerID).Route) > 0 && len(w.Dogs[0].Route) > 0
 	})
 	// Unsupported future capabilities must not evict the already valid peer.
-	for _, unsupported := range []int{6, 8, 99} {
+	for _, unsupported := range []int{version - 1, 9, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &unsupported))
 	}
 	write(t, ca, map[string]any{"type": "interact", "action": "gate"})
@@ -93,22 +104,22 @@ func TestRegionCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 	returned := connectVersion(t, rh.URL, a, &version)
 	snapshot(t, returned, func(w *game.World) bool {
 		p := w.Player(a.PlayerID)
-		return p.Connected && p.Target == target && p.Seq == 7 && w.Layout.Equal(game.LayoutForLandscape(game.LandscapeAlpineValley))
+		return p.Connected && p.Target == target && p.Seq == 7 && w.Layout.Equal(game.LayoutForLandscape(landscape))
 	})
 }
 
-func TestRegionCapabilityPreservesAllEightEarlierLandscapes(t *testing.T) {
-	for _, landscape := range []string{game.LandscapeAlpine, game.LandscapeCactus, game.LandscapeLarch, game.LandscapeOrchard, game.LandscapeOasis, game.LandscapeCloud, game.LandscapeJuniper, game.LandscapeBellflower} {
+func TestRegionCapabilityPreservesAllEarlierLandscapes(t *testing.T) {
+	for _, landscape := range []string{game.LandscapeAlpine, game.LandscapeCactus, game.LandscapeLarch, game.LandscapeOrchard, game.LandscapeOasis, game.LandscapeCloud, game.LandscapeJuniper, game.LandscapeBellflower, game.LandscapeAlpineValley} {
 		t.Run(landscape, func(t *testing.T) {
 			_, h := newTestServer(t, t.TempDir(), 10)
 			var c credentials
 			if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"`+landscape+`"}`, 201), &c); err != nil {
 				t.Fatal(err)
 			}
-			for _, cap := range []int{game.LayoutForLandscape(landscape).Version, 7} {
+			for _, cap := range []int{game.LayoutForLandscape(landscape).Version, 7, 8} {
 				ws := connectVersion(t, h.URL, c, &cap)
 				snapshot(t, ws, func(w *game.World) bool {
-					if w.Layout.Region != nil || w.Landscape != landscape || !w.Layout.Equal(game.LayoutForLandscape(landscape)) {
+					if w.Landscape != landscape || !w.Layout.Equal(game.LayoutForLandscape(landscape)) {
 						t.Fatal("new capability changed old world")
 					}
 					return true
@@ -119,14 +130,17 @@ func TestRegionCapabilityPreservesAllEightEarlierLandscapes(t *testing.T) {
 	}
 }
 
-func regionCheckpoint(t *testing.T) checkpoint {
+func regionCheckpointForLandscape(t *testing.T, landscape string) checkpoint {
 	t.Helper()
 	a := credentials{Code: "ABCDEF", PlayerID: "0123456789abcdef", Token: strings.Repeat("c", 64)}
-	w := game.NewForLandscape(a.Code, game.LandscapeAlpineValley)
+	w := game.NewForLandscape(a.Code, landscape)
 	if err := w.AddPlayer(a.PlayerID, "Ada"); err != nil {
 		t.Fatal(err)
 	}
 	target := game.Vec2{X: 30, Y: -63}
+	if landscape == game.LandscapeDryWash {
+		target = game.Vec2{X: 32, Y: -76}
+	}
 	if err := w.Apply(a.PlayerID, game.Input{Type: "move", Seq: 7, Target: &target}); err != nil {
 		t.Fatal(err)
 	}
@@ -137,11 +151,31 @@ func regionCheckpoint(t *testing.T) checkpoint {
 }
 
 func TestRegionInvalidCheckpointNeverStartsOrOverwrites(t *testing.T) {
+	for _, landscape := range []string{game.LandscapeAlpineValley, game.LandscapeDryWash} {
+		t.Run(landscape, func(t *testing.T) { testRegionInvalidCheckpoint(t, landscape) })
+	}
+}
+
+func testRegionInvalidCheckpoint(t *testing.T, landscape string) {
 	cases := []struct {
 		name string
 		edit func(*game.World)
 	}{
-		{"unknown_version", func(w *game.World) { w.Layout.Version = 8 }},
+		{"unknown_version", func(w *game.World) { w.Layout.Version = 9 }},
+		{"wrong_known_version", func(w *game.World) {
+			if w.Layout.Version == 8 {
+				w.Layout.Version = 7
+			} else {
+				w.Layout.Version = 8
+			}
+		}},
+		{"swapped_region", func(w *game.World) {
+			other := game.LandscapeDryWash
+			if w.Landscape == other {
+				other = game.LandscapeAlpineValley
+			}
+			w.Layout.Region = game.LayoutForLandscape(other).Region
+		}},
 		{"missing_region", func(w *game.World) { w.Layout.Region = nil }},
 		{"wrong_recipe", func(w *game.World) { w.Layout.Region.RecipeID = "untrusted" }},
 		{"wrong_landscape", func(w *game.World) { w.Landscape = game.LandscapeAlpine }},
@@ -172,16 +206,19 @@ func TestRegionInvalidCheckpointNeverStartsOrOverwrites(t *testing.T) {
 		{"dog_target_void", func(w *game.World) { w.Dogs[0].Target = game.Vec2{X: 72, Y: 96} }},
 		{"sheep_outside", func(w *game.World) { w.Sheep[0].Position = game.Vec2{Y: 97} }},
 		{"sheep_void", func(w *game.World) { w.Sheep[0].Position = game.Vec2{X: 72, Y: 96} }},
-		{"nonanchor_route", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: -24.99, Y: 43}} }},
+		{"nonanchor_route", func(w *game.World) { p := w.Layout.Region.Anchors[0]; p.X += .001; w.Players[0].Route = []game.Vec2{p} }},
 		{"missing_needed_route", func(w *game.World) { w.Players[0].Route = nil }},
-		{"overlong_route", func(w *game.World) { w.Players[0].Route = make([]game.Vec2, 33) }},
+		{"overlong_route", func(w *game.World) { w.Players[0].Route = make([]game.Vec2, len(w.Layout.Region.Anchors)+1) }},
 		{"duplicate_route", func(w *game.World) { w.Players[0].Route = append(w.Players[0].Route, w.Players[0].Route[0]) }},
 		{"route_contains_target", func(w *game.World) { w.Players[0].Route = append(w.Players[0].Route, w.Players[0].Target) }},
-		{"unsafe_first", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 44, Y: -36}} }},
-		{"unsafe_middle", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 34, Y: 8}, {X: 44, Y: -78}} }},
-		{"unsafe_last", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 34, Y: 8}} }},
+		{"unsafe_first", func(w *game.World) { w.Players[0].Route = regionUnsafeChordQueue(t, w, "first") }},
+		{"unsafe_middle", func(w *game.World) { w.Players[0].Route = regionUnsafeChordQueue(t, w, "middle") }},
+		{"unsafe_last", func(w *game.World) { w.Players[0].Route = regionUnsafeChordQueue(t, w, "last") }},
 		{"idle_route", func(w *game.World) { w.Players[0].State = "idle" }},
-		{"stay_route", func(w *game.World) { w.Dogs[0].Route = []game.Vec2{{X: -42, Y: 64}}; w.Dogs[0].Command = "stay" }},
+		{"stay_route", func(w *game.World) {
+			w.Dogs[0].Route = []game.Vec2{w.Layout.Region.Anchors[0]}
+			w.Dogs[0].Command = "stay"
+		}},
 		{"invalid_player_state", func(w *game.World) { w.Players[0].State = "flying" }},
 		{"invalid_dog_state", func(w *game.World) { w.Dogs[0].State = "flying" }},
 		{"invalid_sheep_state", func(w *game.World) { w.Sheep[0].State = "nibbling" }},
@@ -190,7 +227,7 @@ func TestRegionInvalidCheckpointNeverStartsOrOverwrites(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cp := regionCheckpoint(t)
+			cp := regionCheckpointForLandscape(t, landscape)
 			tc.edit(cp.Herds[0].World)
 			data, err := json.Marshal(cp)
 			if err != nil {
@@ -219,7 +256,7 @@ func TestRegionInvalidCheckpointNeverStartsOrOverwrites(t *testing.T) {
 		{"extra_corridor_field", `"a":0,"b":1`, `"a":0,"b":1,"admin":true`},
 	} {
 		t.Run(jsonCase.name, func(t *testing.T) {
-			data, _ := json.Marshal(regionCheckpoint(t))
+			data, _ := json.Marshal(regionCheckpointForLandscape(t, landscape))
 			changed := []byte(strings.Replace(string(data), jsonCase.before, jsonCase.after, 1))
 			if bytes.Equal(data, changed) {
 				t.Fatal("JSON mutation missed")
@@ -238,4 +275,33 @@ func TestRegionInvalidCheckpointNeverStartsOrOverwrites(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Pick exact anchors of the world under test and isolate one unsafe leg. Using
+// Alpine coordinates in a Dry Wash queue would only test noncanonical rejection.
+func regionUnsafeChordQueue(t *testing.T, w *game.World, kind string) []game.Vec2 {
+	t.Helper()
+	r := *w.Layout.Region
+	from, target := w.Players[0].Position, w.Players[0].Target
+	for _, a := range r.Anchors {
+		if a == target {
+			continue
+		}
+		initial, final := game.RegionVisible(from, a, r), game.RegionVisible(a, target, r)
+		if kind == "first" && !initial && final {
+			return []game.Vec2{a}
+		}
+		if kind == "last" && initial && !final {
+			return []game.Vec2{a}
+		}
+		if kind == "middle" && initial {
+			for _, b := range r.Anchors {
+				if b != a && b != target && !game.RegionVisible(a, b, r) && game.RegionVisible(b, target, r) {
+					return []game.Vec2{a, b}
+				}
+			}
+		}
+	}
+	t.Fatalf("%s needs an isolated unsafe %s chord with canonical anchors", w.Landscape, kind)
+	return nil
 }

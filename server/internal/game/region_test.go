@@ -43,7 +43,7 @@ func TestRegionCanonicalGeometrySpawnsBoundsAndClone(t *testing.T) {
 			t.Fatal("new client lost old world", legacy)
 		}
 	}
-	for _, cap := range []int{-1, 0, 1, 2, 3, 4, 5, 6, 8, 99} {
+	for _, cap := range []int{-1, 0, 1, 2, 3, 4, 5, 6, 9, 99} {
 		if w.SupportsLayout(cap) {
 			t.Fatal("unsupported region capability", cap)
 		}

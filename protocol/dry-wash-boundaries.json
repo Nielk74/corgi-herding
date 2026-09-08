@@ -1,0 +1,758 @@
+[
+  {
+    "name": "western-disk-neighbour--1-forward",
+    "from": {
+      "x": -60.00000000000001,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "c04e000000000001",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "western-disk-neighbour--1-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -60.00000000000001,
+      "y": 68
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c04e000000000001",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "western-disk-neighbour-0-forward",
+    "from": {
+      "x": -60,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c04e000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "western-disk-neighbour-0-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -60,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c04e000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "western-disk-neighbour-1-forward",
+    "from": {
+      "x": -59.99999999999999,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c04dffffffffffff",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "western-disk-neighbour-1-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -59.99999999999999,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c04dffffffffffff",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour--1-forward",
+    "from": {
+      "x": -38,
+      "y": 89.99999999999999
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "40567fffffffffff"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour--1-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 89.99999999999999
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "40567fffffffffff"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour-0-forward",
+    "from": {
+      "x": -38,
+      "y": 90
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4056800000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour-0-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 90
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4056800000000000"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour-1-forward",
+    "from": {
+      "x": -38,
+      "y": 90.00000000000001
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4056800000000001"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    }
+  },
+  {
+    "name": "lower-disk-neighbour-1-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -38,
+      "y": 90.00000000000001
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "c043000000000000",
+      "y": "4051000000000000"
+    },
+    "target_bits": {
+      "x": "c043000000000000",
+      "y": "4056800000000001"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour--1-forward",
+    "from": {
+      "x": 63.99999999999999,
+      "y": 24
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "404fffffffffffff",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour--1-reverse",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": 63.99999999999999,
+      "y": 24
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "404fffffffffffff",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour-0-forward",
+    "from": {
+      "x": 64,
+      "y": 24
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4050000000000000",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour-0-reverse",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": 64,
+      "y": 24
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "4050000000000000",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour-1-forward",
+    "from": {
+      "x": 64.00000000000001,
+      "y": 24
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "4050000000000001",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "eastern-disk-neighbour-1-reverse",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": 64.00000000000001,
+      "y": 24
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "4047000000000000",
+      "y": "4038000000000000"
+    },
+    "target_bits": {
+      "x": "4050000000000001",
+      "y": "4038000000000000"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour--1-forward",
+    "from": {
+      "x": 32,
+      "y": -94.00000000000001
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c057800000000001"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour--1-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": 32,
+      "y": -94.00000000000001
+    },
+    "visible": false,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c057800000000001"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour-0-forward",
+    "from": {
+      "x": 32,
+      "y": -94
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c057800000000000"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour-0-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": 32,
+      "y": -94
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c057800000000000"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour-1-forward",
+    "from": {
+      "x": 32,
+      "y": -93.99999999999999
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c0577fffffffffff"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    }
+  },
+  {
+    "name": "upper-disk-neighbour-1-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": 32,
+      "y": -93.99999999999999
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4040000000000000",
+      "y": "c053000000000000"
+    },
+    "target_bits": {
+      "x": "4040000000000000",
+      "y": "c0577fffffffffff"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour--1-forward",
+    "from": {
+      "x": -14.675779229676069,
+      "y": 65.9431272627628
+    },
+    "target": {
+      "x": -24,
+      "y": 55.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c02d59ffbc358cb1",
+      "y": "40507c5c32736210"
+    },
+    "target_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour--1-reverse",
+    "from": {
+      "x": -24,
+      "y": 55.5
+    },
+    "target": {
+      "x": -14.675779229676069,
+      "y": 65.9431272627628
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    },
+    "target_bits": {
+      "x": "c02d59ffbc358cb1",
+      "y": "40507c5c32736210"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour-0-forward",
+    "from": {
+      "x": -14.675779229676067,
+      "y": 65.9431272627628
+    },
+    "target": {
+      "x": -24,
+      "y": 55.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c02d59ffbc358cb0",
+      "y": "40507c5c32736210"
+    },
+    "target_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour-0-reverse",
+    "from": {
+      "x": -24,
+      "y": 55.5
+    },
+    "target": {
+      "x": -14.675779229676067,
+      "y": 65.9431272627628
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    },
+    "target_bits": {
+      "x": "c02d59ffbc358cb0",
+      "y": "40507c5c32736210"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour-1-forward",
+    "from": {
+      "x": -14.675779229676065,
+      "y": 65.9431272627628
+    },
+    "target": {
+      "x": -24,
+      "y": 55.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c02d59ffbc358caf",
+      "y": "40507c5c32736210"
+    },
+    "target_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    }
+  },
+  {
+    "name": "capsule-0-near-edge-neighbour-1-reverse",
+    "from": {
+      "x": -24,
+      "y": 55.5
+    },
+    "target": {
+      "x": -14.675779229676065,
+      "y": 65.9431272627628
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "c038000000000000",
+      "y": "404bc00000000000"
+    },
+    "target_bits": {
+      "x": "c02d59ffbc358caf",
+      "y": "40507c5c32736210"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour--1-forward",
+    "from": {
+      "x": 21.373681813977303,
+      "y": -59.40688812159084
+    },
+    "target": {
+      "x": 17,
+      "y": -69.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "40355fa99c822479",
+      "y": "c04db414e8f3ae88"
+    },
+    "target_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour--1-reverse",
+    "from": {
+      "x": 17,
+      "y": -69.5
+    },
+    "target": {
+      "x": 21.373681813977303,
+      "y": -59.40688812159084
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    },
+    "target_bits": {
+      "x": "40355fa99c822479",
+      "y": "c04db414e8f3ae88"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour-0-forward",
+    "from": {
+      "x": 21.373681813977306,
+      "y": -59.40688812159084
+    },
+    "target": {
+      "x": 17,
+      "y": -69.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "40355fa99c82247a",
+      "y": "c04db414e8f3ae88"
+    },
+    "target_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour-0-reverse",
+    "from": {
+      "x": 17,
+      "y": -69.5
+    },
+    "target": {
+      "x": 21.373681813977306,
+      "y": -59.40688812159084
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    },
+    "target_bits": {
+      "x": "40355fa99c82247a",
+      "y": "c04db414e8f3ae88"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour-1-forward",
+    "from": {
+      "x": 21.37368181397731,
+      "y": -59.40688812159084
+    },
+    "target": {
+      "x": 17,
+      "y": -69.5
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "40355fa99c82247b",
+      "y": "c04db414e8f3ae88"
+    },
+    "target_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    }
+  },
+  {
+    "name": "capsule-5-near-edge-neighbour-1-reverse",
+    "from": {
+      "x": 17,
+      "y": -69.5
+    },
+    "target": {
+      "x": 21.37368181397731,
+      "y": -59.40688812159084
+    },
+    "visible": true,
+    "route": [],
+    "from_bits": {
+      "x": "4031000000000000",
+      "y": "c051600000000000"
+    },
+    "target_bits": {
+      "x": "40355fa99c82247b",
+      "y": "c04db414e8f3ae88"
+    }
+  }
+]

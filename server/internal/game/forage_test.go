@@ -193,7 +193,7 @@ func TestOrchardCanonicalLayoutAndCapability(t *testing.T) {
 	if w.Layout.Version != 2 || w.Layout.BridgeY != 3 || w.Layout.GateY != 2 || w.Layout.Forage.ID != "windfall" {
 		t.Fatal("wrong Orchard geometry")
 	}
-	if w.SupportsLayout(0) || w.SupportsLayout(1) || !w.SupportsLayout(2) || !w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || !w.SupportsLayout(6) || !w.SupportsLayout(7) || w.SupportsLayout(8) {
+	if w.SupportsLayout(0) || w.SupportsLayout(1) || !w.SupportsLayout(2) || !w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || !w.SupportsLayout(6) || !w.SupportsLayout(7) || !w.SupportsLayout(8) || w.SupportsLayout(9) {
 		t.Fatal("incorrect Orchard capability support")
 	}
 	if !w.Walkable(Vec2{0, 3}) || w.Walkable(Vec2{0, 0}) {

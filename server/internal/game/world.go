@@ -19,10 +19,11 @@ const (
 	LandscapeJuniper      = "juniper"
 	LandscapeBellflower   = "bellflower"
 	LandscapeAlpineValley = "alpine_valley"
+	LandscapeDryWash      = "dry_wash"
 )
 
 func ValidLandscape(landscape string) bool {
-	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch || landscape == LandscapeOrchard || landscape == LandscapeOasis || landscape == LandscapeCloud || landscape == LandscapeJuniper || landscape == LandscapeBellflower || landscape == LandscapeAlpineValley
+	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch || landscape == LandscapeOrchard || landscape == LandscapeOasis || landscape == LandscapeCloud || landscape == LandscapeJuniper || landscape == LandscapeBellflower || landscape == LandscapeAlpineValley || landscape == LandscapeDryWash
 }
 
 // Layout is immutable herd geometry. Version 1 retains the original bounds,
@@ -90,32 +91,31 @@ func LayoutForLandscape(landscape string) *Layout {
 		layout.Version, layout.Shore = 5, canonicalShore()
 	} else if landscape == LandscapeBellflower {
 		layout.Version, layout.Commons = 6, canonicalCommons()
-	} else if landscape == LandscapeAlpineValley {
-		layout.Version, layout.Region = 7, canonicalRegion()
+	} else if version, region := registeredRegion(landscape); region != nil {
+		layout.Version, layout.Region = version, region
 	}
 	return layout
 }
 
 func (w *World) ValidateLayout() error {
-	if w.Layout == nil || w.Layout.Version < 1 || w.Layout.Version > 7 {
+	if w.Layout == nil || w.Layout.Version < 1 || w.Layout.Version > 8 {
 		return errors.New("unsupported saved layout version")
 	}
-	if !ValidLandscape(w.Landscape) || !w.Layout.Equal(LayoutForLandscape(w.Landscape)) {
+	canonical := LayoutForLandscape(w.Landscape)
+	if !ValidLandscape(w.Landscape) || !w.Layout.Equal(canonical) {
 		return errors.New("saved layout does not match its landscape version")
 	}
 	if w.Layout.Region != nil {
 		if err := w.Layout.Region.ValidateGeometry(); err != nil {
 			return err
 		}
-		if w.Layout.Region.graph == nil {
-			w.Layout.Region.graph = compileRegionGraph(*w.Layout.Region)
-		}
+		w.Layout.Region.graph = canonical.Region.graph
 	}
 	return nil
 }
 
 func (w *World) SupportsLayout(version int) bool {
-	return (version >= 1 && version <= 7 && w.Layout.Version <= version) || (version == 0 && w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
+	return (version >= 1 && version <= 8 && w.Layout.Version <= version) || (version == 0 && w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
 }
 
 type Vec2 struct {
@@ -217,12 +217,18 @@ func NewForLandscape(code, landscape string) *World {
 	w := New(code)
 	w.Landscape, w.Layout = landscape, LayoutForLandscape(landscape)
 	if landscape == LandscapeAlpineValley {
-		w.Layout.Region.graph = compileRegionGraph(*w.Layout.Region)
 		for i, p := range []Vec2{{-47, 71.8}, {-44, 71.8}} {
 			w.Dogs[i].Position, w.Dogs[i].Target = p, p
 		}
 		for i := range w.Sheep {
 			w.Sheep[i].Position = Vec2{-44.7 + float64(i%3), 62.4 + float64(i/3)*1.05}
+		}
+	} else if landscape == LandscapeDryWash {
+		for i, p := range []Vec2{{-43, 76.8}, {-40, 76.8}} {
+			w.Dogs[i].Position, w.Dogs[i].Target = p, p
+		}
+		for i := range w.Sheep {
+			w.Sheep[i].Position = Vec2{-39.7 + float64(i%3), 66.4 + float64(i/3)*1.05}
 		}
 	} else if landscape == LandscapeJuniper {
 		for i, p := range []Vec2{{-12.2, -1}, {-12.2, 2}} {
@@ -306,6 +312,8 @@ func (w *World) AddPlayer(id, name string) error {
 	p := Vec2{-13, -1.5 + float64(len(w.Players))*3}
 	if w.Landscape == LandscapeAlpineValley {
 		p = Vec2{-48 + float64(len(w.Players))*3, 74}
+	} else if w.Landscape == LandscapeDryWash {
+		p = Vec2{-44 + float64(len(w.Players))*3, 79}
 	} else if w.Landscape == LandscapeJuniper {
 		p = Vec2{-14, float64(len(w.Players)) * 3}
 	} else if w.Landscape == LandscapeBellflower {

@@ -1,0 +1,934 @@
+[
+  {
+    "name": "camp-anchor-0-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-0-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-1-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -10,
+      "y": 43
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-1-reverse",
+    "from": {
+      "x": -10,
+      "y": 43
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-2-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 13,
+      "y": 14
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-2-reverse",
+    "from": {
+      "x": 13,
+      "y": 14
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-3-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -9,
+      "y": -12
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-3-reverse",
+    "from": {
+      "x": -9,
+      "y": -12
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-4-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -25,
+      "y": -40
+    },
+    "visible": false,
+    "route": [
+      1,
+      3
+    ]
+  },
+  {
+    "name": "camp-anchor-4-reverse",
+    "from": {
+      "x": -25,
+      "y": -40
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      3,
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-5-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 2,
+      "y": -63
+    },
+    "visible": false,
+    "route": [
+      1,
+      3,
+      4
+    ]
+  },
+  {
+    "name": "camp-anchor-5-reverse",
+    "from": {
+      "x": 2,
+      "y": -63
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      4,
+      3,
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-6-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": false,
+    "route": [
+      1,
+      3,
+      4
+    ]
+  },
+  {
+    "name": "camp-anchor-6-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      4,
+      3,
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-7-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -51,
+      "y": 40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-7-reverse",
+    "from": {
+      "x": -51,
+      "y": 40
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-8-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 22,
+      "y": 57
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "camp-anchor-8-reverse",
+    "from": {
+      "x": 22,
+      "y": 57
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "camp-anchor-9-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "camp-anchor-9-reverse",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "camp-anchor-10-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 47,
+      "y": -5
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-10-reverse",
+    "from": {
+      "x": 47,
+      "y": -5
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-anchor-11-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -39,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      1,
+      3
+    ]
+  },
+  {
+    "name": "camp-anchor-11-reverse",
+    "from": {
+      "x": -39,
+      "y": 0
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      3,
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-12-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -48,
+      "y": -18
+    },
+    "visible": false,
+    "route": [
+      1,
+      3
+    ]
+  },
+  {
+    "name": "camp-anchor-12-reverse",
+    "from": {
+      "x": -48,
+      "y": -18
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      3,
+      1
+    ]
+  },
+  {
+    "name": "camp-anchor-13-forward",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -51,
+      "y": -57
+    },
+    "visible": false,
+    "route": [
+      1,
+      3
+    ]
+  },
+  {
+    "name": "camp-anchor-13-reverse",
+    "from": {
+      "x": -51,
+      "y": -57
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": [
+      3,
+      1
+    ]
+  },
+  {
+    "name": "branch-0-5-forward",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": 2,
+      "y": -63
+    },
+    "visible": false,
+    "route": [
+      1,
+      3,
+      4
+    ]
+  },
+  {
+    "name": "branch-0-5-reverse",
+    "from": {
+      "x": 2,
+      "y": -63
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": false,
+    "route": [
+      4,
+      3,
+      1
+    ]
+  },
+  {
+    "name": "branch-1-6-forward",
+    "from": {
+      "x": -10,
+      "y": 43
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": false,
+    "route": [
+      3,
+      4
+    ]
+  },
+  {
+    "name": "branch-1-6-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": -10,
+      "y": 43
+    },
+    "visible": false,
+    "route": [
+      4,
+      3
+    ]
+  },
+  {
+    "name": "branch-2-7-forward",
+    "from": {
+      "x": 13,
+      "y": 14
+    },
+    "target": {
+      "x": -51,
+      "y": 40
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "branch-2-7-reverse",
+    "from": {
+      "x": -51,
+      "y": 40
+    },
+    "target": {
+      "x": 13,
+      "y": 14
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "branch-3-8-forward",
+    "from": {
+      "x": -9,
+      "y": -12
+    },
+    "target": {
+      "x": 22,
+      "y": 57
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-3-8-reverse",
+    "from": {
+      "x": 22,
+      "y": 57
+    },
+    "target": {
+      "x": -9,
+      "y": -12
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-4-9-forward",
+    "from": {
+      "x": -25,
+      "y": -40
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-4-9-reverse",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": -25,
+      "y": -40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-5-10-forward",
+    "from": {
+      "x": 2,
+      "y": -63
+    },
+    "target": {
+      "x": 47,
+      "y": -5
+    },
+    "visible": false,
+    "route": [
+      4,
+      2
+    ]
+  },
+  {
+    "name": "branch-5-10-reverse",
+    "from": {
+      "x": 47,
+      "y": -5
+    },
+    "target": {
+      "x": 2,
+      "y": -63
+    },
+    "visible": false,
+    "route": [
+      2,
+      4
+    ]
+  },
+  {
+    "name": "branch-6-11-forward",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": -39,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "branch-6-11-reverse",
+    "from": {
+      "x": -39,
+      "y": 0
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "branch-7-12-forward",
+    "from": {
+      "x": -51,
+      "y": 40
+    },
+    "target": {
+      "x": -48,
+      "y": -18
+    },
+    "visible": false,
+    "route": [
+      0,
+      1,
+      3
+    ]
+  },
+  {
+    "name": "branch-7-12-reverse",
+    "from": {
+      "x": -48,
+      "y": -18
+    },
+    "target": {
+      "x": -51,
+      "y": 40
+    },
+    "visible": false,
+    "route": [
+      3,
+      1,
+      0
+    ]
+  },
+  {
+    "name": "branch-8-13-forward",
+    "from": {
+      "x": 22,
+      "y": 57
+    },
+    "target": {
+      "x": -51,
+      "y": -57
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-8-13-reverse",
+    "from": {
+      "x": -51,
+      "y": -57
+    },
+    "target": {
+      "x": 22,
+      "y": 57
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-9-0-forward",
+    "from": {
+      "x": 46,
+      "y": 24
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-9-0-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": 46,
+      "y": 24
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-10-1-forward",
+    "from": {
+      "x": 47,
+      "y": -5
+    },
+    "target": {
+      "x": -10,
+      "y": 43
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-10-1-reverse",
+    "from": {
+      "x": -10,
+      "y": 43
+    },
+    "target": {
+      "x": 47,
+      "y": -5
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-11-2-forward",
+    "from": {
+      "x": -39,
+      "y": 0
+    },
+    "target": {
+      "x": 13,
+      "y": 14
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "branch-11-2-reverse",
+    "from": {
+      "x": 13,
+      "y": 14
+    },
+    "target": {
+      "x": -39,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "branch-12-3-forward",
+    "from": {
+      "x": -48,
+      "y": -18
+    },
+    "target": {
+      "x": -9,
+      "y": -12
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-12-3-reverse",
+    "from": {
+      "x": -9,
+      "y": -12
+    },
+    "target": {
+      "x": -48,
+      "y": -18
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-13-4-forward",
+    "from": {
+      "x": -51,
+      "y": -57
+    },
+    "target": {
+      "x": -25,
+      "y": -40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "branch-13-4-reverse",
+    "from": {
+      "x": -25,
+      "y": -40
+    },
+    "target": {
+      "x": -51,
+      "y": -57
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "zero-camp",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "zero-void",
+    "from": {
+      "x": 72,
+      "y": 96
+    },
+    "target": {
+      "x": 72,
+      "y": 96
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "void-camp-forward",
+    "from": {
+      "x": 72,
+      "y": 96
+    },
+    "target": {
+      "x": -44,
+      "y": 79
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "void-camp-reverse",
+    "from": {
+      "x": -44,
+      "y": 79
+    },
+    "target": {
+      "x": 72,
+      "y": 96
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "western-boundary-upper-wash-forward",
+    "from": {
+      "x": -60,
+      "y": 68
+    },
+    "target": {
+      "x": 32,
+      "y": -76
+    },
+    "visible": false,
+    "route": [
+      1,
+      3,
+      4
+    ]
+  },
+  {
+    "name": "western-boundary-upper-wash-reverse",
+    "from": {
+      "x": 32,
+      "y": -76
+    },
+    "target": {
+      "x": -60,
+      "y": 68
+    },
+    "visible": false,
+    "route": [
+      4,
+      3,
+      1
+    ]
+  },
+  {
+    "name": "near-camp-forward",
+    "from": {
+      "x": -45,
+      "y": 78
+    },
+    "target": {
+      "x": -38,
+      "y": 68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near-camp-reverse",
+    "from": {
+      "x": -38,
+      "y": 68
+    },
+    "target": {
+      "x": -45,
+      "y": 78
+    },
+    "visible": true,
+    "route": []
+  }
+]
