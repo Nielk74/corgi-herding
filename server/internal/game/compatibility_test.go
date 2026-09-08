@@ -122,6 +122,11 @@ func loadOrchardBuild7Trace(t *testing.T) []any {
 
 func loadCompressedTrace(t *testing.T, path, checksum string) []any {
 	t.Helper()
+	return loadCompressedTraceLimit(t, path, checksum, 2<<20)
+}
+
+func loadCompressedTraceLimit(t *testing.T, path, checksum string, sizeLimit int64) []any {
+	t.Helper()
 	encoded, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +137,7 @@ func loadCompressedTrace(t *testing.T, path, checksum string) []any {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	data, err := io.ReadAll(io.LimitReader(reader, 2<<20))
+	data, err := io.ReadAll(io.LimitReader(reader, sizeLimit))
 	if err != nil {
 		t.Fatal(err)
 	}

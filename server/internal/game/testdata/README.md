@@ -140,3 +140,45 @@ controls reject modified routes, tiny geometry changes, missing/new fields,
 changed behavior and positions beyond that bound. The reference is about 1.9 MB
 uncompressed and 465 KB as base64/gzip; no rounded hash or signed-zero workaround
 is used.
+
+# Pre-Dry Wash Bellflower and Alpine Valley references
+
+`pre-drywash-bellflower.jsonl.gz.b64` and
+`pre-drywash-alpine_valley.jsonl.gz.b64` contain 700 complete unrounded snapshots
+each from `applyDryWashLegacyTraceTick`. A separate detached checkout of
+pre-v8 commit `7f68be2` was compiled independently with Go 1.26.7 darwin/arm64.
+Only an ignored test overlay supplied the input/capture helper; no control
+simulation file was changed. Relevant frozen Git blobs were:
+
+- `world.go`: `628f4b62374f8f6accb6e02324fccbbac5922317`
+- `region.go`: `e047906bd96e81765779679c1a7b106394d43f42`
+- `commons.go`: `ca9a7607bc743336fd165874141330eda0d7d602`
+
+The pre-change binary and v8 implementation produced byte-identical complete
+JSONL on this target, including the per-landscape immutable-cache change.
+Bellflower SHA-256 (1,901,913 uncompressed bytes):
+`a4daab02c9c6d454d00d1b0f4b04a24bcf85d2b03acd9cf437962da6b3d22a86`.
+Alpine Valley SHA-256 (3,001,157 uncompressed bytes):
+`82427a0a94ae1417864630b80bf0fe3054096bcadd0bc597ed665cfda0825b92`.
+
+Both humans and both shared dogs move, reverse, change commands, stop and retain
+an accepted route through a disconnect while the same sheep continue simulating.
+Tests only read the compressed references. All fields, routes, geometry, ticks,
+sequences, IDs and object structure remain exact; only actor coordinates use the
+existing 1e-12 cross-platform bound. Twenty-six negative controls reject changed
+geometry, state, routes, identity, sequence and out-of-bound coordinates. Existing
+v1-v5 references and their comparison semantics are unchanged; the larger v7
+snapshot uses a separately bounded 4 MiB reference decoder limit.
+
+Independent Go 1.26.7 Linux/arm64 and Linux/amd64 control binaries were also
+built from that detached commit. On each target, their complete JSONL hashes
+exactly matched the v8 implementation. Linux/arm64 matched the two native hashes
+above. Linux/amd64 Bellflower was
+`5d4a5847b98f337baa07b0e12fa5473f6711d222ed628df28f498ad810a150f1`
+and Alpine Valley was
+`7a2d2248ea4aa474ec66f34a92f1cb53c023978dc705b6de6c9f518c394eab2a`.
+Both passed the existing actor-only 1e-12 comparison against the arm64 fixtures;
+no new expected hash was substituted to accept a failed regression. Static Linux
+test binaries used the existing Docker runtime with no network; amd64 emulation
+used GOMAXPROCS=1, GOGC=off and GODEBUG=asyncpreemptoff=1 as in earlier audits.
+Production code and runtime GC settings were not changed.
