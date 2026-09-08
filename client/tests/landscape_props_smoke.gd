@@ -38,7 +38,7 @@ func _meshes(builder: RefCounted) -> void:
 		var count := Props.triangle_count(mesh)
 		_check(count == int(mesh.get_meta("triangle_count")), "Cached triangle count matches actual mesh")
 		_check(Props._radius(mesh) == float(mesh.get_meta("footprint_radius")), "Cached silhouette radius includes actual vertices")
-		_check(count > 20 and count <= 440, "Bounded solid silhouette: " + id)
+		_check(count > 20 and count <= (1010 if id.begins_with("tree") else 440), "Bounded solid silhouette: " + id)
 		_check(mesh.get_aabb().position.y >= -0.00001, "Every prop has an actual base at ground level: " + id)
 		for surface in mesh.get_surface_count():
 			var arrays := mesh.surface_get_arrays(surface)
@@ -53,6 +53,8 @@ func _meshes(builder: RefCounted) -> void:
 					_check(front.normalized().dot(normals[i + j]) > 0.9999, "Lighting normal matches clockwise front")
 		if id.begins_with("tree"):
 			_check(mesh.get_surface_count() == 2 and mesh.get_aabb().size.y > 5.5, "Pines have independent woody trunk and long branch crown")
+			var needles: PackedVector3Array = mesh.surface_get_arrays(1)[Mesh.ARRAY_VERTEX]
+			_check(needles.size() / 24 >= 110, "Pine crown uses many small overlapping closed sprays instead of branch-sized leaves")
 		if id.begins_with("cactus"):
 			_check(mesh.get_aabb().size.x > 1.9 and mesh.get_aabb().size.y > 2.7, "Cactus has articulated arms, not only a post")
 	_check(builder.meshes.tree_0.get_aabb() != builder.meshes.tree_1.get_aabb() and builder.meshes.tree_1.get_aabb() != builder.meshes.tree_2.get_aabb(), "Three different pine silhouettes")

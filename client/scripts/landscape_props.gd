@@ -231,6 +231,22 @@ func _bough(surface: SurfaceTool, root: Vector3, tip: Vector3, width: float, tin
 		_triangle(surface, rings[0][i], rings[1][j], rings[1][i], tint.lightened(0.035), out)
 		_triangle(surface, rings[1][i], rings[1][j], tip, tint, out)
 
+func _needle_spray(surface: SurfaceTool, center: Vector3, direction: Vector3, length: float, width: float, tint: Color) -> void:
+	# A small closed tuft, not a giant branch-sized leaf. Overlapping sprays
+	# make a broken, dense silhouette while keeping alpha sorting unnecessary.
+	var along := direction.normalized()
+	var side := along.cross(Vector3.UP).normalized()
+	var up := side.cross(along).normalized()
+	var middle := center + Vector3.UP * width * 0.10
+	var ring := PackedVector3Array([middle + side * width, middle + up * width * 0.75, middle - side * width, middle - up * width * 0.65])
+	var root := center - along * length * 0.48
+	var tip := center + along * length * 0.52 + Vector3.UP * width * 0.18
+	for i in 4:
+		var j := (i + 1) % 4
+		var outward: Vector3 = (ring[i] + ring[j]) * 0.5 - middle
+		_triangle(surface, root, ring[i], ring[j], tint.darkened(0.025), outward)
+		_triangle(surface, ring[i], tip, ring[j], tint, outward)
+
 func _pine(variant: int) -> ArrayMesh:
 	var height := 5.7 + variant * 0.42
 	var trunk := _surface(bark)
@@ -238,21 +254,29 @@ func _pine(variant: int) -> ArrayMesh:
 	_tube(trunk, [Vector3.ZERO, Vector3.UP * height * 0.35 + lean * 0.3, Vector3.UP * height * 0.72 + lean * 0.7, Vector3.UP * height + lean], [0.19, 0.15, 0.085, 0.012], 6, Color.WHITE)
 	var mesh := trunk.commit()
 	var crown := _surface(needles)
-	for tier in 5:
-		var y := 1.45 + tier * (height - 2.0) / 5.0
-		var length := 1.90 - tier * 0.29 + variant * 0.025
-		var count := 3 + (tier + variant) % 2
+	for tier in 7:
+		var y := 1.30 + tier * (height - 1.85) / 7.0
+		var length := 1.82 - tier * 0.205 + variant * 0.015
+		var count := 5 + (tier + variant) % 2
 		for branch in count:
 			var angle := branch * TAU / count + tier * 1.61 + variant * 0.7
 			var direction := Vector3(cos(angle), 0, sin(angle))
-			var size := length * (0.84 + 0.14 * sin(branch * 7.1 + tier * 4.3 + variant))
-			var root := Vector3.UP * (y + 0.11 * sin(angle * 2)) + lean * (y / height)
-			var tip := root + direction * size + Vector3.UP * (-0.12 + tier * 0.038 + sin(angle) * 0.13)
-			_bough(crown, root, tip, size * 0.24, Color.WHITE.darkened(float(tier % 3) * 0.055))
-	# Uneven narrow leaders avoid the repeated perfect-cone silhouette.
+			var size := length * (0.88 + 0.10 * sin(branch * 7.1 + tier * 4.3 + variant))
+			var root := Vector3.UP * (y + 0.16 * sin(angle * 2)) + lean * (y / height)
+			var across := Vector3(-direction.z, 0, direction.x)
+			for spray in 3:
+				var fraction := 0.25 + spray * 0.27
+				var side := -1.0 if (spray + branch) % 2 == 0 else 1.0
+				var center := root + direction * size * fraction + across * side * size * 0.11
+				center.y += -0.18 * fraction + sin(angle + spray) * 0.045
+				var growth := (direction + across * side * 0.36 + Vector3.UP * 0.22).normalized()
+				var color := Color.WHITE.darkened(float((tier + spray) % 4) * 0.04)
+				_needle_spray(crown, center, growth, size * (0.62 - spray * 0.045), size * (0.23 - spray * 0.035), color)
+	# Small uneven leaders finish the silhouette without an exposed tall spike.
 	for branch in 3:
 		var angle := branch * TAU / 3 + variant
-		_bough(crown, Vector3.UP * (height - 1.05) + lean, Vector3.UP * (height - 0.08 * branch) + Vector3(cos(angle), 0, sin(angle)) * 0.22 + lean, 0.16, Color.WHITE.lightened(0.03))
+		var direction := Vector3(cos(angle) * 0.22, 0.95, sin(angle) * 0.22).normalized()
+		_needle_spray(crown, Vector3.UP * (height - 0.39 - branch * 0.15) + lean, direction, 0.72, 0.17, Color.WHITE)
 	crown.commit(mesh)
 	return mesh
 
