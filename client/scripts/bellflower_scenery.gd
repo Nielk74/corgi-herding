@@ -47,13 +47,14 @@ static func ground_color(host, point: Vector3, normal: Vector3) -> Color:
 	color = color.lerp(Color("858878"), stone * 0.92)
 	var spur := Profile.hill(point.x, point.z, 9.0, 0.0, 6.0, 1.5) * smoothstep(0.2, 0.8, outside)
 	color = color.lerp(Color("93917e"), spur * 0.70)
-	var distant := smoothstep(13.8, 24.0, depth)
+	var distant := smoothstep(11.0, 20.0, depth)
 	var country := Color("728c77").lerp(Color("91a699"), smoothstep(18.0, 29.0, depth))
 	country = country.lightened(sin(u * 0.29 + depth * 0.36) * 0.025)
+	country = country.lerp(Color("738996"), smoothstep(0.12, 0.5, 1.0 - normal.y) * 0.70)
 	color = color.lerp(country, distant * 0.88)
 	var toe := 24.0 + sin(u * 0.13) * 2.0 + u * 0.06
 	var mountain := Color("788c91").lerp(Color("adbec4"), smoothstep(30.0, 43.0, depth))
-	var snow := smoothstep(6.0 + sin(u * 0.73) * 0.7, 9.0, point.y)
+	var snow := smoothstep(-4.8 + sin(u * 0.73) * 0.35, -2.9, point.y)
 	mountain = mountain.lerp(Color("e0e8e1"), snow * 0.93)
 	return color.lerp(mountain, smoothstep(toe, toe + 6.0, depth))
 
