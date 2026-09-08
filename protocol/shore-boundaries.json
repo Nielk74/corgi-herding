@@ -1,0 +1,16 @@
+[
+  {"name":"linux_capsule_edge_to_anchor","from":{"x":2.7510978288040726,"y":-2.3888722860050908},"target":{"x":4,"y":-6},"visible":true},
+  {"name":"linux_capsule_edge_from_anchor","from":{"x":4,"y":-6},"target":{"x":2.7510978288040726,"y":-2.3888722860050908},"visible":true},
+  {"name":"linux_capsule_edge_to_other_anchor","from":{"x":2.7510978288040726,"y":-2.3888722860050908},"target":{"x":9,"y":-2},"visible":true},
+  {"name":"linux_capsule_edge_from_other_anchor","from":{"x":9,"y":-2},"target":{"x":2.7510978288040726,"y":-2.3888722860050908},"visible":true},
+  {"name":"west_clearing_edge_in","from":{"x":-16.2,"y":2},"target":{"x":-11,"y":2},"visible":true},
+  {"name":"west_clearing_edge_out","from":{"x":-11,"y":2},"target":{"x":-16.2,"y":2},"visible":true},
+  {"name":"middle_clearing_edge_in","from":{"x":-1,"y":-1.5},"target":{"x":-3,"y":-6},"visible":true},
+  {"name":"middle_clearing_edge_out","from":{"x":-3,"y":-6},"target":{"x":-1,"y":-1.5},"visible":true},
+  {"name":"outside_capsule_rejected","from":{"x":2.7510968288040725,"y":-2.3888712860050907},"target":{"x":4,"y":-6},"visible":false},
+  {"name":"outside_capsule_reverse_rejected","from":{"x":4,"y":-6},"target":{"x":2.7510968288040725,"y":-2.3888712860050907},"visible":false},
+  {"name":"lake_chord_rejected","from":{"x":-11,"y":2},"target":{"x":11,"y":4},"visible":false},
+  {"name":"lake_chord_reverse_rejected","from":{"x":11,"y":4},"target":{"x":-11,"y":2},"visible":false},
+  {"name":"legal_zero_length","from":{"x":2.7510978288040726,"y":-2.3888722860050908},"target":{"x":2.7510978288040726,"y":-2.3888722860050908},"visible":true},
+  {"name":"invalid_zero_length","from":{"x":0,"y":2},"target":{"x":0,"y":2},"visible":false}
+]

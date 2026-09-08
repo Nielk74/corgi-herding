@@ -29,7 +29,37 @@ static func contains(point: Vector2, shore: Dictionary = {}) -> bool:
 	return Union.contains(point, corridor(shore))
 
 static func visible(from: Vector2, to: Vector2, shore: Dictionary = {}) -> bool:
-	return Union.visible(from, to, corridor(shore))
+	return _visible_coordinates(from.x, from.y, to.x, to.y, corridor(shore))
+
+static func _in_disk(x: float, y: float, center: Dictionary, radius: float) -> bool:
+	var dx: float = x - center.x
+	var dy: float = y - center.y
+	return dx * dx + dy * dy <= radius * radius
+
+static func _in_capsule(x: float, y: float, a: Dictionary, b: Dictionary, radius: float) -> bool:
+	var nearest := Union._nearest(x, y, a.x, a.y, b.x, b.y)
+	var dx: float = x - nearest[0]
+	var dy: float = y - nearest[1]
+	return dx * dx + dy * dy <= radius * radius
+
+static func _visible_coordinates(ax: float, ay: float, bx: float, by: float, geometry: Dictionary) -> bool:
+	if not Union._contains_xy(ax, ay, geometry) or not Union._contains_xy(bx, by, geometry):
+		return false
+	if ax == bx and ay == by:
+		return true
+	# The same closed primitive contains the entire chord by convexity. Keep
+	# the exact walkability arithmetic; do not add a boundary epsilon.
+	for clearing in geometry.shelves:
+		if _in_disk(ax, ay, clearing.center, clearing.radius) and _in_disk(bx, by, clearing.center, clearing.radius):
+			return true
+	for i in geometry.spine.size() - 1:
+		var a: Dictionary = geometry.spine[i]
+		var b: Dictionary = geometry.spine[i + 1]
+		if _in_capsule(ax, ay, a, b, geometry.half_width) and _in_capsule(bx, by, a, b, geometry.half_width):
+			return true
+	# A multi-primitive chord must pass the original analytic union check in
+	# both directions. Cloud's implementation and v4 behavior are unchanged.
+	return Union._visible_coordinates(ax, ay, bx, by, geometry) and Union._visible_coordinates(bx, by, ax, ay, geometry)
 
 static func presentation_point(point: Vector2) -> Vector2:
 	if not point.is_finite():
@@ -58,7 +88,7 @@ static func plan(from: Vector2, to: Vector2) -> Array[Vector2]:
 			break
 		visited[nearest] = true
 		for i in nodes.size():
-			if visited[i] or not Union._visible_coordinates(nodes[nearest][0], nodes[nearest][1], nodes[i][0], nodes[i][1], CORRIDOR):
+			if visited[i] or not _visible_coordinates(nodes[nearest][0], nodes[nearest][1], nodes[i][0], nodes[i][1], CORRIDOR):
 				continue
 			var dx: float = nodes[nearest][0] - nodes[i][0]
 			var dy: float = nodes[nearest][1] - nodes[i][1]

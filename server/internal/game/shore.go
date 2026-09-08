@@ -36,8 +36,38 @@ func (s Shore) corridor() Ridge {
 	return Ridge{Spine: s.Path, HalfWidth: s.HalfWidth, Shelves: s.Clearings}
 }
 
-func ShoreWalkable(p Vec2, shore Shore) bool       { return CloudWalkable(p, shore.corridor()) }
-func ShoreVisible(from, to Vec2, shore Shore) bool { return CloudVisible(from, to, shore.corridor()) }
+func ShoreWalkable(p Vec2, shore Shore) bool { return CloudWalkable(p, shore.corridor()) }
+
+func ShoreVisible(from, to Vec2, shore Shore) bool {
+	if !ShoreWalkable(from, shore) || !ShoreWalkable(to, shore) {
+		return false
+	}
+	if from == to {
+		return true
+	}
+	// A closed disk or capsule is convex: endpoints in the SAME primitive
+	// prove its whole chord safe. Use precisely the walkability predicate so
+	// last-bit rectangle/projection disagreement cannot strand a legal endpoint.
+	// This introduces neither an epsilon nor a change to the walking footprint.
+	for _, clearing := range shore.Clearings {
+		if inShelf(from, clearing) && inShelf(to, clearing) {
+			return true
+		}
+	}
+	for i := 1; i < len(shore.Path); i++ {
+		a, b := shore.Path[i-1], shore.Path[i]
+		fromDelta := from.Sub(nearestOnSegment(from, a, b))
+		toDelta := to.Sub(nearestOnSegment(to, a, b))
+		radius2 := shore.HalfWidth * shore.HalfWidth
+		if dot(fromDelta, fromDelta) <= radius2 && dot(toDelta, toDelta) <= radius2 {
+			return true
+		}
+	}
+	// Multi-primitive chords retain full analytical coverage. Require both
+	// orientations to conservatively reject any roundoff-dependent asymmetry.
+	corridor := shore.corridor()
+	return CloudVisible(from, to, corridor) && CloudVisible(to, from, corridor)
+}
 
 // Eight fixed nodes: path0..5, start6, target7. Retain at most six anchors.
 func ShoreRoute(from, target Vec2, shore Shore) []Vec2 {

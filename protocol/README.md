@@ -210,6 +210,17 @@ full actor segment must remain inside dry ground. In particular both end clearin
 are reachable, but their direct chord crosses the lake and is forbidden. Do not
 turn the unused bridge/gate fields into obstacles or relax a shoreline boundary.
 
+V5 first checks strict endpoint walkability (including zero-length segments).
+If both endpoints belong to the **same** clearing disk or spine capsule, its
+convexity proves the entire chord safe, using exactly the existing disk or
+nearest-point/squared-radius membership predicate. Otherwise the original
+analytical union-coverage test must pass in **both** directions. This v5-only
+rule avoids a last-bit projection/rectangle mismatch stranding legal boundary
+points and makes visibility symmetric without an epsilon, coordinate movement,
+or any change to Cloud. [Shared boundary regressions](shore-boundaries.json)
+include the exact Linux failing point and reject outside endpoints/lake chords;
+the original 32 route fixtures remain unchanged.
+
 The graph has eight nodes: six path anchors in their exact order, start index 6,
 target index 7. Dijkstra retains the existing double-scalar `1e-9` tie rules.
 Queues contain at most six unique canonical anchors, never the final target.
