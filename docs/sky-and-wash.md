@@ -40,3 +40,11 @@ Extra plant meshes and sparse windborne seed/dust helpers remain private or
 disabled authoring studies. They are not advertised as enabled gameplay effects
 in this release. Publication and automatic deployment are verified separately
 after the release workflow completes.
+
+The first release attempt, build 17, stopped at an older audio-menu assertion
+that required exactly two settings actions. The new optional visual preference
+makes three. The corrected test requires exactly those three in the same row,
+retains the 64-pixel minimum targets and checks all ten map choices, saved Return
+and the expanded endpoint in the real 720 × 1280 viewport. The audio lifecycle
+and isolated preference checks pass unchanged. This failed attempt published
+no release and did not update the server.

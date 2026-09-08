@@ -423,16 +423,16 @@ func _preferences(game: Node) -> bool:
 	var viewport: Rect2 = root.get_visible_rect()
 	if viewport.size != Vector2(720, 1280) or not game.resume_button.is_visible_in_tree():
 		return _fail("audio menu coverage must use the real portrait viewport and saved Return")
-	var controls := [game.name_input, game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.create_button, game.invite_input, game.join_button, game.resume_button, game.endpoint_input]
+	var controls := [game.name_input, game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button, game.bellflower_button, game.long_valley_button, game.dry_wash_button, game.create_button, game.invite_input, game.join_button, game.resume_button, game.endpoint_input]
 	var settings_buttons := 0
 	for child in game.sound_button.get_parent().get_children():
 		if child is Button:
 			settings_buttons += 1
 			controls.append(child)
 			if child.size.y < 64.0:
-				return _fail("Sound and Server address must retain64px logical touch targets")
-	if settings_buttons != 2:
-		return _fail("sound preference must share the existing small settings row")
+				return _fail("Sound, Server address and Soft distance must retain64px logical touch targets")
+	if settings_buttons != 3 or game.soft_distance_button.get_parent() != game.sound_button.get_parent():
+		return _fail("Sound, Server address and Soft distance must share exactly one small settings row")
 	for control in controls:
 		if not control.is_visible_in_tree() or not viewport.encloses(control.get_global_rect()):
 			return _fail("saved Return and expanded server/audio settings do not fit the actual720x1280 portrait menu")
