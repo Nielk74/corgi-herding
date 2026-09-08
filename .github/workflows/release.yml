@@ -47,6 +47,7 @@ jobs:
         run: |
           bash tools/verify-materials.sh --self-test
           node tools/build-landscapes.mjs --self-test
+          node tools/tests/build-landscapes-runner.test.mjs
       - name: Import and test client
         run: |
           set -o pipefail
@@ -107,6 +108,7 @@ jobs:
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_trail_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_scree_render_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/pine_needles_wind_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/valley_pine_binding_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_study_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_presentation_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_actor_smoke.gd
