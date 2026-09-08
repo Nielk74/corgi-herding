@@ -129,8 +129,8 @@ resting and reconnection without teleporting or relaxing boundaries.
 The Bellflower spike now has a connected far crest and better middle-distance
 layering, but the latest Android image still has strongly faceted mountains and
 a tightly packed grazing flock. Those are recorded criticisms, not evidence of
-realism or a completed playtest response. Public build 13 remains the verified
-release while these changes are developed and reviewed.
+realism or a completed playtest response. At that review, public build 13 remained
+the verified release while these changes were developed and reviewed.
 
 The first large-map Android art view was rejected: it looked like repeated grass
 with a cut foreground edge. A fixed-perspective experiment and descending flank
@@ -167,8 +167,8 @@ practice, with local hidden/completed preferences separate from credentials.
 Guide UI has passed its focused checks. Nonconflicting herder walking/sitting
 and other-dog commands no longer discard a pending selected-dog lesson. A
 replacement command to that dog, selection change or closed connection epoch
-still invalidates the pending observation. New large-world gameplay is still
-being tested on Android; it is not yet a verified public release.
+still invalidates the pending observation. At this stage, new large-world gameplay
+was still being tested on Android, before the build-15 release verification below.
 
 The first integrated signed Android candidate has now created a real v7 herd
 on an isolated Go server. An ordinary second peer appears in the same world.
@@ -214,3 +214,26 @@ clearing-centered views pass at three zooms and two portrait aspects; tested
 continuous approaches and returns need at most 8.47 units of the 18-unit lift
 cap. Lift rises/falls at bounded rates and the camera freezes at rest. These
 geometry tests do not replace actual Android comfort review.
+
+## Verified publication — build 15
+
+Build 14 published nothing: the real-network gate caught an obsolete
+maximum-capability assertion; an audit found three expectations of 5 instead of 7.
+Correcting only those tests preserved strict old-layout and gameplay checks. The complete
+[build-15 workflow](https://github.com/Nielk74/corgi-herding/actions/runs/34207085466)
+then passed for source `7f68be2d3f93f12e74d53c9c504fe5304eb5024b`.
+
+The [completed public release](https://github.com/Nielk74/corgi-herding/releases/tag/build-15)
+was independently downloaded: every artifact checksum passed, the signed portrait
+APK kept its existing certificate and passed 16 KiB alignment, and all three
+server binaries had the expected architecture and source revision. The ordinary
+scheduled updater installed the matching Darwin binary without intervention.
+Both its final pre-update backup and a new-version checkpoint flush preserved
+all nine existing herds exactly. Health and readiness now report build 15 and
+layouts 1–7. No live herd was created or changed for that preservation check.
+
+This release includes guided practice, direct dog dragging and the large valley.
+The later invalid-drag explanation, scree hints and subsequent pine/grass studies
+remain private follow-up candidates, not features of public build 15. Candidate
+Android observations above are not claimed as a completed return test of the
+exact published APK; that separate check is still pending here.

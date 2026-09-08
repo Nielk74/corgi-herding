@@ -455,3 +455,32 @@ sequence; the separately saved Sound-off preference also survived. The final
 disconnected checkpoint preserved the original six herds and the valid seventh
 world, with no gate or completion state. These were emulator and checkpoint
 checks, not a claim of measured real-phone performance or two-human playtesting.
+
+## Practice and a longer Alpine journey — build 15
+
+The playtest response adds optional guided practice on Bellflower's version-6
+clearings, direct corgi dragging and a version-7 Alpine valley within 144 × 192
+bounds with 16 clearings. Practice is the fresh-install default; saved Return and
+the older places remain available. The guide observes authoritative outcomes,
+offers Skip step and Hide guide, and does not turn a successful socket send into
+a gameplay acknowledgement. Actual candidate-APK practice and valley movement
+checks are recorded in the [playtest follow-up](playtest-followup.md).
+
+The first publication attempt, build 14, correctly stopped at a legacy-network
+test that still expected maximum capability 5 after the server advertised 7.
+The old world's immutable layout had not changed. Three stale test expectations
+were corrected; collision, compatibility rules and network timeouts were not
+relaxed. The failed run published no release and left the live server on build 13.
+
+[Build 15](https://github.com/Nielk74/corgi-herding/releases/tag/build-15), from
+`7f68be2d3f93f12e74d53c9c504fe5304eb5024b`, then passed the complete
+[release workflow](https://github.com/Nielk74/corgi-herding/actions/runs/34207085466).
+Independent downloads verified all five artifact checksums, the APK's unchanged
+signing certificate, version 15 / 0.1.15, portrait orientation and 16 KiB alignment,
+plus the three server architectures. The normal five-minute updater installed
+build 15 at 09:08:48 UTC on 8 September, with no manual trigger. Both the final
+build-13 checkpoint backup and a later build-15 flush preserved all nine existing
+herds exactly, including credentials, retained routes and feeding state. Health
+and readiness advertise layouts 1–7. This establishes release and deployment
+verification; it does not substitute for public-APK Return testing, two-human
+playtesting or physical-phone performance measurements.
