@@ -9,6 +9,7 @@ const OASIS_POOL_LEVEL := 0.72
 const CLOUD_GRID_STEP := 0.75
 const CLOUD_LAKE_LEVEL := -4.4
 const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
+const JuniperProfile = preload("res://scripts/juniper_profile.gd")
 const BRIDGE_HEIGHT := 0.23
 const PLAY_BOUNDS := Rect2(-17, -11, 34, 22)
 var landscape := "alpine"
@@ -18,9 +19,12 @@ var gate_y := 0.0
 var rock_center := Vector2.ZERO
 var rock_radius := 3.4
 var ridge: Dictionary = {}
+var juniper: JuniperTerrainProfile
 
 func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 	landscape = kind
+	if kind == "juniper":
+		juniper = JuniperProfile.new(layout.get("shore", {}))
 	bridge_y = float(layout.get("bridge_y", 3.0 if kind == "orchard" else (-4.0 if kind == "larch" else 0.0)))
 	gate_y = float(layout.get("gate_y", 2.0 if kind == "orchard" else (4.0 if kind == "larch" else 0.0)))
 	if kind == "cloud":
@@ -33,7 +37,7 @@ func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 
 func river_width(z: float) -> float:
 	# Beyond the playable meadow the stream opens into a small lake / desert wash.
-	if landscape in ["oasis", "cloud"]:
+	if landscape in ["oasis", "cloud", "juniper"]:
 		return 0.0
 	if landscape == "orchard":
 		return 1.5 + smoothstep(12.0, 33.0, z) * 1.7
@@ -49,11 +53,13 @@ func river_center(z: float) -> float:
 	return 0.0
 
 func bridge_at(x: float, z: float) -> bool:
-	if landscape in ["oasis", "cloud"]:
+	if landscape in ["oasis", "cloud", "juniper"]:
 		return false
 	return absf(x) <= 1.93 and absf(z - bridge_y) <= 1.95
 
 func surface_height(x: float, z: float) -> float:
+	if landscape == "juniper":
+		return maxf(JuniperProfile.WATER_LEVEL, sample(x, z))
 	if landscape in ["oasis", "cloud"]:
 		return sample(x, z)
 	if bridge_at(x, z):
@@ -63,6 +69,17 @@ func surface_height(x: float, z: float) -> float:
 	return sample(x, z)
 
 func sample(x: float, z: float) -> float:
+	if landscape == "juniper":
+		var step := JuniperProfile.GRID_STEP
+		var x0 := floorf(x / step) * step
+		var z0 := floorf(z / step) * step
+		var fx := (x - x0) / step
+		var fz := (z - z0) / step
+		var a := node_height(x0, z0)
+		var b := node_height(x0 + step, z0)
+		var c := node_height(x0 + step, z0 + step)
+		var d := node_height(x0, z0 + step)
+		return a + (b - a) * fx + (c - b) * fz if fx >= fz else a + (c - d) * fx + (d - a) * fz
 	if landscape == "cloud":
 		var x0 := floorf(x / CLOUD_GRID_STEP) * CLOUD_GRID_STEP
 		var z0 := floorf(z / CLOUD_GRID_STEP) * CLOUD_GRID_STEP
@@ -114,6 +131,8 @@ func node_height(x: float, z: float) -> float:
 	return float(samples[key])
 
 func normal_at(x: float, z: float) -> Vector3:
+	if landscape == "juniper":
+		return juniper.normal(x, z)
 	var step := 0.35
 	if landscape in ["oasis", "cloud"]:
 		var dx := (raw_height(x + step, z) - raw_height(x - step, z)) / (2.0 * step)
@@ -142,6 +161,8 @@ func normal_at(x: float, z: float) -> Vector3:
 	return Vector3(-dx, 1.0, -dz).normalized()
 
 func raw_height(x: float, z: float) -> float:
+	if landscape == "juniper":
+		return juniper.height(x, z)
 	if landscape == "cloud":
 		return _cloud_height(x, z)
 	if landscape == "oasis":

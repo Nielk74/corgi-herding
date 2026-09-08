@@ -5,11 +5,12 @@ const Meadow = preload("res://scripts/meadow.gd")
 const RockNavigation = preload("res://scripts/rock_navigation.gd")
 const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const Soundscape = preload("res://scripts/soundscape.gd")
+const ShoreNavigation = preload("res://scripts/shore_navigation.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
 const ACCENT := Color("466e59")
-const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis", "cloud": "Cloud Pasture"}
+const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis", "cloud": "Cloud Pasture", "juniper": "Juniper Shore"}
 
 var meadow: MeadowDiorama
 var network: HerdConnection
@@ -65,6 +66,7 @@ var larch_button: Button
 var orchard_button: Button
 var oasis_button: Button
 var cloud_button: Button
+var juniper_button: Button
 var region_label: Label
 var world_layout := {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 
@@ -217,7 +219,8 @@ func _build_welcome() -> void:
 	orchard_button = _button("Sunward Orchard", func() -> void: _select_landscape("orchard"))
 	oasis_button = _button("Canyon Oasis", func() -> void: _select_landscape("oasis"))
 	cloud_button = _button("Cloud Pasture", func() -> void: _select_landscape("cloud"))
-	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button]:
+	juniper_button = _button("Juniper Shore", func() -> void: _select_landscape("juniper"))
+	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button]:
 		button.custom_minimum_size.y = 64
 		button.add_theme_font_size_override("font_size", 18)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -345,6 +348,8 @@ func _configure() -> bool:
 	return network.configure(endpoint_input.text, name_input.text)
 
 func _default_layout(landscape: String) -> Dictionary:
+	if landscape == "juniper":
+		return ShoreNavigation.layout()
 	if landscape == "cloud":
 		return CloudNavigation.layout()
 	if landscape == "oasis":
@@ -385,16 +390,16 @@ func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
 	route_target = Vector2.INF
 	world_layout = _default_layout(landscape) if layout.is_empty() else layout.duplicate(true)
 	meadow.set_landscape(landscape, world_layout)
-	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button]:
+	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button]:
 		button.remove_theme_stylebox_override("normal")
 		button.remove_theme_stylebox_override("hover")
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_hover_color")
-	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button, "cloud": cloud_button}[landscape])
+	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button, "cloud": cloud_button, "juniper": juniper_button}[landscape])
 	if region_label != null:
 		region_label.text = LANDSCAPES[landscape]
 	if create_button != null:
-		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis", "cloud": "Wander above the valley"}[landscape]
+		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis", "cloud": "Wander above the valley", "juniper": "Wander beside the lake"}[landscape]
 
 func _create() -> void:
 	if not request_busy and _configure():
@@ -424,6 +429,7 @@ func _set_busy(value: bool) -> void:
 	orchard_button.disabled = value
 	oasis_button.disabled = value
 	cloud_button.disabled = value
+	juniper_button.disabled = value
 	if value:
 		menu_error.text = "Opening a little world…"
 
@@ -602,7 +608,7 @@ func _world_tap(screen_pos: Vector2) -> void:
 				return
 	var ground := meadow.ground_at(screen_pos)
 	if not ground.is_finite():
-		_hint("The steep slopes shelter this valley. Keep to the open ground.", 3.0)
+		_hint("The shore curves around the water. Keep to the beach and grass." if selected_landscape == "juniper" else "The steep slopes shelter this valley. Keep to the open ground.", 3.0)
 		return
 	# Water is readable as a real obstacle; tap the bridge or other bank to cross.
 	if not _has_route_navigation() and absf(ground.x) < 1.5 and absf(ground.z - float(world_layout.bridge_y)) > 1.85:
@@ -615,6 +621,8 @@ func _world_tap(screen_pos: Vector2) -> void:
 			message = "There is open ground around the rock."
 		elif selected_landscape == "cloud":
 			message = "The grassy ridge is the gentle way through."
+		elif selected_landscape == "juniper":
+			message = "The beach is the gentle way around the lake."
 		_hint(message, 3.0)
 		return
 	meadow.mark_destination(ground)
@@ -705,7 +713,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 						awaiting_authoritative_snapshot = false
 					if server_seq >= movement_seq:
 						if _has_route_navigation():
-							movement_route = CloudNavigation.decode_route(data.get("route", [])) if selected_landscape == "cloud" else RockNavigation.decode_route(data.get("route", []))
+							movement_route = _decode_route(data.get("route", []))
 							route_target = movement_target
 						# Small correction retains immediate touch feedback; large drift snaps.
 						var drift: float = actor.node.position.distance_to(pos)
@@ -726,7 +734,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	var settled := int(snapshot.get("settled", 0))
 	if first_snapshot and settled == 10:
 		arrival_noticed = true
-	if selected_landscape == "cloud":
+	if selected_landscape in ["cloud", "juniper"]:
 		# All three shelves are places to linger; reaching the highest one is
 		# neither a completion event nor more important than resting halfway.
 		moment_label.text = ""
@@ -888,6 +896,8 @@ func _gate_waypoint(point: Vector2) -> Vector2:
 func _walkable(point: Vector2) -> bool:
 	if absf(point.x) > 17 or absf(point.y) > 11:
 		return false
+	if selected_landscape == "juniper":
+		return ShoreNavigation.contains(point)
 	if selected_landscape == "cloud":
 		return CloudNavigation.contains(point)
 	if selected_landscape == "oasis":
@@ -899,19 +909,32 @@ func _walkable(point: Vector2) -> bool:
 	return true
 
 func _has_route_navigation() -> bool:
-	return selected_landscape in ["oasis", "cloud"]
+	return selected_landscape in ["oasis", "cloud", "juniper"]
 
 func _presentation_point(point: Vector2) -> Vector2:
+	if selected_landscape == "juniper":
+		return ShoreNavigation.presentation_point(point)
 	return CloudNavigation.presentation_point(point) if selected_landscape == "cloud" else RockNavigation.presentation_point(point)
 
 func _route_visible(from: Vector2, to: Vector2) -> bool:
+	if selected_landscape == "juniper":
+		return ShoreNavigation.visible(from, to)
 	return CloudNavigation.visible(from, to) if selected_landscape == "cloud" else RockNavigation.visible(from, to)
 
 func _plan_route(from: Vector2, to: Vector2) -> Array[Vector2]:
+	if selected_landscape == "juniper":
+		return ShoreNavigation.plan(from, to)
 	return CloudNavigation.plan(from, to) if selected_landscape == "cloud" else RockNavigation.plan(from, to)
 
 func _route_waypoint(from: Vector2, to: Vector2, route: Array[Vector2]) -> Vector2:
+	if selected_landscape == "juniper":
+		return ShoreNavigation.next_waypoint(from, to, route)
 	return CloudNavigation.next_waypoint(from, to, route) if selected_landscape == "cloud" else RockNavigation.next_waypoint(from, to, route)
+
+func _decode_route(data: Variant) -> Array[Vector2]:
+	if selected_landscape == "juniper":
+		return ShoreNavigation.decode_route(data)
+	return CloudNavigation.decode_route(data) if selected_landscape == "cloud" else RockNavigation.decode_route(data)
 
 func _acknowledge(id: String) -> void:
 	if actors.has(id):
@@ -924,6 +947,8 @@ func _show_preview() -> void:
 	var sheep: Array = []
 	for i in range(10):
 		var point := Vector2(-7 + (i % 3) * 1.15, -2 + floorf(i / 3.0) * 1.15) if _has_route_navigation() else Vector2(-5.5 + sin(i * 2.3) * 3, -1.6 + cos(i * 1.6) * 2.6)
+		if selected_landscape == "juniper":
+			point = Vector2(-10.7 + i % 3, -0.4 + floorf(i / 3.0) * 1.05)
 		sheep.append({"id": "s%d" % i, "position": {"x": point.x, "y": point.y}, "state": "grazing"})
 	var preview_snapshot := {"gate_open": false, "settled": 0, "landscape": selected_landscape, "layout": world_layout,
 		"players": [{"id": "p1", "position": {"x": -10, "y": 2}, "state": "idle", "connected": true}, {"id": "p2", "position": {"x": -4, "y": 5}, "state": "idle", "connected": true}],
@@ -933,6 +958,11 @@ func _show_preview() -> void:
 		preview_snapshot.players[1].position = {"x": -13.0, "y": 1.5}
 		preview_snapshot.dogs[0].position = {"x": -11.0, "y": -2.0}
 		preview_snapshot.dogs[1].position = {"x": -11.0, "y": 2.0}
+	elif selected_landscape == "juniper":
+		preview_snapshot.players[0].position = {"x": -14.0, "y": 0.0}
+		preview_snapshot.players[1].position = {"x": -14.0, "y": 3.0}
+		preview_snapshot.dogs[0].position = {"x": -12.2, "y": -1.0}
+		preview_snapshot.dogs[1].position = {"x": -12.2, "y": 2.0}
 	_on_snapshot(preview_snapshot)
 	status_label.text = "Preview · not connected"
 
