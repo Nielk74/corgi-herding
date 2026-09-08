@@ -3,6 +3,7 @@ extends RefCounted
 ## Coarse cells stitch every fine border vertex rather than exposing T-junctions.
 
 const STEP := 4
+const DryLandforms = preload("res://scripts/dry_wash_landforms.gd")
 var inner: Rect2
 var outer: Rect2
 var profile: RefCounted
@@ -23,6 +24,7 @@ func _init(recipe: RefCounted) -> void:
 	outer = Rect2(outside_start, outside_end - outside_start)
 	surface_material = ShaderMaterial.new()
 	surface_material.shader = load("res://shaders/landscape_surface.gdshader")
+	surface_material.set_shader_parameter("wash_enabled", profile.data.get("trail_style", "") == "wash_fans")
 	var ground := "coast_sand_03" if profile.data.biome == "cactus" else "aerial_grass_rock"
 	for role in ["ground", "rock"]:
 		var id := ground if role == "ground" else "rock_01"
@@ -146,6 +148,8 @@ func _point(x: float, z: float) -> Vector3:
 				mountains += ridge.z * crest * (0.93 + macro * 0.18)
 			var cuts := absf(sin(x * 0.095 + z * 0.047) + sin(z * 0.081 - x * 0.038) * 0.46)
 			mountains -= cuts * smoothstep(20.0, 100.0, mountains) * 7.0
+			if profile.data.get("backdrop_style", "") == "low_mesas":
+				mountains = DryLandforms.far_height(Vector2(x, z), profile.noise)
 			height = lerpf(height, mountains, blend)
 		samples[key] = Vector3(x, height, z)
 	return samples[key]

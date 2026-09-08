@@ -4,6 +4,8 @@ extends RefCounted
 
 const RECIPE_VERSION := 1
 const RegionValidator = preload("res://scripts/strict_region_validator.gd")
+const DryLandforms = preload("res://scripts/dry_wash_landforms.gd")
+const CACTUS_STYLES := {"terrain_style": "wash_terraces", "backdrop_style": "low_mesas", "trail_style": "wash_fans"}
 var data: Dictionary
 var noise := FastNoiseLite.new()
 var route: Array[Vector3] = []
@@ -77,6 +79,9 @@ static func validate(value: Variant) -> Array[String]:
 			errors.append("Resting place center outside authored bounds")
 	if value.has("region_file"):
 		errors.append_array(RegionValidator.validate_file(value.region_file, bounds))
+	for style in CACTUS_STYLES:
+		if value.has(style) and (not value[style] is String or value[style] != CACTUS_STYLES[style] or value.biome != "cactus" or not value.has("region_file")):
+			errors.append("Unsupported or unbounded " + style)
 	return errors
 
 static func _number(value: Variant) -> bool:
@@ -113,6 +118,8 @@ func height(x: float, z: float) -> float:
 		weighted += lerpf(route[i].y, route[i + 1].y, t) * weight
 		weights += weight
 	var grade := weighted / maxf(weights, 0.000000000001)
+	if data.get("terrain_style", "") == "wash_terraces":
+		return DryLandforms.height(point, grade, route_clearance(point), noise)
 	var outside := maxf(-route_clearance(point), 0.0)
 	var small := noise.get_noise_2d(x, z)
 	var ridged := 1.0 - absf(noise.get_noise_2d(x * 0.40 + 167.0, z * 0.65 - 53.0))
@@ -124,6 +131,8 @@ func height(x: float, z: float) -> float:
 	return grade + small * (0.45 + minf(outside * 0.11, 4.0)) + flank
 
 func trail_wear(point: Vector2) -> float:
+	if data.get("trail_style", "") == "wash_fans":
+		return DryLandforms.fan_wear(point, edges, noise)
 	var distance := INF
 	for i in range(route.size() - 1):
 		var a := Vector2(route[i].x, route[i].z)

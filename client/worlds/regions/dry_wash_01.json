@@ -1,0 +1,44 @@
+{
+  "recipe_id": "dry_wash_01",
+  "bounds": {"min": {"x": -72, "y": -96}, "max": {"x": 72, "y": 96}},
+  "anchors": [
+    {"x": -38, "y": 68}, {"x": -10, "y": 43},
+    {"x": 13, "y": 14}, {"x": -9, "y": -12},
+    {"x": -25, "y": -40}, {"x": 2, "y": -63},
+    {"x": 32, "y": -76}, {"x": -51, "y": 40},
+    {"x": 22, "y": 57}, {"x": 46, "y": 24},
+    {"x": 47, "y": -5}, {"x": -39, "y": 0},
+    {"x": -48, "y": -18}, {"x": -51, "y": -57}
+  ],
+  "corridors": [
+    {"a": 0, "b": 1, "half_width": 14},
+    {"a": 1, "b": 2, "half_width": 16},
+    {"a": 2, "b": 3, "half_width": 15},
+    {"a": 3, "b": 4, "half_width": 13},
+    {"a": 4, "b": 5, "half_width": 12},
+    {"a": 5, "b": 6, "half_width": 11},
+    {"a": 0, "b": 7, "half_width": 12},
+    {"a": 1, "b": 8, "half_width": 14},
+    {"a": 2, "b": 9, "half_width": 14},
+    {"a": 9, "b": 10, "half_width": 12},
+    {"a": 3, "b": 11, "half_width": 12},
+    {"a": 11, "b": 12, "half_width": 11},
+    {"a": 4, "b": 13, "half_width": 11}
+  ],
+  "clearings": [
+    {"center": {"x": -38, "y": 68}, "radius": 22},
+    {"center": {"x": -10, "y": 43}, "radius": 22},
+    {"center": {"x": 13, "y": 14}, "radius": 26},
+    {"center": {"x": -9, "y": -12}, "radius": 17},
+    {"center": {"x": -25, "y": -40}, "radius": 22},
+    {"center": {"x": 2, "y": -63}, "radius": 16},
+    {"center": {"x": 32, "y": -76}, "radius": 18},
+    {"center": {"x": -51, "y": 40}, "radius": 15},
+    {"center": {"x": 22, "y": 57}, "radius": 19},
+    {"center": {"x": 46, "y": 24}, "radius": 18},
+    {"center": {"x": 47, "y": -5}, "radius": 16},
+    {"center": {"x": -39, "y": 0}, "radius": 21},
+    {"center": {"x": -48, "y": -18}, "radius": 15},
+    {"center": {"x": -51, "y": -57}, "radius": 16}
+  ]
+}

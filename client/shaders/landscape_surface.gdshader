@@ -11,6 +11,7 @@ uniform vec3 ground_tint : source_color = vec3(0.78, 1.0, 0.72);
 uniform vec3 stone_tint : source_color = vec3(0.88, 0.91, 0.93);
 uniform bool snow_enabled = true;
 uniform bool scree_enabled = false;
+uniform bool wash_enabled = false;
 // Optional authoring study; defaults preserve the normal game material.
 uniform float ground_detail_contrast : hint_range(0.0, 1.0) = 1.0;
 uniform float ground_saturation : hint_range(0.0, 1.0) = 1.0;
@@ -54,6 +55,10 @@ void fragment() {
 	vec3 fine_stone = triplanar_color(rock_albedo, world_position * 0.15, weights);
 	vec3 broad_stone = triplanar_color(rock_albedo, broad_position * 0.043 + vec3(7.1, 3.6, 11.4), weights);
 	vec3 stone = mix(broad_stone, fine_stone, mix(0.65, 0.25, distant)) * stone_tint;
+	if (wash_enabled) {
+		float bed = soft_noise(vec2(world_position.y * 0.21, p.x * 0.007 + p.y * 0.004));
+		stone *= mix(vec3(0.91, 0.88, 0.83), vec3(1.035, 1.02, 0.99), bed);
+	}
 	float rock = smoothstep(0.15, 0.42, 1.0 - n.y + (macro - 0.5) * 0.08);
 	// The alpine vegetation line follows elevation and broken local exposure,
 	// rather than leaving bright grass on every upward-facing summit triangle.
@@ -63,6 +68,9 @@ void fragment() {
 	ALBEDO = mix(grass, stone, rock);
 	float wear = clamp(1.0 - COLOR.a, 0.0, 1.0);
 	vec3 tread = mix(vec3(0.28, 0.23, 0.16), stone * vec3(0.75, 0.68, 0.55), 0.55);
+	if (wash_enabled) {
+		tread = grass * vec3(1.12, 1.10, 1.065);
+	}
 	ALBEDO = mix(ALBEDO, tread * mix(0.91, 1.06, macro), wear * 0.84);
 	float grass_rough = texture(ground_roughness, p * 0.24).r;
 	float stone_rough = triplanar_color(rock_roughness, world_position * 0.15, weights).r;

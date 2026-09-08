@@ -51,6 +51,7 @@ const sources = [
   'client/scripts/landscape_chunk_builder.gd', 'client/scripts/landscape_backdrop.gd',
   'client/scripts/landscape_props.gd', 'client/scripts/landscape_scene_builder.gd',
   'client/scripts/landscape_scree.gd', 'client/scripts/region_navigation.gd',
+  'client/scripts/dry_wash_landforms.gd',
   'client/shaders/meadow_grass.gdshader', 'client/shaders/landscape_surface.gdshader',
   'client/tools/build_landscape.gd', 'tools/build-landscapes.mjs',
   'tools/bounded-process.mjs', 'tools/run-godot-check.sh',
