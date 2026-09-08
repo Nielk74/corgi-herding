@@ -13,55 +13,55 @@ import (
 	"corgiherding/server/internal/game"
 )
 
-func TestJuniperCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
+func TestCommonsCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 	dir := t.TempDir()
 	s, h := newTestServer(t, dir, 10)
 	var a, b credentials
-	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"juniper"}`, 201), &a); err != nil {
+	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"bellflower"}`, 201), &a); err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []int{0, 1, 2, 3, 4, 7, 99} {
+	for _, version := range []int{0, 1, 2, 3, 4, 5, 7, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &version))
 	}
 	if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {
-		t.Fatal("unsupported client entered Juniper")
+		t.Fatal("unsupported client entered Commons")
 	}
-	version := 5
+	version := 6
 	ca, cb := connectVersion(t, h.URL, a, &version), connectVersion(t, h.URL, b, &version)
 	snapshot(t, ca, func(w *game.World) bool { return len(w.Players) == 2 && w.Player(b.PlayerID).Connected })
-	target := game.Vec2{X: 11, Y: 4}
+	target := game.Vec2{X: 10, Y: -1.3}
 	write(t, ca, map[string]any{"type": "move", "seq": 7, "target": target})
 	write(t, cb, map[string]any{"type": "command", "dog_id": "mochi", "command": "go", "target": target})
 	snapshot(t, ca, func(w *game.World) bool {
 		return w.Player(a.PlayerID).Seq == 7 && len(w.Player(a.PlayerID).Route) > 0 && len(w.Dogs[0].Route) > 0
 	})
 	// Unsupported future capabilities must not evict the already valid peer.
-	for _, unsupported := range []int{4, 7, 99} {
+	for _, unsupported := range []int{5, 7, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &unsupported))
 	}
 	write(t, ca, map[string]any{"type": "interact", "action": "gate"})
 	if !strings.Contains(readError(t, ca), "no gate") {
-		t.Fatal("Juniper accepted phantom gate")
+		t.Fatal("Commons accepted phantom gate")
 	}
 	write(t, ca, map[string]any{"type": "move", "seq": 8, "target": game.Vec2{X: 0, Y: 8}})
 	if !strings.Contains(readError(t, ca), "dry land") {
-		t.Fatal("Juniper accepted void target")
+		t.Fatal("Commons accepted void target")
 	}
 	_ = ca.CloseNow()
 	paused := snapshot(t, cb, func(w *game.World) bool { return !w.Player(a.PlayerID).Connected })
 	pausedPlayer := *paused.Player(a.PlayerID)
 	later := snapshot(t, cb, func(w *game.World) bool { return w.Tick >= paused.Tick+3 })
 	if !reflect.DeepEqual(*later.Player(a.PlayerID), pausedPlayer) || pausedPlayer.Target != target || len(pausedPlayer.Route) == 0 {
-		t.Fatal("disconnected Juniper herder moved or lost route")
+		t.Fatal("disconnected Commons herder moved or lost route")
 	}
 	replacement := connectVersion(t, h.URL, a, &version)
 	snapshot(t, replacement, func(w *game.World) bool {
 		p := w.Player(a.PlayerID)
 		if p.Target != target || p.Seq != 7 {
-			t.Fatal("reconnect lost Juniper target/sequence")
+			t.Fatal("reconnect lost Commons target/sequence")
 		}
 		return p.Connected && p.Position.Sub(pausedPlayer.Position).Len() > .05
 	})
@@ -77,36 +77,36 @@ func TestJuniperCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(cp.Herds[0].World.Player(a.PlayerID).Route) == 0 {
-		t.Fatal("fixture lost in-flight Juniper route")
+		t.Fatal("fixture lost in-flight Commons route")
 	}
 	restored, rh := newTestServer(t, dir, 10)
 	loaded := restored.find(a.Code).state.Load()
 	if !reflect.DeepEqual(loaded.World, cp.Herds[0].World) || !reflect.DeepEqual(loaded.Secrets, cp.Herds[0].Secrets) {
-		t.Fatal("restart changed Juniper layout/routes/animals/credentials")
+		t.Fatal("restart changed Commons layout/routes/animals/credentials")
 	}
 	time.Sleep(80 * time.Millisecond)
 	if !reflect.DeepEqual(restored.find(a.Code).state.Load().World, loaded.World) {
-		t.Fatal("empty Juniper world advanced after restart")
+		t.Fatal("empty Commons world advanced after restart")
 	}
 	returned := connectVersion(t, rh.URL, a, &version)
 	snapshot(t, returned, func(w *game.World) bool {
 		p := w.Player(a.PlayerID)
-		return p.Connected && p.Target == target && p.Seq == 7 && w.Layout.Equal(game.LayoutForLandscape(game.LandscapeJuniper))
+		return p.Connected && p.Target == target && p.Seq == 7 && w.Layout.Equal(game.LayoutForLandscape(game.LandscapeBellflower))
 	})
 }
 
-func TestJuniperCapabilityKeepsEveryOlderLandscapeAvailable(t *testing.T) {
-	for _, landscape := range []string{game.LandscapeAlpine, game.LandscapeCactus, game.LandscapeLarch, game.LandscapeOrchard, game.LandscapeOasis, game.LandscapeCloud} {
+func TestCommonsCapabilityKeepsEveryOlderLandscapeAvailable(t *testing.T) {
+	for _, landscape := range []string{game.LandscapeAlpine, game.LandscapeCactus, game.LandscapeLarch, game.LandscapeOrchard, game.LandscapeOasis, game.LandscapeCloud, game.LandscapeJuniper} {
 		t.Run(landscape, func(t *testing.T) {
 			_, h := newTestServer(t, t.TempDir(), 10)
 			var c credentials
 			if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"`+landscape+`"}`, 201), &c); err != nil {
 				t.Fatal(err)
 			}
-			for _, cap := range []int{game.LayoutForLandscape(landscape).Version, 5} {
+			for _, cap := range []int{game.LayoutForLandscape(landscape).Version, 6} {
 				ws := connectVersion(t, h.URL, c, &cap)
 				snapshot(t, ws, func(w *game.World) bool {
-					if w.Layout.Shore != nil || w.Landscape != landscape || !w.Layout.Equal(game.LayoutForLandscape(landscape)) {
+					if w.Layout.Commons != nil || w.Landscape != landscape || !w.Layout.Equal(game.LayoutForLandscape(landscape)) {
 						t.Fatal("capability rewrote old geometry")
 					}
 					return true
@@ -117,14 +117,14 @@ func TestJuniperCapabilityKeepsEveryOlderLandscapeAvailable(t *testing.T) {
 	}
 }
 
-func juniperCheckpoint(t *testing.T) checkpoint {
+func commonsCheckpoint(t *testing.T) checkpoint {
 	t.Helper()
 	a := credentials{Code: "ABCDEF", PlayerID: "0123456789abcdef", Token: strings.Repeat("c", 64)}
-	w := game.NewForLandscape(a.Code, game.LandscapeJuniper)
+	w := game.NewForLandscape(a.Code, game.LandscapeBellflower)
 	if err := w.AddPlayer(a.PlayerID, "Ada"); err != nil {
 		t.Fatal(err)
 	}
-	target := game.Vec2{X: 11, Y: 4}
+	target := game.Vec2{X: 10, Y: -1.3}
 	if err := w.Apply(a.PlayerID, game.Input{Type: "move", Seq: 7, Target: &target}); err != nil {
 		t.Fatal(err)
 	}
@@ -137,69 +137,78 @@ func juniperCheckpoint(t *testing.T) checkpoint {
 	return checkpoint{Schema: 1, Herds: []savedHerd{{World: w, Secrets: map[string]string{a.PlayerID: hashToken(a.Token)}}}}
 }
 
-func TestInvalidJuniperGeometryAndRoutesPreserveOriginalCheckpoint(t *testing.T) {
+func TestInvalidCommonsGeometryAndRoutesPreserveOriginalCheckpoint(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		mutate func(*game.World)
 	}{
-		{"unknown_version", func(w *game.World) { w.Layout.Version = 6 }},
+		{"unknown_version", func(w *game.World) { w.Layout.Version = 7 }},
 		{"missing_layout", func(w *game.World) { w.Layout = nil }},
-		{"missing_shore", func(w *game.World) { w.Layout.Shore = nil }},
-		{"empty_path", func(w *game.World) { w.Layout.Shore.Path = nil }},
-		{"wrong_path", func(w *game.World) { w.Layout.Shore.Path[1].Y = -4.9 }},
+		{"missing_commons", func(w *game.World) { w.Layout.Commons = nil }},
+		{"empty_path", func(w *game.World) { w.Layout.Commons.Anchors = nil }},
+		{"wrong_path", func(w *game.World) { w.Layout.Commons.Anchors[1].Y = -4.9 }},
 		{"reordered_path", func(w *game.World) {
-			w.Layout.Shore.Path[0], w.Layout.Shore.Path[1] = w.Layout.Shore.Path[1], w.Layout.Shore.Path[0]
+			w.Layout.Commons.Anchors[0], w.Layout.Commons.Anchors[1] = w.Layout.Commons.Anchors[1], w.Layout.Commons.Anchors[0]
 		}},
-		{"wrong_width", func(w *game.World) { w.Layout.Shore.HalfWidth = 3.61 }},
-		{"missing_clearing", func(w *game.World) { w.Layout.Shore.Clearings = w.Layout.Shore.Clearings[:2] }},
-		{"wrong_clearing_center", func(w *game.World) { w.Layout.Shore.Clearings[0].Center.X = -9 }},
-		{"wrong_clearing_radius", func(w *game.World) { w.Layout.Shore.Clearings[0].Radius = 6.21 }},
-		{"wrong_lake_side", func(w *game.World) { w.Layout.Shore.LakeSide = "right" }},
+		{"wrong_width", func(w *game.World) { w.Layout.Commons.HalfWidth = 3.61 }},
+		{"missing_clearing", func(w *game.World) { w.Layout.Commons.Clearings = w.Layout.Commons.Clearings[:2] }},
+		{"wrong_clearing_center", func(w *game.World) { w.Layout.Commons.Clearings[0].Center.X = -9 }},
+		{"wrong_clearing_radius", func(w *game.World) { w.Layout.Commons.Clearings[0].Radius = 6.21 }},
+		{"wrong_corridor", func(w *game.World) { w.Layout.Commons.Corridors[3] = []int{3, 4} }},
+		{"short_corridor", func(w *game.World) { w.Layout.Commons.Corridors[0] = []int{0} }},
+		{"long_corridor", func(w *game.World) { w.Layout.Commons.Corridors[0] = []int{0, 1, 2} }},
+		{"empty_corridors", func(w *game.World) { w.Layout.Commons.Corridors = nil }},
+		{"out_of_range_corridor", func(w *game.World) { w.Layout.Commons.Corridors[0] = []int{0, 99} }},
+		{"unexpected_shore", func(w *game.World) { w.Layout.Shore = game.LayoutForLandscape(game.LandscapeJuniper).Shore }},
 		{"objective", func(w *game.World) { w.Settled = 1 }},
 		{"invented_ridge", func(w *game.World) { w.Layout.Ridge = game.LayoutForLandscape(game.LandscapeCloud).Ridge }},
 		{"invented_bridge", func(w *game.World) { w.Layout.BridgeY = 1 }},
 		{"invented_forage", func(w *game.World) { w.Layout.Forage = &game.ForageZone{ID: "windfall"} }},
 		{"invented_rock", func(w *game.World) { w.Layout.RockPass = &game.RockPass{Radius: 3.4} }},
 		{"phantom_gate", func(w *game.World) { w.GateOpen = true }},
-		{"player_in_void", func(w *game.World) { w.Players[0].Position = game.Vec2{Y: 8} }},
-		{"player_target_in_void", func(w *game.World) { w.Players[0].Target = game.Vec2{Y: 8} }},
-		{"dog_in_void", func(w *game.World) { w.Dogs[0].Position = game.Vec2{Y: 8} }},
-		{"dog_target_in_void", func(w *game.World) { w.Dogs[0].Target = game.Vec2{Y: 8} }},
-		{"sheep_in_void", func(w *game.World) { w.Sheep[0].Position = game.Vec2{Y: 8} }},
+		{"player_in_void", func(w *game.World) { w.Players[0].Position = game.Vec2{X: 7} }},
+		{"player_target_in_void", func(w *game.World) { w.Players[0].Target = game.Vec2{X: 7} }},
+		{"dog_in_void", func(w *game.World) { w.Dogs[0].Position = game.Vec2{X: 7} }},
+		{"dog_target_in_void", func(w *game.World) { w.Dogs[0].Target = game.Vec2{X: 7} }},
+		{"sheep_in_void", func(w *game.World) { w.Sheep[0].Position = game.Vec2{X: 7} }},
 		{"out_of_bounds", func(w *game.World) { w.Players[0].Position = game.Vec2{X: 18} }},
-		{"nonanchor", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: -2, Y: -4.99}} }},
+		{"nonanchor", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 4, Y: -3.99}} }},
 		{"target_in_route", func(w *game.World) { w.Players[0].Route = append(w.Players[0].Route, w.Players[0].Target) }},
 		{"overlong", func(w *game.World) { w.Players[0].Route = make([]game.Vec2, 7) }},
-		{"duplicate_anchor", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 4, Y: -6}, {X: 4, Y: -6}} }},
+		{"duplicate_anchor", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: 4, Y: -4}, {X: 4, Y: -4}} }},
 		{"first_segment_unsafe", func(w *game.World) {
-			w.Players[0].Target = game.Vec2{X: 12, Y: 4}
-			w.Players[0].Route = []game.Vec2{{X: 11, Y: 4}}
+			w.Players[0].Position = game.Vec2{X: 10, Y: -6}
+			w.Players[0].Target = game.Vec2{X: -5}
+			w.Players[0].Route = []game.Vec2{{X: 10, Y: 6}}
 		}},
 		{"middle_segment_unsafe", func(w *game.World) {
-			w.Players[0].Target = game.Vec2{X: 12, Y: 4}
-			w.Players[0].Route = []game.Vec2{{X: -11, Y: 2}, {X: 11, Y: 4}}
+			w.Players[0].Target = game.Vec2{X: -5}
+			w.Players[0].Route = []game.Vec2{{X: 10, Y: -6}, {X: 10, Y: 6}}
 		}},
-		{"last_segment_unsafe", func(w *game.World) { w.Players[0].Route = []game.Vec2{{X: -11, Y: 2}} }},
+		{"last_segment_unsafe", func(w *game.World) {
+			w.Players[0].Target = game.Vec2{X: 10, Y: -6}
+			w.Players[0].Route = []game.Vec2{{X: 10, Y: 6}}
+		}},
 		{"idle_player_route", func(w *game.World) { w.Players[0].State = "idle" }},
 		{"staying_dog_route", func(w *game.World) { w.Dogs[0].Command = "stay" }},
-		{"shore_on_old_landscape", func(w *game.World) { w.Landscape = game.LandscapeOasis }},
-		{"forage_on_shore", func(w *game.World) { w.Sheep[0].Forage = &game.SheepForage{ZoneID: "windfall", RemainingTicks: 80} }},
+		{"commons_on_old_landscape", func(w *game.World) { w.Landscape = game.LandscapeOasis }},
+		{"forage_on_commons", func(w *game.World) { w.Sheep[0].Forage = &game.SheepForage{ZoneID: "windfall", RemainingTicks: 80} }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cp := juniperCheckpoint(t)
+			cp := commonsCheckpoint(t)
 			tc.mutate(cp.Herds[0].World)
 			dir := t.TempDir()
 			before := writeCheckpointFixture(t, dir, cp)
 			if s, err := New(Config{StateDir: dir}); err == nil {
 				_ = s.Close()
-				t.Fatal("invalid Juniper checkpoint accepted")
+				t.Fatal("invalid Commons checkpoint accepted")
 			}
 			after, err := os.ReadFile(filepath.Join(dir, "herds.json"))
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !bytes.Equal(before, after) {
-				t.Fatal("invalid Juniper checkpoint overwritten")
+				t.Fatal("invalid Commons checkpoint overwritten")
 			}
 		})
 	}

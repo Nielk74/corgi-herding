@@ -17,12 +17,12 @@ func TestShoreCanonicalSpawnsBoundariesAndCloning(t *testing.T) {
 	if w.Layout.Version != 5 || w.Layout.BridgeY != 0 || w.Layout.GateY != 0 || w.Layout.Ridge != nil || w.Layout.RockPass != nil || w.Layout.Forage != nil || w.Settled != 0 {
 		t.Fatal("Juniper inherited old geometry or a finish")
 	}
-	for _, cap := range []int{0, 1, 2, 3, 4, 6, 99, -1} {
+	for _, cap := range []int{0, 1, 2, 3, 4, 7, 99, -1} {
 		if w.SupportsLayout(cap) {
 			t.Fatalf("accepted cap %d", cap)
 		}
 	}
-	if !w.SupportsLayout(5) {
+	if !w.SupportsLayout(5) || !w.SupportsLayout(6) {
 		t.Fatal("cap5 rejected")
 	}
 	for i, p := range w.Players {

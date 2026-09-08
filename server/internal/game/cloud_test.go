@@ -50,7 +50,7 @@ func TestCloudCanonicalGeometryAndAnalyticVoidRejection(t *testing.T) {
 	if err := w.ValidateNavigation(); err != nil {
 		t.Fatal(err)
 	}
-	if w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || w.SupportsLayout(6) || w.SupportsLayout(99) {
+	if w.SupportsLayout(3) || !w.SupportsLayout(4) || !w.SupportsLayout(5) || !w.SupportsLayout(6) || w.SupportsLayout(7) || w.SupportsLayout(99) {
 		t.Fatal("Cloud capability mismatch")
 	}
 	from, to := Vec2{-10, 6}, Vec2{11, 9}
