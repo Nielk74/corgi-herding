@@ -9,6 +9,8 @@ const ActorFactory = preload("res://scripts/meadow.gd")
 const ActorBatch = preload("res://scripts/actor_batch.gd")
 const Life = preload("res://scripts/valley_life.gd")
 const PineWind = preload("res://scripts/pine_needles_wind.gd")
+const Atmosphere = preload("res://scripts/landscape_atmosphere.gd")
+const Motes = preload("res://scripts/landscape_motes.gd")
 static var recipe_index := 0
 const RECIPE_PATHS := ["res://worlds/long_valley.recipe.json", "res://worlds/dry_wash.recipe.json"]
 var profile: RefCounted
@@ -25,6 +27,10 @@ var ground_originals: Dictionary = {}
 var pine_study := 0
 var pine_drivers: Dictionary = {}
 var pine_surfaces: Array[Dictionary] = []
+var atmosphere: Node
+var atmosphere_study := 0
+var motes: Node3D
+var motes_study := false
 
 func _ready() -> void:
 	var path: String = RECIPE_PATHS[recipe_index]
@@ -108,12 +114,47 @@ func _ready() -> void:
 		factory.remove_child(actor)
 		add_child(actor)
 		figures.append(actor)
+		if i < 2:
+			# Exercise the same transparent 3D labels as gameplay, in the real
+			# renderer: the opaque-screen atmosphere pass must not erase them.
+			var name_tag := Label3D.new()
+			name_tag.text = "Scale herder A" if i == 0 else "Scale herder B"
+			name_tag.font_size = 36
+			name_tag.pixel_size = 0.012
+			name_tag.position.y = 2.7
+			name_tag.modulate = Color("fff2d5")
+			name_tag.outline_modulate = Color("4f6453")
+			name_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			actor.add_child(name_tag)
 	factory.free()
+	atmosphere = Atmosphere.new()
+	add_child(atmosphere)
+	atmosphere.configure(camera, figures, data.biome == "cactus")
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var panel := VBoxContainer.new()
 	panel.position = Vector2(22, 28)
 	layer.add_child(panel)
+	var watermark := Label.new()
+	watermark.text = "Landscape study · scale figures, not gameplay"
+	watermark.position = Vector2(18, 18)
+	watermark.add_theme_font_size_override("font_size", 14)
+	watermark.add_theme_color_override("font_color", Color("203c38"))
+	watermark.hide()
+	layer.add_child(watermark)
+	var fold := Button.new()
+	fold.text = "Hide study"
+	fold.custom_minimum_size = Vector2(104, 44)
+	layer.add_child(fold)
+	var place_fold := func() -> void:
+		fold.position = get_viewport().get_visible_rect().size - Vector2(122, 62)
+	get_viewport().size_changed.connect(place_fold)
+	place_fold.call()
+	fold.pressed.connect(func() -> void:
+		panel.visible = not panel.visible
+		watermark.visible = not panel.visible
+		fold.text = "Study" if not panel.visible else "Hide study"
+	)
 	caption = Label.new()
 	caption.add_theme_color_override("font_color", Color("203c38"))
 	caption.add_theme_font_size_override("font_size", 18)
@@ -128,6 +169,25 @@ func _ready() -> void:
 	biome.custom_minimum_size = Vector2(210, 56)
 	biome.pressed.connect(func() -> void: recipe_index = (recipe_index + 1) % RECIPE_PATHS.size(); get_tree().reload_current_scene())
 	panel.add_child(biome)
+	var air := Button.new()
+	air.text = "Atmosphere study · original"
+	air.custom_minimum_size = Vector2(210, 56)
+	air.pressed.connect(func() -> void:
+		atmosphere_study = (atmosphere_study + 1) % 4
+		air.text = ["Atmosphere study · original", "Atmosphere study · clouds", "Atmosphere study · clouds + soft distance", "Atmosphere study · passthrough"][atmosphere_study]
+		# Zero-effect screen pass is a same-view color/geometry negative control.
+		atmosphere.set_effects(atmosphere_study in [1, 2], atmosphere_study == 2, atmosphere_study == 3)
+	)
+	panel.add_child(air)
+	var seeds := Button.new()
+	seeds.text = "Seed / dust study · off"
+	seeds.custom_minimum_size = Vector2(210, 56)
+	seeds.pressed.connect(func() -> void:
+		motes_study = not motes_study
+		seeds.text = "Seed / dust study · occasional" if motes_study else "Seed / dust study · off"
+		if is_instance_valid(motes): motes.set_enabled(motes_study)
+	)
+	panel.add_child(seeds)
 	if data.biome == "alpine":
 		var study := Button.new()
 		study.text = "Grass study · original"
@@ -171,6 +231,13 @@ func _exit_tree() -> void:
 
 func _show_view() -> void:
 	var anchor: Vector3 = profile.route[current_view]
+	if is_instance_valid(motes):
+		motes.set_active(false)
+		motes.queue_free()
+	motes = Motes.new()
+	add_child(motes)
+	if motes.configure(profile, Vector2(anchor.x, anchor.z - 5.0), profile.data.biome, int(profile.data.seed) + current_view):
+		motes.set_enabled(motes_study)
 	var focus := Vector3(anchor.x, profile.surface_height(anchor.x, anchor.z) + 1.8, anchor.z - 6.0)
 	camera.position = focus + Vector3(6, 14, 50)
 	camera.look_at(focus)
