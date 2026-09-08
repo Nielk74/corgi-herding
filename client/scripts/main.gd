@@ -7,6 +7,7 @@ const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const Soundscape = preload("res://scripts/soundscape.gd")
 const ShoreNavigation = preload("res://scripts/shore_navigation.gd")
 const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
+const DogDrag = preload("res://scripts/dog_drag_gesture.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
@@ -16,6 +17,7 @@ const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larc
 var meadow: MeadowDiorama
 var network: HerdConnection
 var soundscape: HerdSoundscape
+var dog_drag: DogDrag
 var sound_button: Button
 var actors: Dictionary = {}
 var latest: Dictionary = {}
@@ -84,6 +86,9 @@ func _ready() -> void:
 	soundscape = Soundscape.new()
 	add_child(soundscape)
 	_build_ui()
+	dog_drag = DogDrag.new()
+	add_child(dog_drag)
+	dog_drag.configure(self)
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--preview":
 			preview_mode = true
@@ -340,7 +345,9 @@ func _build_hud() -> void:
 	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint_label)
 
-func _close_controls() -> void:
+func _close_controls(cancel_dog_drag := true) -> void:
+	if cancel_dog_drag and dog_drag != null:
+		dog_drag.cancel()
 	command_panel.hide()
 	sit_button.hide()
 	go_cancel.hide()
@@ -390,6 +397,8 @@ func _matches_layout(value: Variant, expected: Variant) -> bool:
 func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
 	if not LANDSCAPES.has(landscape):
 		return
+	if dog_drag != null:
+		dog_drag.cancel()
 	selected_landscape = landscape
 	movement_route.clear()
 	route_target = Vector2.INF
@@ -475,6 +484,8 @@ func _on_status(text: String, is_connected: bool) -> void:
 	status_label.visible = not is_connected
 	status_label.add_theme_color_override("font_color", Color("4a7459") if is_connected else Color("926e4e"))
 	if not is_connected:
+		if dog_drag != null:
+			dog_drag.cancel()
 		moving = false
 		# A tap may have been predicted but never received by the server. Rebase
 		# once after reconnect instead of waiting forever for that lost sequence.
@@ -489,6 +500,8 @@ func _on_error(message: String) -> void:
 		_open_settings()
 
 func _open_settings() -> void:
+	if dog_drag != null:
+		dog_drag.cancel()
 	soundscape.set_gameplay_visible(false)
 	network.disconnect_herd()
 	welcome.show()
@@ -556,9 +569,15 @@ func _hint(text: String, duration := 4.0) -> void:
 		hint_label.text = text
 		hint_time = duration
 
+func _input(event: InputEvent) -> void:
+	# Only an already-armed dog pointer is captured before GUI dispatch. A
+	# release over a Button cancels the drag instead of activating that Button.
+	if dog_drag != null and dog_drag.capture(event):
+		get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		if go_pending or command_panel.visible or sit_button.visible:
+		if dog_drag.armed or go_pending or command_panel.visible or sit_button.visible:
 			_close_controls()
 			_hint("", 0.0)
 		elif hud.visible:
@@ -569,12 +588,27 @@ func _unhandled_input(event: InputEvent) -> void:
 		meadow.fit_camera()
 	if not hud.visible or (not network.connected and not preview_mode):
 		return
+	# Native touch and its synthetic mouse event describe one action, not two.
+	# GUI still receives emulated mouse events; only world input ignores them.
+	if event.device == DogDrag.EMULATED_DEVICE:
+		return
+	if event is InputEventScreenTouch and event.pressed and not event.canceled:
+		_world_pointer_press(event.position, "touch", event.index)
+		get_viewport().set_input_as_handled()
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			meadow.zoom = clampf(meadow.zoom + (-0.05 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 0.05), 0.8, 1.18)
 			meadow.fit_camera()
 		elif event.button_index == MOUSE_BUTTON_LEFT:
-			_world_tap(event.position)
+			_world_pointer_press(event.position, "mouse", 0)
+
+func _world_pointer_press(position: Vector2, source: String, index: int) -> void:
+	if dog_drag == null or not dog_drag.can_interact() or dog_drag.over_ui(position):
+		return
+	var interaction := _pick_world_interaction(position) if not go_pending else ""
+	_world_tap(position)
+	if interaction.begins_with("dog:"):
+		dog_drag.arm(interaction.trim_prefix("dog:"), position, source, index)
 
 func _pick_world_interaction(screen_pos: Vector2) -> String:
 	var candidates: Array[Dictionary] = []
