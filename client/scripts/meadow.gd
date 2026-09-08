@@ -13,6 +13,7 @@ const ShoreScenery = preload("res://scripts/juniper_scenery.gd")
 const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
 const CommonsScenery = preload("res://scripts/bellflower_scenery.gd")
 const RegionNavigationScript = preload("res://scripts/region_navigation.gd")
+const RegionCatalog = preload("res://scripts/region_catalog.gd")
 const RegionPresentation = preload("res://scripts/region_presentation.gd")
 const RegionRecipe = preload("res://scripts/landscape_recipe.gd")
 const RegionSceneBuilder = preload("res://scripts/landscape_scene_builder.gd")
@@ -82,10 +83,10 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	if id == "alpine_valley":
-		_set_region_landscape(incoming_layout)
+	if RegionCatalog.contains(id):
+		_set_region_landscape(id, incoming_layout)
 		return
-	if landscape == "alpine_valley":
+	if RegionCatalog.contains(landscape):
 		_leave_region_landscape()
 	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud", "juniper", "bellflower"] else "alpine"
 	var expected_version := 6 if next == "bellflower" else (5 if next == "juniper" else (4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1))))
@@ -175,51 +176,39 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 			elif landscape == "juniper":
 				actor.position.x = -10.7 + i % 3 if i < 10 else -12.2
 				actor.position.z = -0.4 + floorf(i / 3.0) * 1.05 if i < 10 else (-1.0 if i == 10 else 2.0)
-			elif previous_landscape in ["juniper", "bellflower", "alpine_valley"]:
+			elif previous_landscape in ["juniper", "bellflower", "alpine_valley", "dry_wash"]:
 				# Return the decorative welcome flock to its original arrangement
 				# when leaving the new shore; live actors are never repositioned here.
 				actor.position.x = -6.5 + sin(i * 2.3) * 2.9 if i < 10 else -10.0 + (i - 10) * 3.0
 				actor.position.z = -1.6 + cos(i * 1.6) * 2.7 if i < 10 else 3.3
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
 
-func _same_region(a: Dictionary, b: Dictionary) -> bool:
-	# Compare numeric fields, not int-vs-float dictionary storage or JSON ordering.
-	if a.recipe_id != b.recipe_id or a.anchors.size() != b.anchors.size() or a.corridors.size() != b.corridors.size() or a.clearings.size() != b.clearings.size():
-		return false
-	for side in ["min", "max"]:
-		if float(a.bounds[side].x) != float(b.bounds[side].x) or float(a.bounds[side].y) != float(b.bounds[side].y):
-			return false
-	for i in a.anchors.size():
-		if float(a.anchors[i].x) != float(b.anchors[i].x) or float(a.anchors[i].y) != float(b.anchors[i].y):
-			return false
-	for i in a.corridors.size():
-		for key in ["a", "b", "half_width"]:
-			if float(a.corridors[i][key]) != float(b.corridors[i][key]):
-				return false
-	for i in a.clearings.size():
-		if float(a.clearings[i].center.x) != float(b.clearings[i].center.x) or float(a.clearings[i].center.y) != float(b.clearings[i].center.y) or float(a.clearings[i].radius) != float(b.clearings[i].radius):
-			return false
-	return true
-
-func _set_region_landscape(incoming: Dictionary) -> void:
-	var canonical := RegionNavigationScript.default_region()
-	var wire: Variant = incoming.get("region", canonical)
-	if not RegionNavigationScript.validate_geometry(wire).is_empty() or not _same_region(wire, canonical):
+func _set_region_landscape(id: String, incoming: Dictionary) -> void:
+	var expected := RegionCatalog.layout(id)
+	if expected.is_empty() or (not incoming.is_empty() and not RegionCatalog.matches(incoming, expected)):
 		return
-	if incoming.get("version", 7) != 7 or incoming.get("bridge_y", 0.0) != 0 or incoming.get("gate_y", 0.0) != 0:
+	var canonical: Dictionary = expected.region
+	var info := RegionCatalog.entry(id)
+	if landscape == id and is_instance_valid(terrain):
 		return
-	if landscape == "alpine_valley" and is_instance_valid(terrain):
-		return
-	var recipe: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/long_valley.recipe.json"))
+	var recipe: Variant = JSON.parse_string(FileAccess.get_file_as_string(info.recipe_path))
 	if not RegionRecipe.validate(recipe).is_empty():
 		return
+	if recipe.get("region_file") != info.region_path or recipe.get("id") != info.recipe_id or recipe.get("biome") != info.biome:
+		return
+	var next_profile := RegionRecipe.new(recipe)
+	var next_terrain: Node3D = RegionSceneBuilder.load_or_build(next_profile)
+	if not is_instance_valid(next_terrain):
+		return
+	if RegionCatalog.contains(landscape):
+		_leave_region_landscape()
 	_save_legacy_presentation()
-	landscape = "alpine_valley"
-	layout = {"version": 7, "bridge_y": 0.0, "gate_y": 0.0, "region": canonical.duplicate(true)}
+	landscape = id
+	layout = expected
 	bridge_y = 0
 	gate_y = 0
 	gate_open = false
-	region_profile = RegionRecipe.new(recipe)
+	region_profile = next_profile
 	region_navigation = RegionNavigationScript.new(canonical)
 	if is_instance_valid(terrain):
 		terrain.hide()
@@ -227,30 +216,33 @@ func _set_region_landscape(incoming: Dictionary) -> void:
 	gate = null
 	bridge = null
 	water = null
-	terrain = RegionSceneBuilder.load_or_build(region_profile)
-	terrain.name = "Landscape_alpine_valley"
+	terrain = next_terrain
+	terrain.name = "Landscape_" + id
 	add_child(terrain)
-	valley_pines = ValleyPineBinding.new()
-	add_child(valley_pines)
-	if not valley_pines.configure(terrain):
-		valley_pines.queue_free()
-		valley_pines = null
+	# Alpine-only bindings stay scoped to their reviewed wind/lifecycle contract.
+	if id == "alpine_valley":
+		valley_pines = ValleyPineBinding.new()
+		add_child(valley_pines)
+		if not valley_pines.configure(terrain):
+			valley_pines.queue_free()
+			valley_pines = null
 	region_presentation = RegionPresentation.new(terrain, region_profile, region_navigation)
-	valley_life = ValleyLife.new()
-	add_child(valley_life)
-	var minimum := Vector2(canonical.bounds.min.x, canonical.bounds.min.y)
-	var maximum := Vector2(canonical.bounds.max.x, canonical.bounds.max.y)
-	valley_life.configure(region_presentation, Rect2(minimum, maximum - minimum))
+	if id == "alpine_valley":
+		valley_life = ValleyLife.new()
+		add_child(valley_life)
+		var minimum := Vector2(canonical.bounds.min.x, canonical.bounds.min.y)
+		var maximum := Vector2(canonical.bounds.max.x, canonical.bounds.max.y)
+		valley_life.configure(region_presentation, Rect2(minimum, maximum - minimum))
 	# Welcome framing is provisional. The first live idle herder still receives
 	# its own one-time placement, including on reconnect into a fresh scene.
-	region_presentation.follow(Vector3(-48, surface_height(-48, 74), 74), false)
+	region_presentation.follow(Vector3(info.herder.x, surface_height(info.herder.x, info.herder.y), info.herder.y), false)
 	region_presentation.reset()
 	_apply_region_environment()
 	if is_instance_valid(preview):
 		for i in preview.get_child_count():
 			var actor := preview.get_child(i) as Node3D
-			actor.position.x = -44.7 + i % 3 if i < 10 else (-47 if i == 10 else -44)
-			actor.position.z = 62.4 + floorf(i / 3.0) * 1.05 if i < 10 else 71.8
+			actor.position.x = info.sheep.x + i % 3 if i < 10 else info.dogs[0 if i == 10 else 1].x
+			actor.position.z = info.sheep.y + floorf(i / 3.0) * 1.05 if i < 10 else info.dogs[0 if i == 10 else 1].y
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
 	if is_instance_valid(camera):
 		region_presentation.apply_camera(camera, zoom)
@@ -394,7 +386,7 @@ func _build_camera() -> void:
 	get_viewport().size_changed.connect(fit_camera)
 
 func fit_camera() -> void:
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		region_presentation.apply_camera(camera, zoom)
 		return
 	var size := get_viewport().get_visible_rect().size
@@ -403,7 +395,7 @@ func fit_camera() -> void:
 	camera.size = maxf(32.0, 25.5 / aspect) * zoom
 
 func reset_player_follow() -> void:
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		region_presentation.reset()
 		return
 	# A new herd gets one initial framing, not motion inherited from its predecessor.
@@ -411,14 +403,14 @@ func reset_player_follow() -> void:
 	stop_player_follow()
 
 func stop_player_follow() -> void:
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		region_presentation.stop()
 		return
 	following_walk = false
 	desired_focus = camera_focus
 
 func follow_player(pos: Vector3, walking: bool = true) -> void:
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		region_presentation.follow(pos, walking)
 		return
 	if not pos.is_finite():
@@ -970,7 +962,7 @@ func _terrain_height(x: float, z: float) -> float:
 	return profile.sample(x, z)
 
 func surface_height(x: float, z: float) -> float:
-	if landscape == "alpine_valley" and region_profile != null:
+	if RegionCatalog.contains(landscape) and region_profile != null:
 		if region_presentation != null:
 			return region_presentation.surface_height(x, z)
 		# Explicit construction-only fallback before the prepared mesh is indexed.
@@ -978,7 +970,7 @@ func surface_height(x: float, z: float) -> float:
 	return profile.surface_height(x, z)
 
 func surface_normal(x: float, z: float) -> Vector3:
-	if landscape == "alpine_valley" and region_profile != null:
+	if RegionCatalog.contains(landscape) and region_profile != null:
 		if region_presentation != null:
 			return region_presentation.surface_normal(x, z)
 		return region_profile.normal(x, z)
@@ -1687,7 +1679,7 @@ func make_actor(kind: String, identity: String, second_herder := false) -> Node3
 		"dog": _dog(body, identity == "maple")
 		"sheep": _sheep(body, identity)
 		"player": _herder(body, second_herder)
-	if landscape == "alpine_valley":
+	if RegionCatalog.contains(landscape):
 		ActorBatch.optimize(actor)
 	return actor
 
@@ -1769,7 +1761,7 @@ func mark_destination(pos: Vector3) -> void:
 	marker_age = 0.0
 
 func ground_at(screen_pos: Vector2) -> Vector3:
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		return region_presentation.ground_at(camera, screen_pos)
 	var origin := camera.project_ray_origin(screen_pos)
 	var direction := camera.project_ray_normal(screen_pos)
@@ -1810,7 +1802,7 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	if landscape == "alpine_valley" and region_presentation != null:
+	if RegionCatalog.contains(landscape) and region_presentation != null:
 		region_presentation.advance(delta)
 		region_presentation.apply_camera(camera, zoom)
 		camera_focus = region_presentation.camera_focus

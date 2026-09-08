@@ -10,11 +10,12 @@ const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
 const DogDrag = preload("res://scripts/dog_drag_gesture.gd")
 const PracticeGuide = preload("res://scripts/practice_guide.gd")
 const RegionNavigation = preload("res://scripts/region_navigation.gd")
+const RegionCatalog = preload("res://scripts/region_catalog.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
 const ACCENT := Color("466e59")
-const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis", "cloud": "Cloud Pasture", "juniper": "Juniper Shore", "bellflower": "Bellflower Commons", "alpine_valley": "Long Alpine valley"}
+const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis", "cloud": "Cloud Pasture", "juniper": "Juniper Shore", "bellflower": "Bellflower Commons", "alpine_valley": "Long Alpine valley", "dry_wash": "Wide cactus wash"}
 
 var meadow: MeadowDiorama
 var network: HerdConnection
@@ -77,9 +78,10 @@ var cloud_button: Button
 var juniper_button: Button
 var bellflower_button: Button
 var long_valley_button: Button
+var dry_wash_button: Button
 var region_navigation: RefCounted
 var region_display_plans := 0
-var _canonical_region: Dictionary = {}
+var _region_navigations: Dictionary = {}
 var region_label: Label
 var world_layout := {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 
@@ -250,7 +252,8 @@ func _build_welcome() -> void:
 	juniper_button = _button("Juniper Shore", func() -> void: _select_landscape("juniper"))
 	bellflower_button = _button("Practice meadow", func() -> void: _select_landscape("bellflower"))
 	long_valley_button = _button("Long Alpine valley", func() -> void: _select_landscape("alpine_valley"))
-	for button in [bellflower_button, long_valley_button, alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button]:
+	dry_wash_button = _button("Wide cactus wash", func() -> void: _select_landscape("dry_wash"))
+	for button in [bellflower_button, long_valley_button, alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button, dry_wash_button]:
 		button.custom_minimum_size.y = 64
 		button.add_theme_font_size_override("font_size", 18)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -391,10 +394,8 @@ func _configure() -> bool:
 	return network.configure(endpoint_input.text, name_input.text)
 
 func _default_layout(landscape: String) -> Dictionary:
-	if landscape == "alpine_valley":
-		if _canonical_region.is_empty():
-			_canonical_region = RegionNavigation.default_region()
-		return {"version": 7, "bridge_y": 0.0, "gate_y": 0.0, "region": _canonical_region.duplicate(true)}
+	if RegionCatalog.contains(landscape):
+		return RegionCatalog.layout(landscape)
 	if landscape == "bellflower":
 		return CommonsNavigation.layout()
 	if landscape == "juniper":
@@ -408,7 +409,8 @@ func _default_layout(landscape: String) -> Dictionary:
 	return {"version": 1, "bridge_y": -4.0 if landscape == "larch" else 0.0, "gate_y": 4.0 if landscape == "larch" else 0.0}
 
 func _supported_layout(landscape: String, layout: Dictionary) -> bool:
-	return LANDSCAPES.has(landscape) and _matches_layout(layout, _default_layout(landscape))
+	var expected := _default_layout(landscape)
+	return LANDSCAPES.has(landscape) and not expected.is_empty() and _matches_layout(layout, expected)
 
 func _matches_layout(value: Variant, expected: Variant) -> bool:
 	# JSON numbers decode as floats; nested terrain/forage geometry must still
@@ -435,29 +437,31 @@ func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
 	if not LANDSCAPES.has(landscape):
 		return
 	var next_layout := _default_layout(landscape) if layout.is_empty() else layout.duplicate(true)
+	if not _supported_layout(landscape, next_layout):
+		return
 	# A missing/invalid prepared region must not leave a new logical landscape
 	# paired with the previous rendered meadow. No old geometry is guessed.
 	meadow.set_landscape(landscape, next_layout)
 	if meadow.landscape != landscape:
 		return
-	if landscape == "alpine_valley":
-		_ensure_region_navigation()
+	if RegionCatalog.contains(landscape):
+		region_navigation = _region_navigation_for(landscape)
 	if dog_drag != null:
 		dog_drag.cancel()
 	selected_landscape = landscape
 	movement_route.clear()
 	route_target = Vector2.INF
 	world_layout = next_layout
-	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button, bellflower_button, long_valley_button]:
+	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button, bellflower_button, long_valley_button, dry_wash_button]:
 		button.remove_theme_stylebox_override("normal")
 		button.remove_theme_stylebox_override("hover")
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_hover_color")
-	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button, "cloud": cloud_button, "juniper": juniper_button, "bellflower": bellflower_button, "alpine_valley": long_valley_button}[landscape])
+	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button, "cloud": cloud_button, "juniper": juniper_button, "bellflower": bellflower_button, "alpine_valley": long_valley_button, "dry_wash": dry_wash_button}[landscape])
 	if region_label != null:
 		region_label.text = LANDSCAPES[landscape]
 	if create_button != null:
-		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis", "cloud": "Wander above the valley", "juniper": "Wander beside the lake", "bellflower": "Linger in the meadow", "alpine_valley": "Explore the long valley"}[landscape]
+		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis", "cloud": "Wander above the valley", "juniper": "Wander beside the lake", "bellflower": "Linger in the meadow", "alpine_valley": "Explore the long valley", "dry_wash": "Explore the wide wash"}[landscape]
 
 func _create() -> void:
 	if not request_busy and _configure():
@@ -490,6 +494,7 @@ func _set_busy(value: bool) -> void:
 	juniper_button.disabled = value
 	bellflower_button.disabled = value
 	long_valley_button.disabled = value
+	dry_wash_button.disabled = value
 	if value:
 		menu_error.text = "Opening a little world…"
 
@@ -730,7 +735,10 @@ func _world_tap(screen_pos: Vector2) -> void:
 				return
 	var ground := meadow.ground_at(screen_pos)
 	if not ground.is_finite():
-		_hint("The shore curves around the water. Keep to the beach and grass." if selected_landscape == "juniper" else "The steep slopes shelter this valley. Keep to the open ground.", 3.0)
+		var message := "The shore curves around the water. Keep to the beach and grass." if selected_landscape == "juniper" else "The steep slopes shelter this valley. Keep to the open ground."
+		if selected_landscape == "dry_wash":
+			message = "Keep to the open wash and shallow terraces."
+		_hint(message, 3.0)
 		return
 	# Water is readable as a real obstacle; tap the bridge or other bank to cross.
 	if not _has_route_navigation() and absf(ground.x) < 1.5 and absf(ground.z - float(world_layout.bridge_y)) > 1.85:
@@ -747,6 +755,8 @@ func _world_tap(screen_pos: Vector2) -> void:
 			message = "The beach is the gentle way around the lake."
 		elif selected_landscape == "bellflower":
 			message = "Both grassy branches lead to open meadow."
+		elif selected_landscape == "dry_wash":
+			message = "Keep to the open wash and shallow terraces."
 		_hint(message, 3.0)
 		return
 	meadow.mark_destination(ground)
@@ -781,9 +791,9 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 		network.require_update("Update Corgi Herding to follow this valley's route.")
 		return
 	var region_actors: Dictionary = {}
-	if landscape == "alpine_valley":
-		_ensure_region_navigation()
-		region_actors = _validate_region_snapshot(snapshot)
+	if RegionCatalog.contains(landscape):
+		# Candidate validation must not swap the accepted world's active cache.
+		region_actors = _validate_region_snapshot(snapshot, _region_navigation_for(landscape))
 		if region_actors.is_empty():
 			network.require_update("This valley sent an unsupported animal route. Your invitation is kept.")
 			return
@@ -792,10 +802,10 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	var restore_movement := first_snapshot or awaiting_authoritative_snapshot
 	if landscape != selected_landscape or layout != world_layout:
 		_select_landscape(landscape, layout)
-	if landscape == "alpine_valley" and (meadow.landscape != landscape or meadow.region_presentation == null):
+	if RegionCatalog.contains(landscape) and (meadow.landscape != landscape or meadow.region_presentation == null):
 		network.require_update("This valley's scenery could not be loaded. Your invitation is kept.")
 		return
-	if landscape == "alpine_valley":
+	if RegionCatalog.contains(landscape):
 		for data: Dictionary in region_actors.values():
 			for point: Vector2 in [data.position, data.get("target", data.position)]:
 				if not is_finite(meadow.surface_height(point.x, point.y)):
@@ -811,7 +821,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 			var id := str(data.id)
 			present[id] = true
 			var point := Vector2(float(data.position.x), float(data.position.y))
-			if landscape == "alpine_valley":
+			if RegionCatalog.contains(landscape):
 				point = region_actors[id].position
 			elif _has_route_navigation():
 				point = _presentation_point(point)
@@ -855,7 +865,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 						awaiting_authoritative_snapshot = false
 					if server_seq >= movement_seq:
 						if _has_route_navigation():
-							if landscape == "alpine_valley":
+							if RegionCatalog.contains(landscape):
 								var accepted_target: Vector2 = region_actors[id].target
 								if server_seq > movement_seq or movement_target != accepted_target:
 									movement_seq = server_seq
@@ -884,7 +894,7 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	var settled := int(snapshot.get("settled", 0))
 	if first_snapshot and settled == 10:
 		arrival_noticed = true
-	if selected_landscape in ["cloud", "juniper", "bellflower", "alpine_valley"]:
+	if selected_landscape in ["cloud", "juniper", "bellflower", "alpine_valley", "dry_wash"]:
 		# All three shelves are places to linger; reaching the highest one is
 		# neither a completion event nor more important than resting halfway.
 		moment_label.text = ""
@@ -958,7 +968,7 @@ func _process(delta: float) -> void:
 				moving = false
 		elif id != local_id:
 			var next_position: Vector3 = node.position.lerp(actor.target, 1.0 - exp(-delta * 12.0))
-			if selected_landscape == "alpine_valley":
+			if RegionCatalog.contains(selected_landscape):
 				next_position = _region_display_step(actor, node.position, next_position)
 			elif _has_route_navigation():
 				var point := Vector2(node.position.x, node.position.z)
@@ -1061,7 +1071,7 @@ func _gate_waypoint(point: Vector2) -> Vector2:
 	return Vector2(6 + side * 0.6, gate_y) if not meadow.gate_open or absf(point.y - gate_y) > 1.4 else Vector2(6 - side * 0.6, gate_y)
 
 func _walkable(point: Vector2) -> bool:
-	if selected_landscape == "alpine_valley":
+	if RegionCatalog.contains(selected_landscape):
 		return region_navigation != null and region_navigation.contains(point)
 	if absf(point.x) > 17 or absf(point.y) > 11:
 		return false
@@ -1080,10 +1090,10 @@ func _walkable(point: Vector2) -> bool:
 	return true
 
 func _has_route_navigation() -> bool:
-	return selected_landscape in ["oasis", "cloud", "juniper", "bellflower", "alpine_valley"]
+	return selected_landscape in ["oasis", "cloud", "juniper", "bellflower", "alpine_valley", "dry_wash"]
 
 func _presentation_point(point: Vector2) -> Vector2:
-	if selected_landscape == "alpine_valley":
+	if RegionCatalog.contains(selected_landscape):
 		return region_navigation.presentation_point(point)
 	if selected_landscape == "bellflower":
 		return CommonsNavigation.presentation_point(point)
@@ -1092,7 +1102,7 @@ func _presentation_point(point: Vector2) -> Vector2:
 	return CloudNavigation.presentation_point(point) if selected_landscape == "cloud" else RockNavigation.presentation_point(point)
 
 func _route_visible(from: Vector2, to: Vector2) -> bool:
-	if selected_landscape == "alpine_valley":
+	if RegionCatalog.contains(selected_landscape):
 		return region_navigation.visible(from, to)
 	if selected_landscape == "bellflower":
 		return CommonsNavigation.visible(from, to)
@@ -1101,7 +1111,7 @@ func _route_visible(from: Vector2, to: Vector2) -> bool:
 	return CloudNavigation.visible(from, to) if selected_landscape == "cloud" else RockNavigation.visible(from, to)
 
 func _plan_route(from: Vector2, to: Vector2) -> Array[Vector2]:
-	if selected_landscape == "alpine_valley":
+	if RegionCatalog.contains(selected_landscape):
 		return region_navigation.plan(from, to)
 	if selected_landscape == "bellflower":
 		return CommonsNavigation.plan(from, to)
@@ -1110,7 +1120,7 @@ func _plan_route(from: Vector2, to: Vector2) -> Array[Vector2]:
 	return CloudNavigation.plan(from, to) if selected_landscape == "cloud" else RockNavigation.plan(from, to)
 
 func _route_waypoint(from: Vector2, to: Vector2, route: Array[Vector2]) -> Vector2:
-	if selected_landscape == "alpine_valley":
+	if RegionCatalog.contains(selected_landscape):
 		return region_navigation.next_waypoint(from, to, route)
 	if selected_landscape == "bellflower":
 		return CommonsNavigation.next_waypoint(from, to, route)
@@ -1119,8 +1129,8 @@ func _route_waypoint(from: Vector2, to: Vector2, route: Array[Vector2]) -> Vecto
 	return CloudNavigation.next_waypoint(from, to, route) if selected_landscape == "cloud" else RockNavigation.next_waypoint(from, to, route)
 
 func _decode_route(data: Variant) -> Array[Vector2]:
-	if selected_landscape == "alpine_valley":
-		# Convenience only; actual v7 wire snapshots use validated_route before
+	if RegionCatalog.contains(selected_landscape):
+		# Convenience only; actual region wire snapshots use validated_route before
 		# touching latest/actors so invalid [] cannot masquerade as a direct leg.
 		return region_navigation.decode_route(data)
 	if selected_landscape == "bellflower":
@@ -1133,21 +1143,31 @@ func _acknowledge(id: String) -> void:
 	if actors.has(id):
 		actors[id].ack = 1.5
 
-func _ensure_region_navigation() -> void:
-	if region_navigation == null:
-		region_navigation = RegionNavigation.new(_default_layout("alpine_valley").region)
+func _region_navigation_for(landscape: String) -> RefCounted:
+	if not _region_navigations.has(landscape):
+		var canonical := RegionCatalog.canonical(landscape)
+		if canonical.is_empty():
+			return null
+		_region_navigations[landscape] = RegionNavigation.new(canonical)
+	return _region_navigations[landscape]
 
-func _region_point(value: Variant) -> Vector2:
+func _region_point(value: Variant, navigation: RefCounted = null) -> Vector2:
+	if navigation == null:
+		navigation = region_navigation
+	if navigation == null:
+		return Vector2.INF
 	if not value is Dictionary or value.size() != 2 or not value.has_all(["x", "y"]):
 		return Vector2.INF
 	for coordinate: Variant in [value.x, value.y]:
 		if typeof(coordinate) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(coordinate)):
 			return Vector2.INF
-	var point: Vector2 = region_navigation.presentation_point(Vector2(value.x, value.y))
-	return point if region_navigation.contains(point) else Vector2.INF
+	var point: Vector2 = navigation.presentation_point(Vector2(value.x, value.y))
+	return point if navigation.contains(point) else Vector2.INF
 
-func _validate_region_snapshot(snapshot: Dictionary) -> Dictionary:
-	if not region_navigation.valid or snapshot.get("type") != "snapshot" or snapshot.get("code") != str(network.credentials.get("code", "")):
+func _validate_region_snapshot(snapshot: Dictionary, navigation: RefCounted = null) -> Dictionary:
+	if navigation == null:
+		navigation = region_navigation
+	if navigation == null or not navigation.valid or snapshot.get("type") != "snapshot" or snapshot.get("code") != str(network.credentials.get("code", "")):
 		return {}
 	var tick: Variant = snapshot.get("tick")
 	if not _region_integer(tick):
@@ -1160,15 +1180,15 @@ func _validate_region_snapshot(snapshot: Dictionary) -> Dictionary:
 		for value: Variant in entries:
 			if not value is Dictionary or not value.get("id") is String or value.id.is_empty() or value.id.length() > 64 or result.has(value.id) or not value.get("state") is String:
 				return {}
-			var point := _region_point(value.get("position"))
+			var point := _region_point(value.get("position"), navigation)
 			if not point.is_finite():
 				return {}
 			var data := {"position": point}
 			if category != "sheep":
-				var target := _region_point(value.get("target"))
+				var target := _region_point(value.get("target"), navigation)
 				if not target.is_finite():
 					return {}
-				var decoded: Dictionary = region_navigation.validated_route(value.get("route", []), point, target)
+				var decoded: Dictionary = navigation.validated_route(value.get("route", []), point, target)
 				if not decoded.ok:
 					return {}
 				data.target = target
@@ -1242,19 +1262,20 @@ func _show_preview() -> void:
 		preview_snapshot.players[1].position = {"x": -10.0, "y": 2.0}
 		preview_snapshot.dogs[0].position = {"x": -8.2, "y": -2.0}
 		preview_snapshot.dogs[1].position = {"x": -8.2, "y": 1.0}
-	elif selected_landscape == "alpine_valley":
+	elif RegionCatalog.contains(selected_landscape):
+		var spawn := RegionCatalog.entry(selected_landscape)
 		preview_snapshot.type = "snapshot"
 		preview_snapshot.code = "MEADOW"
 		preview_snapshot.tick = 0
-		preview_snapshot.players[0].position = {"x": -48.0, "y": 74.0}
-		preview_snapshot.players[1].position = {"x": -45.0, "y": 74.0}
-		preview_snapshot.dogs[0].position = {"x": -47.0, "y": 71.8}
-		preview_snapshot.dogs[1].position = {"x": -44.0, "y": 71.8}
+		preview_snapshot.players[0].position = {"x": spawn.herder.x, "y": spawn.herder.y}
+		preview_snapshot.players[1].position = {"x": spawn.herder.x + 3.0, "y": spawn.herder.y}
+		preview_snapshot.dogs[0].position = {"x": spawn.dogs[0].x, "y": spawn.dogs[0].y}
+		preview_snapshot.dogs[1].position = {"x": spawn.dogs[1].x, "y": spawn.dogs[1].y}
 		for entry: Dictionary in preview_snapshot.players + preview_snapshot.dogs:
 			entry.target = entry.position.duplicate()
 			entry.seq = 0
 		for i in sheep.size():
-			sheep[i].position = {"x": -44.7 + i % 3, "y": 62.4 + floorf(i / 3.0) * 1.05}
+			sheep[i].position = {"x": spawn.sheep.x + i % 3, "y": spawn.sheep.y + floorf(i / 3.0) * 1.05}
 	_on_snapshot(preview_snapshot)
 	status_label.text = "Preview · not connected"
 

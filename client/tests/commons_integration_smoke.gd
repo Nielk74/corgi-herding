@@ -175,12 +175,12 @@ func _invalid_layouts() -> void:
 func _capabilities() -> void:
 	_start(_snapshot(Vector2(-5, 0), Vector2(-5, 0)))
 	var cases: Array = [[{}, 0], [{"layout_versions": [6, 5, 4]}, 6], [{"layout_versions": [99, 6, 1]}, 6], [{"layout_version": 1, "layout_versions": [1, 2, 3, 4, 5, 6]}, 6]]
-	for version in range(8):
+	for version in range(9):
 		cases.append([{"layout_version": version}, version])
 		cases.append([{"layout_versions": range(1, version + 1)}, version] if version > 0 else [{"layout_versions": [0]}, 0])
 	for bad in [[], [99], [true, 6], ["6"], [-1, 6], [1.5, 6], "1,6", null]:
 		cases.append([{"layout_versions": bad}, -1])
-	for bad in ["6", true, 6.1, 8, -1, null]:
+	for bad in ["6", true, 6.1, 9, -1, null]:
 		cases.append([{"layout_version": bad}, -1])
 	for pair in cases:
 		_check(recorder._layout_capability(pair[0]) == pair[1], "highest common capability without coercion: " + JSON.stringify(pair[0]))
@@ -323,13 +323,13 @@ func _menu() -> void:
 		game.endpoint_input.show()
 		game.menu_error.text = ""
 		await _frames()
-		var buttons: Array = [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button, game.bellflower_button, game.long_valley_button]
+		var buttons: Array = [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button, game.bellflower_button, game.long_valley_button, game.dry_wash_button]
 		var server := _button_named(game.welcome, "Server address")
 		_check(game.resume_button.visible and server != null, "saved Return and expanded server controls are really present")
 		for index in range(buttons.size()):
 			var button: Button = buttons[index]
 			var rectangle := button.get_global_rect()
-			_check(root.get_visible_rect().encloses(rectangle) and rectangle.size.x >= 230 and rectangle.size.y >= 64, "all nine landscape targets fit real portrait at usable size")
+			_check(root.get_visible_rect().encloses(rectangle) and rectangle.size.x >= 230 and rectangle.size.y >= 64, "all ten landscape targets fit real portrait at usable size")
 			for earlier in range(index):
 				_check(not rectangle.intersects(buttons[earlier].get_global_rect()), "landscape touch areas never overlap")
 		for control in [server, game.sound_button, game.resume_button, game.endpoint_input, game.create_button, game.join_button, game.name_input]:
@@ -337,11 +337,11 @@ func _menu() -> void:
 		_check(server.size.y >= 64 and game.sound_button.size.y >= 64, "sound and server retain full phone touch height")
 		game._set_busy(true)
 		for button in buttons:
-			_check(button.disabled, "all nine landscapes are disabled during an in-flight request")
+			_check(button.disabled, "all ten landscapes are disabled during an in-flight request")
 		game._set_busy(false)
 		game.menu_error.text = ""
 		for button in buttons:
-			_check(not button.disabled, "all nine landscapes recover after a request")
+			_check(not button.disabled, "all ten landscapes recover after a request")
 		await _click(game.bellflower_button.get_global_rect().get_center())
 		_check(game.selected_landscape == "bellflower" and game.create_button.text == "Linger in the meadow", "Practice GUI target selects the actual Commons journey")
 		var saved: Dictionary = recorder.credentials.duplicate(true)
