@@ -3,7 +3,7 @@
 The Go server owns a 20 Hz simulation on an X/Y plane; Godot maps Y to Z.
 HTTP base is user configurable (default http://127.0.0.1:8790).
 
-`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3],sessions}`.
+`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4],sessions}`.
 The singular capability deliberately remains 1 so existing clients can still
 visit their version 1 herds. New clients choose the highest known advertised
 `layout_versions` entry, falling back to the singular field on older servers.
@@ -11,7 +11,7 @@ Clients can probe this before authentication: older servers omit `layout_version
 and strictly reject unknown auth fields, so omit the capability when connecting
 to those servers. Never discard saved credentials merely because a server has
 not yet upgraded to support layout negotiation.
-`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"}` creates a two-person herd and returns
+`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"}` creates a two-person herd and returns
 `{code,player_id,token}`. `POST /api/herds/{code}/join` with `{name:string}`
 returns the same fields for the second player. Save these credentials locally.
 No third member is accepted. Names are limited to 24 characters.
@@ -29,6 +29,7 @@ herd has an immutable layout included in every snapshot:
 | `larch` | 1 | -4 | 4 |
 | `orchard` | 2 | 3 | 2 |
 | `oasis` | 3 | unused (0) | unused (0) |
+| `cloud` | 4 | unused (0) | unused (0) |
 
 Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 
@@ -46,14 +47,25 @@ Its legacy zero-valued bridge/gate fields are unused, not hidden obstacles:
 Only Oasis includes `rock_pass`. It has no gate or forage zone. `interact/gate`
 returns a recoverable no-gate error and must not appear in its contextual UI.
 
+Cloud Pasture instead confines movement to one winding ridge and three quiet
+shelves. It has no playable river, fence, gate, rock obstacle or forage zone:
+
+```json
+{"version":4,"bridge_y":0,"gate_y":0,"ridge":{"spine":[{"x":-10,"y":0},{"x":-2,"y":-5},{"x":5,"y":1},{"x":11,"y":4}],"half_width":3.6,"shelves":[{"center":{"x":-10,"y":0},"radius":6.2},{"center":{"x":-2,"y":-5},"radius":4.8},{"center":{"x":11,"y":4},"radius":5.2}],"rest":{"center":{"x":11,"y":4},"radius":4.6}}}
+```
+
+Only Cloud includes `ridge`. Its ordered spine, shelf disks and rest disk are
+immutable canonical data, not editable navigation hints.
+
 Connect `GET /api/herds/{code}/ws` (WebSocket, no credentials in URL), then send
-`{type:"auth",player_id,token,layout_version:3}` within 5 seconds when the server
-advertises version 3. Server replies with snapshots.
+`{type:"auth",player_id,token,layout_version:4}` within 5 seconds when the server
+advertises version 4. Server replies with snapshots.
 Reconnection uses the same credentials; players remain in the herd. A replacement
 connection supersedes the old connection. Never expose tokens in snapshots/logs.
 Omitted/zero `layout_version` is legacy support for centered Alpine/Cactus
 layouts only. Capability 1 accepts all version 1 layouts; capability 2 accepts
-versions 1 and 2; capability 3 accepts versions 1, 2 and 3. Authenticated clients lacking support for their herd's layout
+versions 1 and 2; capability 3 accepts versions 1, 2 and 3; capability 4 accepts
+versions 1 through 4. Authenticated clients lacking support for their herd's layout
 or sending an unknown capability receive `{type:"error",code:"update_required",message:...}`
 followed by WebSocket close 4002, before they receive a snapshot or replace an
 existing connection. Clients must preserve credentials and offer an update;
@@ -143,11 +155,46 @@ connected. Saved queues must contain at most eight unique canonical anchors,
 with safe initial, intermediate and final segments; unsafe state is rejected
 before any actor starts. Routes are never client-authoritative input.
 
+### Cloud navigation
+
+Version 4 is the union of closed capsules of radius `half_width` around each
+adjacent spine segment and the three closed shelf disks, intersected with the
+unchanged world bounds. A valid destination alone does not make its approach safe.
+All actors use whole-segment containment on every substep, at most `0.08` units.
+
+Containment computes closed intervals of parameter `t` on `from+t*(to-from)`.
+Each shelf and spine endpoint supplies a line-circle interval. The circle roots
+are `(-b ± sqrt(b*b-a*c))/a`, with `a=dot(delta,delta)`,
+`b=dot(from-center,delta)`, `c=dot(from-center,from-center)-radius²`.
+Negative discriminants have no interval; zero-length segments use membership.
+For each spine segment with axis `s` and squared length `L`, its oriented
+rectangle intersects two slabs: `dot(point-start,s)` in `[0,L]`, and
+`cross(point-start,s)` in `[-half_width*sqrt(L),half_width*sqrt(L)]`.
+Intervals are clipped to `[0,1]`; exact primitive membership pins a covered
+endpoint to 0 or 1. Sort by lower endpoint ascending then upper descending.
+Their union must cover all of `[0,1]` without any positive gap. There is no
+sampling or collision-relaxing epsilon. Graph calculations use double scalars.
+
+Planning uses exactly six nodes: the four spine anchors in their given order,
+start index 4 and target index 5. Use the Oasis Dijkstra tie rules (`1e-9`) and
+route retention/arrival rules (`0.08`). Queues hold at most four unique canonical
+anchors, never the target itself. [Shared fixtures](cloud-routes.json) pin routes
+and visibility for shelf chords, detours, symmetric directions and near edges.
+Changed targets replan; identical commands retain the current route. `sit` and
+`stay` clear it. Cloud disconnect/restart pauses and preserves it like Oasis.
+
+Sheep use local edge avoidance and tangent steering under dog pressure; they do
+not follow the graph or automatically travel uphill. Without fear they slow to
+grazing on any shelf. The separate `rest` disk only defines the internal `settled`
+count, not an attraction force or visible score. Ordinary dog positioning can
+bring the same ten sheep uphill, downhill, or reunite a separated flock.
+
 Older checkpoints without a landscape field load as `alpine`; existing Alpine
 and Cactus saves without a layout migrate to centered version 1 without changing
 animal/player identities, credentials, positions, gate state, or simulation tick.
 Unknown saved layout versions, noncanonical layouts, impossible forage state,
-unsafe rock routes and actors inside rock fail startup without overwriting the
-save. Existing version-1/2 simulation and snapshot fields are unchanged.
+unsafe routes, actors inside rock or outside the ridge, and extra/malformed ridge
+fields fail startup without overwriting the save. Existing version-1/2/3
+simulation and snapshot fields are unchanged.
 There is no account service or puppy progression
 system yet.

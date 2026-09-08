@@ -41,3 +41,36 @@ array order, ticks, sequences, geometry and feeding progress remain exact. This
 continuous bound is stricter than the previous 1e-6 quantization. Negative
 controls reject altered behavior, additional/missing fields and out-of-bound
 coordinate changes; the three pre-Orchard hash regressions remain unchanged.
+
+# Pre-Cloud Oasis compatibility reference
+
+`pre-cloud-oasis.jsonl.gz.b64` contains 700 complete, unrounded world snapshots
+from `applyOasisTraceTick`. Both herders and both dogs take north/south bypasses,
+reverse destinations, use Come/Go/Stay, and sit while the same sheep simulate.
+The reference was captured from pre-Cloud commit
+`8485e80097d289709f0a585383c6950d8cdbd80b`, with independently compiled sources:
+
+- `world.go` Git blob `0e5ec238dd0e263e0898c6fb14c85ca8ceca845d`
+- `forage.go` Git blob `ccb9fe25591a3c8409f5b11a9feb2764594f6bca`
+- `rock.go` Git blob `10fd7270bc66f89d13ed659060a405721db07cd2`
+
+Those frozen files were verified against the commit's Git blobs before capture.
+With Go 1.26.7, the frozen simulator and Cloud implementation produced
+byte-identical JSONL independently on linux/amd64 and darwin/arm64. The Linux
+test binary was cross-compiled natively, then executed under the existing Docker
+amd64 emulation with GOMAXPROCS=1, GOGC=off and GODEBUG=asyncpreemptoff=1.
+
+Uncompressed linux/amd64 reference SHA-256, pinned by the test:
+
+`de177e2df5f1201225169cfa89244a3e196f83fd837b04e776e546627f7fa2fe`
+
+The equivalent darwin/arm64 trace SHA-256 was
+`79ff9803b7c9ee99bc106a3efa9fc6a34f1f9f8e85635bde68904c35f9480083`.
+Across architectures all discrete fields, object/array structure, layout and
+route anchors matched exactly. Maximum actor-coordinate divergence was
+`4.618527782440651e-13`, in sheep s2 velocity.y at tick 237. First divergence was
+sheep s7 position.y at tick 6 (`0.23114996923212575` vs `0.23114996923212572`).
+No rounding or quantization is used. The same narrowly scoped 1e-12 coordinate
+comparator and negative controls as Orchard apply; route anchor coordinates
+remain exact, with additional negative controls rejecting tiny anchor changes,
+removed queues or an unexpected ridge field. Tests never regenerate references.

@@ -1,0 +1,453 @@
+[
+  {
+    "name": "herder_a_up",
+    "from": {
+      "x": -13,
+      "y": -1.5
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "herder_b_up",
+    "from": {
+      "x": -13,
+      "y": 1.5
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "mochi_up",
+    "from": {
+      "x": -11,
+      "y": -2
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "maple_up",
+    "from": {
+      "x": -11,
+      "y": 2
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "downhill",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "rest_to_spawn_a",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -13,
+      "y": -1.5
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "upper_chord",
+    "from": {
+      "x": -10,
+      "y": 6
+    },
+    "target": {
+      "x": 11,
+      "y": 9
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "upper_chord_return",
+    "from": {
+      "x": 11,
+      "y": 9
+    },
+    "target": {
+      "x": -10,
+      "y": 6
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "near_start_edge",
+    "from": {
+      "x": -16.19,
+      "y": 0
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "near_rest_edge",
+    "from": {
+      "x": 16.19,
+      "y": 4
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "near_start_top",
+    "from": {
+      "x": -10,
+      "y": 6.19
+    },
+    "target": {
+      "x": -2,
+      "y": -5
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_middle_bottom",
+    "from": {
+      "x": -2,
+      "y": -9.79
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_rest_top",
+    "from": {
+      "x": 11,
+      "y": 9.19
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "near_rest_bottom",
+    "from": {
+      "x": 11,
+      "y": -1.19
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      2,
+      1
+    ]
+  },
+  {
+    "name": "shelf_chord",
+    "from": {
+      "x": -16.19,
+      "y": 0
+    },
+    "target": {
+      "x": -3.81,
+      "y": 0
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "shelf_vertical",
+    "from": {
+      "x": -10,
+      "y": -6.19
+    },
+    "target": {
+      "x": -10,
+      "y": 6.19
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "same_start",
+    "from": {
+      "x": -10,
+      "y": 0
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "same_rest",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "middle_to_start",
+    "from": {
+      "x": -2,
+      "y": -5
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "middle_to_rest",
+    "from": {
+      "x": -2,
+      "y": -5
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "shoulder_to_start",
+    "from": {
+      "x": 5,
+      "y": 1
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "shoulder_to_rest",
+    "from": {
+      "x": 5,
+      "y": 1
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "start_to_shoulder",
+    "from": {
+      "x": -10,
+      "y": 0
+    },
+    "target": {
+      "x": 5,
+      "y": 1
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "rest_to_middle",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -2,
+      "y": -5
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "lower_spawns",
+    "from": {
+      "x": -13,
+      "y": -4
+    },
+    "target": {
+      "x": 14,
+      "y": 2
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "upper_spawns",
+    "from": {
+      "x": -13,
+      "y": 4
+    },
+    "target": {
+      "x": 14,
+      "y": 7
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "across_low_edges",
+    "from": {
+      "x": -10,
+      "y": -6
+    },
+    "target": {
+      "x": -2,
+      "y": -9.5
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "across_high_edges",
+    "from": {
+      "x": -4,
+      "y": 0
+    },
+    "target": {
+      "x": 11,
+      "y": 9
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "valid_to_void",
+    "from": {
+      "x": -10,
+      "y": 0
+    },
+    "target": {
+      "x": 0,
+      "y": 8
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "void_to_valid",
+    "from": {
+      "x": 0,
+      "y": 8
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "boundary_outside_start",
+    "from": {
+      "x": -16.21,
+      "y": 0
+    },
+    "target": {
+      "x": -10,
+      "y": 0
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "boundary_outside_rest",
+    "from": {
+      "x": 11,
+      "y": 9.21
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": []
+  }
+]

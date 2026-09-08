@@ -22,7 +22,7 @@ func TestOasisCapabilityAndPausedRouteReconnectRestart(t *testing.T) {
 	if err := json.Unmarshal(post(t, h.URL+"/api/herds/"+a.Code+"/join", `{"name":"Bea"}`, 201), &b); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []int{0, 1, 2, 4, 99} {
+	for _, version := range []int{0, 1, 2, 5, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &version))
 	}
 	if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {

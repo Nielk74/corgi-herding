@@ -44,21 +44,42 @@ Actual Android images must show accessible paths and naturally bounded terrain,
 not a round token on a board. Keep the landscape quiet and the controls hidden.
 If that composition or sheep steering fails, revise the experiment before release.
 
-## Next candidate — Cloud Pasture (not implemented)
+## Sixth place — Cloud Pasture
 
-Return to the Alpine references with an open ridge walk, rather than another
-enclosed arena. Three broad grassy shelves and a generous climbing contour path
-could overlook a distant lake, blue valley haze and jagged snow peaks. Leave
-visible sky and avoid repeated cliff curtains. A low asymmetric rock shoulder
-frames one side; steep grassy flanks explain the other boundary without falls.
+Return to the Alpine references with an open ridge walk. Three broad grassy
+shelves and a generous climbing contour path overlook a distant lake, blue
+valley haze and jagged snow peaks. Leave visible sky and avoid repeated cliff
+curtains. Steep grassy flanks explain the boundary without falls.
 
-This needs a real authoritative, wide ridge corridor and resting region, not
-an invisible rectangular fence or a visual reskin. Keep the pair able to walk
-beside the flock, stop on any shelf and recover sheep resting on lower grass.
-No bridge, gate, precision manoeuvre, timer or additional command.
+The canonical version-4 layout defines four spine anchors, a 3.6-unit corridor
+half-width and three broad shelf disks. Walkable ground is their union. All
+movement segments, not only endpoints, must remain inside it. Matching analytical
+coverage and a six-node visibility graph keep authoritative movement, prediction
+and remote interpolation on the ridge. Retained routes survive disconnect and
+restart. This stays deliberately bounded; it is not a general navigation system.
 
-Before adding it, inspect actual portrait views from both ends for valley depth,
+The pair can walk beside the flock, stop on any shelf and recover sheep resting
+on lower grass. No bridge, gate, precision manoeuvre, timer or additional command.
+Tests bring all ten sheep uphill and downhill from normal spawns and retrieve a
+dog-created split. Neither the tests nor gameplay teleport animals to succeed.
+
+Before accepting changes, inspect actual portrait views from both ends for valley depth,
 readable animals and natural limits. Demonstrate both dogs guiding the flock up
 and back, including retrieval of a split flock. Sitting halfway should feel as
 complete as arriving: no completion prompt or added HUD. Existing five landscapes,
 their saves and old-client behavior must remain unchanged.
+
+## Next candidate — Juniper Shore (not implemented)
+
+Try a quiet Alpine lakeside crescent, with a stony beach below grassy clearings
+and a long reflected mountain view. The shore, not a gate, should shape a gentle
+journey around a bay. Leave broad places for the pair to linger side by side;
+the flock need not reach a finish. Keep water boundaries readable without walls,
+falls or deep-water punishment.
+
+Before building another place, carry forward Cloud's visual criticism: break up
+the distant mountain-foot line, vary tree groups and give foreground land a more
+specific character. Add a restrained environmental sound layer as its own tested
+iteration rather than increasing the HUD. Keep existing save geometry immutable,
+and prove any new shoreline route outward and back using normal movement and dog
+commands. Actual portrait play and two-person feedback remain the acceptance gate.

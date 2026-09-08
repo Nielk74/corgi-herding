@@ -83,8 +83,8 @@ func _run() -> void:
 			_fail("return journey navigates the offset gate before the bridge")
 			return
 	if landscape == "oasis":
-		if game.network.advertised_layout_version != 3 or game.meadow.gate != null or game.meadow.bridge != null:
-			_fail("Oasis negotiates v3 and removes the old river/gate fixtures")
+		if game.network.advertised_layout_version != 4 or game.meadow.gate != null or game.meadow.bridge != null:
+			_fail("Oasis negotiates the current capability and removes the old river/gate fixtures")
 			return
 		# Exercise both open sides outward and back through actual network inputs.
 		# Crossing at Y=0 would need a bypass; explicit north/south approach taps
@@ -129,6 +129,55 @@ func _run() -> void:
 			if not await _until(func() -> bool: return _dog_position(dog_id).distance_to(Vector2(-10, -3)) < 0.35):
 				_fail("first herder can return either shared dog around the rock")
 				return
+	if landscape == "cloud":
+		if game.network.advertised_layout_version != 4 or game.meadow.gate != null or game.meadow.bridge != null:
+			_fail("Cloud negotiates v4 without a river or gate")
+			return
+		for destination in [Vector2(-2, -5), Vector2(11, 4), Vector2(-12, 4)]:
+			game._world_tap(game.meadow.camera.unproject_position(game._surface_position(destination)))
+			if not await _until(func() -> bool: return _own_position().distance_to(destination) < 0.3):
+				_fail("Cloud ground taps reach both shelves and return down the ridge")
+				return
+		other.move_to(Vector2(13, 6))
+		if not await _until(func() -> bool: return _other_position().distance_to(Vector2(13, 6)) < 0.3):
+			_fail("second herder walks uphill in the same Cloud corridor")
+			return
+		other.move_to(Vector2(-12, -3))
+		if not await _until(func() -> bool: return _other_position().distance_to(Vector2(-12, -3)) < 0.3):
+			_fail("second herder returns downhill in the same Cloud corridor")
+			return
+		game.network.move_to(Vector2(11, 4))
+		if not await _until(func() -> bool: return not _own_route().is_empty()):
+			_fail("Cloud route must retain canonical bend anchors")
+			return
+		var accepted_seq := _own_seq()
+		game.network.socket.close()
+		var lost_target := Vector2(-15, -1)
+		game._world_tap(game.meadow.camera.unproject_position(game._surface_position(lost_target)))
+		if game.movement_seq <= accepted_seq:
+			_fail("Cloud lost-input fixture must include a real unacknowledged ground tap")
+			return
+		if not await _until(func() -> bool: return not game.network.connected):
+			_fail("Cloud closed socket triggers normal reconnect")
+			return
+		if not await _until(func() -> bool: return game.network.connected and _own_position().distance_to(Vector2(11, 4)) < 0.3):
+			_fail("Cloud reconnect completes the accepted ridge walk")
+			return
+		if _own_seq() != accepted_seq or game.movement_seq != accepted_seq or game.movement_target.distance_to(Vector2(11, 4)) > 0.001 or game.awaiting_authoritative_snapshot:
+			_fail("Cloud reconnect failed to discard the lost predicted input")
+			return
+		for dog_id in ["mochi", "maple"]:
+			other.command(dog_id, "go", Vector2(13, 6))
+			if not await _until(func() -> bool: return _dog_position(dog_id).distance_to(Vector2(13, 6)) < 0.35):
+				_fail("second herder sends either shared corgi to the upper shelf")
+				return
+			game.network.command(dog_id, "go", Vector2(-12, -3))
+			if not await _until(func() -> bool: return _dog_position(dog_id).distance_to(Vector2(-12, -3)) < 0.35):
+				_fail("first herder calls either shared corgi back downhill")
+				return
+		if not game.moment_label.text.is_empty() or game.moment_time != 0.0:
+			_fail("the ridge journey must not create a completion banner")
+			return
 	var acknowledged_before_reconnect: int = _own_seq()
 	game.network.disconnect_herd()
 	await create_timer(0.15).timeout
@@ -173,6 +222,12 @@ func _dog_command(id: String) -> String:
 		if str(dog.id) == id:
 			return str(dog.command)
 	return ""
+
+func _other_position() -> Vector2:
+	for player: Dictionary in other_snapshot.get("players", []):
+		if str(player.id) == str(other.credentials.player_id):
+			return Vector2(float(player.position.x), float(player.position.y))
+	return Vector2.INF
 
 func _own_route() -> Array:
 	for player: Dictionary in game.latest.get("players", []):

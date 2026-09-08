@@ -4,16 +4,36 @@ extends SceneTree
 
 const FEET_CLEARANCE := 0.03
 const PICK_TOLERANCE := 0.06
+const CLOUD_SPINE: Array[Vector2] = [Vector2(-10, 0), Vector2(-2, -5), Vector2(5, 1), Vector2(11, 4)]
+const CLOUD_SHELVES: Array[Vector2] = [Vector2(-10, 0), Vector2(-2, -5), Vector2(11, 4)]
+const CLOUD_RADII: Array[float] = [6.2, 4.8, 5.2]
 const ORCHARD_SURFACE_SAMPLES: Array[Vector2] = [
 	Vector2(-7, -5), # Windfall forage clearing and its four radius edges.
 	Vector2(-9.2, -5), Vector2(-4.8, -5), Vector2(-7, -7.2), Vector2(-7, -2.8),
 	Vector2(-12, -7), Vector2(-12, 2), Vector2(11, 4), Vector2(14, 7),
 ]
 var checked_roundtrips := 0
+var checked_portrait_sizes: Dictionary = {}
 
 func _initialize() -> void:
 	root.size = Vector2i(720, 1280)
 	_run.call_deferred()
+
+func _portrait_viewport(size: Vector2i) -> bool:
+	# Headless startup may reset the physical window to 64x64 after _initialize.
+	# Set the logical viewport explicitly after startup, and verify what camera
+	# projection will actually use rather than trusting the requested window size.
+	root.content_scale_size = size
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
+	root.size = size
+	await process_frame
+	var actual: Vector2 = root.get_visible_rect().size
+	if actual.distance_to(Vector2(size)) > 0.01:
+		return _fail("Terrain camera viewport is not the requested real portrait size: %s vs %s" % [actual, size])
+	if not checked_portrait_sizes.has(size):
+		checked_portrait_sizes[size] = true
+		print("TERRAIN_VIEWPORT: verified logical camera viewport %s" % actual)
+	return true
 
 func _run() -> void:
 	var scene: PackedScene = load("res://main.tscn")
@@ -23,6 +43,8 @@ func _run() -> void:
 	var game: Node = scene.instantiate()
 	root.add_child(game)
 	await process_frame
+	if not await _portrait_viewport(Vector2i(720, 1280)):
+		return
 	if game.meadow == null or not game.meadow.has_method("surface_height"):
 		_fail("terrain must expose its rendered surface height")
 		return
@@ -78,8 +100,426 @@ func _run() -> void:
 			return
 	if not await _oasis_smoke(game, dog):
 		return
-	print("TERRAIN_SMOKE_OK: five sculpted landscapes, existing river/gate and Orchard regressions, dry Oasis rock routes and visibility, %d portrait ray roundtrips, grounded prediction/interpolation/biome changes, geometry budgets" % checked_roundtrips)
+	if not await _cloud_smoke(game, dog):
+		return
+	print("TERRAIN_SMOKE_OK: six sculpted landscapes, unchanged five-landscape regressions, Cloud ridge geometry/picking/visibility, %d portrait ray roundtrips, grounded prediction/interpolation/biome changes, geometry budgets" % checked_roundtrips)
 	quit(0)
+
+func _cloud_layout() -> Dictionary:
+	return {"version": 4, "bridge_y": 0.0, "gate_y": 0.0, "ridge": {
+		"spine": [{"x": -10.0, "y": 0.0}, {"x": -2.0, "y": -5.0}, {"x": 5.0, "y": 1.0}, {"x": 11.0, "y": 4.0}],
+		"half_width": 3.6,
+		"shelves": [{"center": {"x": -10.0, "y": 0.0}, "radius": 6.2}, {"center": {"x": -2.0, "y": -5.0}, "radius": 4.8}, {"center": {"x": 11.0, "y": 4.0}, "radius": 5.2}],
+		"rest": {"center": {"x": 11.0, "y": 4.0}, "radius": 4.6}}}
+
+func _cloud_clearance(point: Vector2) -> float:
+	# Independent test geometry: do not let production picking and collision
+	# agree on an accidentally enlarged or rectangular replacement corridor.
+	var clearance := -INF
+	for index in CLOUD_SHELVES.size():
+		clearance = maxf(clearance, CLOUD_RADII[index] - point.distance_to(CLOUD_SHELVES[index]))
+	for index in range(CLOUD_SPINE.size() - 1):
+		var segment := CLOUD_SPINE[index + 1] - CLOUD_SPINE[index]
+		var fraction := clampf((point - CLOUD_SPINE[index]).dot(segment) / segment.length_squared(), 0.0, 1.0)
+		clearance = maxf(clearance, 3.6 - point.distance_to(CLOUD_SPINE[index] + segment * fraction))
+	return clearance
+
+func _cloud_boundaries() -> Array[Dictionary]:
+	var boundaries: Array[Dictionary] = []
+	var origins: Array[Vector2] = CLOUD_SHELVES.duplicate()
+	origins.append_array([Vector2(-6, -2.5), Vector2(1.5, -2)])
+	for origin in origins:
+		for index in range(8):
+			var direction := Vector2.RIGHT.rotated(index * TAU / 8.0)
+			var distance := 0.25
+			while distance < 40 and _cloud_clearance(origin + direction * distance) >= 0:
+				distance += 0.25
+			var inside := distance - 0.25
+			var outside := distance
+			for step in range(16):
+				var middle := (inside + outside) * 0.5
+				if _cloud_clearance(origin + direction * middle) >= 0:
+					inside = middle
+				else:
+					outside = middle
+			var edge := origin + direction * ((inside + outside) * 0.5)
+			boundaries.append({"inside": edge - direction * 0.2, "outside": edge + direction * 0.2, "edge": edge, "far": edge + direction * 2.5})
+	return boundaries
+
+func _cloud_smoke(game: Node, retained_dog: Node3D) -> bool:
+	game._select_landscape("cloud")
+	await process_frame
+	game._process(1.0 / 60.0)
+	var meadow: Node = game.meadow
+	var expected := _cloud_layout()
+	if meadow.landscape != "cloud" or meadow.layout != expected or meadow.ridge != expected.ridge or meadow.profile.ridge != expected.ridge:
+		return _fail("Cloud mesh, height profile and immutable ridge layout must agree")
+	if meadow.ridge_spine != CLOUD_SPINE or meadow.ridge_half_width != 3.6 or meadow.rest_center != Vector2(11, 4) or meadow.rest_radius != 4.6:
+		return _fail("Cloud public terrain anchors differ from the canonical corridor")
+	if is_instance_valid(meadow.bridge) or is_instance_valid(meadow.gate):
+		return _fail("Cloud must have neither a bridge nor a gate")
+	for pattern in ["RiverSurface*", "Footbridge*", "RockPassOutcrop*"]:
+		if not meadow.terrain.find_children(pattern, "", true, false).is_empty():
+			return _fail("Cloud retained a previous landscape obstacle: " + pattern)
+	if not _geometry_budget(game, "cloud") or not _cloud_mesh_geometry(meadow) or not _cloud_tarn_geometry(meadow):
+		return false
+	if not await _frame_ground_coverage(meadow, "cloud", "ValleyGroundCloud"):
+		return false
+	if not await _cloud_picking_and_visibility(game):
+		return false
+	game.moving = false
+	var local: Node3D = game.actors[game.local_id].node
+	var dog: Node3D = game.actors["mochi"].node
+	for point in CLOUD_SPINE:
+		local.position = game._surface_position(point)
+		dog.position = game._surface_position(point + Vector2(0.6, 0.3))
+		game.actors["mochi"].target = game._surface_position(point)
+		for frame in range(20):
+			game._process(1.0 / 60.0)
+			if not _grounded_actors(game, "Cloud shelf/connector interpolation"):
+				return false
+		if Vector2(dog.position.x, dog.position.z).distance_to(point) > 0.1:
+			return _fail("Cloud corgi grounding did not exercise interpolation")
+		meadow.mark_destination(game._surface_position(point) - Vector3(0, FEET_CLEARANCE, 0))
+		var clearance: float = meadow.destination.position.y - meadow.surface_height(point.x, point.y)
+		if clearance <= 0 or clearance > 0.25:
+			return _fail("Cloud destination marker must follow its raised shelf")
+	for segment in range(CLOUD_SPINE.size() - 1):
+		local.position = game._surface_position(CLOUD_SPINE[segment])
+		game.movement_target = CLOUD_SPINE[segment + 1]
+		game.moving = true
+		for frame in range(240):
+			game._process(1.0 / 60.0)
+			if _cloud_clearance(Vector2(local.position.x, local.position.z)) < -0.00001 or not _grounded_actors(game, "Cloud predicted connector walk"):
+				return _fail("Cloud predicted herder left the corridor or its rendered surface")
+			if not game.moving:
+				break
+		if Vector2(local.position.x, local.position.z).distance_to(CLOUD_SPINE[segment + 1]) > 0.1:
+			return _fail("Cloud predicted walk did not reach the next shelf")
+	game.moving = false
+	if game.actors["mochi"].node != retained_dog or game.actors.size() != 14:
+		return _fail("Cloud switch must retain both herders and all twelve animals")
+	if game.command_panel.visible or game.sit_button.visible or game.go_cancel.visible:
+		return _fail("Cloud must not add permanent controls")
+	return true
+
+func _cloud_mesh_geometry(meadow: Node) -> bool:
+	var meshes: Array[Node] = meadow.terrain.find_children("ValleyGroundCloud", "MeshInstance3D", true, false)
+	if meshes.size() != 1:
+		return _fail("Cloud requires one continuous actual ridge ground mesh")
+	var ground := meshes[0] as MeshInstance3D
+	var normal_basis := ground.global_transform.basis.inverse().transposed()
+	var edges: Dictionary = {}
+	var checked := 0
+	var checked_slopes := 0
+	var minimum := INF
+	var maximum := -INF
+	var minimum_up := 1.0
+	for surface in range(ground.mesh.get_surface_count()):
+		var arrays: Array = ground.mesh.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var indices := PackedInt32Array()
+		if arrays[Mesh.ARRAY_INDEX] != null:
+			indices = arrays[Mesh.ARRAY_INDEX]
+		var count := vertices.size() if indices.is_empty() else indices.size()
+		if count == 0 or count % 3 != 0 or normals.size() != vertices.size():
+			return _fail("Cloud ground needs complete triangles and stored vertex normals")
+		for index in range(0, count, 3):
+			var points: Array[Vector3] = []
+			var stored: Array[Vector3] = []
+			for corner in range(3):
+				var vertex_index := index + corner if indices.is_empty() else indices[index + corner]
+				if vertex_index < 0 or vertex_index >= vertices.size():
+					return _fail("Cloud ground contains an invalid index")
+				var point: Vector3 = ground.global_transform * vertices[vertex_index]
+				var normal: Vector3 = normal_basis * normals[vertex_index]
+				if not point.is_finite() or not normal.is_finite() or absf(normal.length() - 1.0) > 0.001:
+					return _fail("Cloud contains non-finite ground or non-unit stored normals")
+				points.append(point)
+				stored.append(normal.normalized())
+			var center := (points[0] + points[1] + points[2]) / 3.0
+			var clearance := _cloud_clearance(Vector2(center.x, center.z))
+			if clearance < -4.0:
+				continue
+			# Godot's clockwise front must agree with the actual stored normals.
+			# A two-sided visibility ray alone would miss a backwards dark surface.
+			var front := (points[2] - points[0]).cross(points[1] - points[0]).normalized()
+			if not front.is_finite() or front.y <= 0.0:
+				return _fail("Cloud ridge/flank triangle is degenerate or wound downwards at %s" % center)
+			for normal in stored:
+				if normal.y <= 0.0 or front.dot(normal) < 0.5:
+					return _fail("Cloud ridge/flank stored normal opposes its real front at %s" % center)
+			if absf(float(meadow.surface_height(center.x, center.z)) - center.y) > 0.035:
+				return _fail("Cloud sampled height misses an actual triangle interior at %s" % center)
+			if clearance >= 0.0:
+				for point in points:
+					if absf(point.y - float(meadow.surface_height(point.x, point.z))) > 0.035:
+						return _fail("Cloud feet height differs from a rendered ridge vertex at %s" % point)
+				minimum = minf(minimum, center.y)
+				maximum = maxf(maximum, center.y)
+				checked += 1
+			if clearance > 0.8:
+				minimum_up = minf(minimum_up, front.y)
+				if front.y < 0.8:
+					return _fail("Cloud playable shelf/connector has an unsafe steep mesh face at %s (up %.3f)" % [center, front.y])
+				checked_slopes += 1
+			for edge_index in range(3):
+				var a := points[edge_index]
+				var b := points[(edge_index + 1) % 3]
+				if _cloud_clearance(Vector2(a.x, a.z)) <= 0.1 or _cloud_clearance(Vector2(b.x, b.z)) <= 0.1:
+					continue
+				var a_key := _mesh_vertex_key(a)
+				var b_key := _mesh_vertex_key(b)
+				var key := a_key + "/" + b_key if a_key < b_key else b_key + "/" + a_key
+				edges[key] = int(edges.get(key, 0)) + 1
+	for edge in edges:
+		if edges[edge] != 2:
+			return _fail("Cloud interior ground has an unpaired seam/T-junction or duplicate face at " + edge)
+	if checked < 500 or checked_slopes < 300 or edges.size() < 500 or maximum - minimum < 2.0:
+		return _fail("Cloud actual ground did not exercise three sculpted shelves and connected interior seams")
+	var shelf_heights: Array[float] = []
+	for point in CLOUD_SHELVES:
+		shelf_heights.append(float(meadow.surface_height(point.x, point.y)))
+	if shelf_heights[1] - shelf_heights[0] < 0.5 or shelf_heights[2] - shelf_heights[1] < 0.5:
+		return _fail("Cloud needs three genuinely ascending resting shelves: %s" % str(shelf_heights))
+	var flanks := 0
+	for boundary in _cloud_boundaries():
+		var edge: Vector2 = boundary.edge
+		var outside: Vector2 = boundary.far
+		if _cloud_clearance(outside) > -1.0:
+			continue
+		var drop: float = meadow.surface_height(edge.x, edge.y) - meadow.surface_height(outside.x, outside.y)
+		if drop > 0.5:
+			flanks += 1
+	if flanks < 24:
+		return _fail("Cloud corridor needs visible downhill flanks, not an invisible boundary on flat ground")
+	print("CLOUD_GROUND: %d ridge triangles, %d paired interior edges, %.2f relief, shelf heights %s, minimum safe-face up %.3f, %d downhill flank probes" % [checked, edges.size(), maximum - minimum, shelf_heights, minimum_up, flanks])
+	return true
+
+func _world_mesh_faces(mesh: MeshInstance3D) -> PackedVector3Array:
+	var faces: PackedVector3Array = mesh.mesh.get_faces()
+	for index in faces.size():
+		faces[index] = mesh.global_transform * faces[index]
+	return faces
+
+func _point_segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
+	var segment := b - a
+	var fraction := clampf((point - a).dot(segment) / segment.length_squared(), 0.0, 1.0) if segment.length_squared() > 0 else 0.0
+	return point.distance_to(a + segment * fraction)
+
+func _cloud_triangle_overlaps_ridge(triangle: PackedVector2Array) -> bool:
+	# Vertex-only tests miss a large water triangle covering the corridor while
+	# all three corners sit outside. Test the whole closed triangle against the
+	# independent shelf disks and all spine capsules, including edge crossings.
+	for index in CLOUD_SHELVES.size():
+		var center := CLOUD_SHELVES[index]
+		if Geometry2D.is_point_in_polygon(center, triangle):
+			return true
+		for edge in range(3):
+			if _point_segment_distance(center, triangle[edge], triangle[(edge + 1) % 3]) <= CLOUD_RADII[index]:
+				return true
+	for index in range(CLOUD_SPINE.size() - 1):
+		var a := CLOUD_SPINE[index]
+		var b := CLOUD_SPINE[index + 1]
+		if Geometry2D.is_point_in_polygon(a, triangle) or Geometry2D.is_point_in_polygon(b, triangle):
+			return true
+		for edge in range(3):
+			var c := triangle[edge]
+			var d := triangle[(edge + 1) % 3]
+			if Geometry2D.segment_intersects_segment(a, b, c, d) != null:
+				return true
+			if minf(minf(_point_segment_distance(a, c, d), _point_segment_distance(b, c, d)), minf(_point_segment_distance(c, a, b), _point_segment_distance(d, a, b))) <= 3.6:
+				return true
+	return false
+
+func _cloud_tarn_geometry(meadow: Node) -> bool:
+	var spanning := PackedVector2Array([Vector2(-17, -10), Vector2(17, -10), Vector2(0, 10)])
+	for point in spanning:
+		if _cloud_clearance(point) >= 0:
+			return _fail("Cloud water overlap negative control must have three illegal corners")
+	if not _cloud_triangle_overlaps_ridge(spanning):
+		return _fail("Cloud water exclusion must reject triangle interiors, not only their vertices")
+	var waters: Array[Node] = meadow.terrain.find_children("CloudDistantTarn*", "MeshInstance3D", true, false)
+	if waters.is_empty():
+		return _fail("Cloud distant tarn must have actual inspectable water geometry")
+	var triangles := 0
+	var edges: Dictionary = {}
+	for node in waters:
+		var water := node as MeshInstance3D
+		var faces := _world_mesh_faces(water)
+		if faces.is_empty() or faces.size() % 3 != 0:
+			return _fail("Cloud distant tarn contains incomplete triangles")
+		for index in range(0, faces.size(), 3):
+			var triangle := PackedVector2Array()
+			for corner in range(3):
+				var point := faces[index + corner]
+				if not point.is_finite():
+					return _fail("Cloud water contains a non-finite vertex")
+				triangle.append(Vector2(point.x, point.z))
+			if _cloud_triangle_overlaps_ridge(triangle):
+				return _fail("Cloud distant water overlaps the authoritative dry ridge: %s" % str(triangle))
+			triangles += 1
+			# The base water plane must end beneath the surrounding ground. Extra
+			# reflections may sit over open water; their footprints are still tested.
+			if water.name != "CloudDistantTarn":
+				continue
+			for edge in range(3):
+				var a := faces[index + edge]
+				var b := faces[index + (edge + 1) % 3]
+				var a_key := _mesh_vertex_key(a)
+				var b_key := _mesh_vertex_key(b)
+				var key := a_key + "/" + b_key if a_key < b_key else b_key + "/" + a_key
+				if not edges.has(key):
+					edges[key] = {"count": 0, "a": a, "b": b}
+				edges[key].count += 1
+	var shore_samples := 0
+	var actual_bank_rays := 0
+	var minimum_cover := INF
+	var ground: MeshInstance3D = meadow.terrain.find_children("ValleyGroundCloud", "MeshInstance3D", true, false)[0]
+	var ground_faces := _world_mesh_faces(ground)
+	for key in edges:
+		var edge: Dictionary = edges[key]
+		if edge.count != 1:
+			continue
+		for fraction in [0.0, 0.25, 0.5, 0.75, 1.0]:
+			var point: Vector3 = edge.a.lerp(edge.b, fraction)
+			var cover: float = meadow.surface_height(point.x, point.z) - point.y
+			if not is_finite(cover) or cover < 0.005:
+				return _fail("Cloud tarn polygon edge is exposed instead of covered by real banks at %s (cover %.4f)" % [point, cover])
+			minimum_cover = minf(minimum_cover, cover)
+			if shore_samples % 10 == 0:
+				# The far heightfield must really be rendered here. A finite profile
+				# alone would falsely approve a truncated bank or missing terrain.
+				var hit := _mesh_ray_hit(ground_faces, point + Vector3(0, 30, 0), point - Vector3(0, 30, 0))
+				if not hit.is_finite() or hit.y - point.y < 0.005 or absf(hit.y - float(meadow.surface_height(point.x, point.z))) > 0.035:
+					return _fail("Cloud tarn bank has no matching actual rendered ground above its edge at %s" % point)
+				actual_bank_rays += 1
+			shore_samples += 1
+	if triangles < 8 or shore_samples < 40 or actual_bank_rays < 4:
+		return _fail("Cloud distant water test did not exercise complete geometry and its shore perimeter")
+	print("CLOUD_TARN: %d complete triangles outside the dry ridge, %d covered perimeter samples and %d actual bank triangle rays (minimum cover %.3f); spanning-triangle negative control rejected" % [triangles, shore_samples, actual_bank_rays, minimum_cover])
+	return true
+
+func _mesh_ray_hit(faces: PackedVector3Array, origin: Vector3, endpoint: Vector3) -> Vector3:
+	var nearest := Vector3.INF
+	var distance := INF
+	for index in range(0, faces.size(), 3):
+		var hit: Variant = Geometry3D.segment_intersects_triangle(origin, endpoint, faces[index], faces[index + 1], faces[index + 2])
+		if hit is Vector3 and hit.is_finite() and hit.distance_squared_to(origin) < distance:
+			nearest = hit
+			distance = hit.distance_squared_to(origin)
+	return nearest
+
+func _cloud_picking_and_visibility(game: Node) -> bool:
+	var meadow: Node = game.meadow
+	var samples: Array[Vector2] = []
+	for shelf in CLOUD_SHELVES:
+		for offset in [Vector2.ZERO, Vector2(1.5, 0), Vector2(-1.5, 0), Vector2(0, 1.5), Vector2(0, -1.5)]:
+			samples.append(shelf + offset)
+	for index in range(CLOUD_SPINE.size() - 1):
+		for fraction in [0.25, 0.5, 0.75]:
+			samples.append(CLOUD_SPINE[index].lerp(CLOUD_SPINE[index + 1], fraction))
+	var faces := PackedVector3Array()
+	var ground_faces := PackedVector3Array()
+	# Include every real terrain/scenery surface, not only the profile or one
+	# known obstacle. An unexpected foreground crown or custom crag can hide sheep.
+	for node in meadow.terrain.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh == null or not mesh.is_visible_in_tree():
+			continue
+		var transformed := _world_mesh_faces(mesh)
+		faces.append_array(transformed)
+		if mesh.name == "ValleyGroundCloud":
+			ground_faces = transformed
+	if ground_faces.is_empty():
+		return _fail("Cloud picking and visibility require actual ground triangles")
+	for point in samples:
+		var expected := Vector3(point.x, float(meadow.surface_height(point.x, point.y)), point.y)
+		var hit := _mesh_ray_hit(ground_faces, expected + Vector3(0, 10, 0), expected - Vector3(0, 10, 0))
+		if not hit.is_finite() or hit.distance_to(expected) > 0.035:
+			return _fail("Cloud shelf/connector profile has no matching actual triangle at %s" % point)
+	var boundaries := _cloud_boundaries()
+	for boundary in boundaries:
+		if not game._walkable(boundary.inside) or game._walkable(boundary.outside):
+			return _fail("Cloud collision disagrees with independently sampled corridor limits")
+	var original_size: Vector2i = root.size
+	var coverage: Dictionary = {}
+	var boundary_coverage: Dictionary = {}
+	var visible_animals := 0
+	var rejected := 0
+	for portrait_size in [Vector2i(720, 1280), Vector2i(720, 1600)]:
+		if not await _portrait_viewport(portrait_size):
+			return false
+		var viewport: Rect2 = root.get_visible_rect().grow(-4)
+		for pan in [-6.0, 0.0, 6.0]:
+			for zoom in [0.8, 1.0, 1.18]:
+				meadow.zoom = zoom
+				meadow.fit_camera()
+				meadow.camera_focus = Vector3(pan, 1.8, -6)
+				meadow.desired_focus = meadow.camera_focus
+				meadow._process(0.0)
+				for point in samples:
+					var expected := Vector3(point.x, float(meadow.surface_height(point.x, point.y)), point.y)
+					var screen: Vector2 = meadow.camera.unproject_position(expected)
+					if not viewport.has_point(screen):
+						continue
+					var picked: Vector3 = meadow.ground_at(screen)
+					if not picked.is_finite() or picked.distance_to(expected) > PICK_TOLERANCE:
+						return _fail("Cloud shelf/connector touch missed its rendered surface at %s (size %s pan %.1f zoom %.2f): %s" % [point, portrait_size, pan, zoom, picked])
+					checked_roundtrips += 1
+					coverage[str(portrait_size) + "/" + str(point)] = true
+					# Check center and connector bodies at both follow extremes. The
+					# remaining offset samples exercise the full width through picking.
+					if not point in CLOUD_SHELVES and not point in [Vector2(-6, -2.5), Vector2(1.5, -2), Vector2(8, 2.5)]:
+						continue
+					var probe := expected + Vector3(0, 0.6, 0)
+					var probe_screen: Vector2 = meadow.camera.unproject_position(probe)
+					if not viewport.has_point(probe_screen):
+						continue
+					var origin: Vector3 = meadow.camera.project_ray_origin(probe_screen)
+					var hit := _mesh_ray_hit(faces, origin, probe)
+					if hit.is_finite() and hit.distance_to(probe) > 0.02:
+						return _fail("Cloud real terrain/scenery hides a shelf animal at %s (size %s pan %.1f zoom %.2f), hit %s" % [point, portrait_size, pan, zoom, hit])
+					coverage["animal/" + str(portrait_size) + "/" + str(pan) + "/" + str(point)] = true
+					visible_animals += 1
+				# Boundary rays need only the two follow extremes at normal zoom.
+				# A hidden far flank may correctly project onto nearer legal ground;
+				# test rejection only when the actual frontmost triangle is outside.
+				if pan == 0 or zoom != 1.0:
+					continue
+				for index in boundaries.size():
+					var point: Vector2 = boundaries[index].outside
+					var expected := Vector3(point.x, float(meadow.surface_height(point.x, point.y)), point.y)
+					var screen: Vector2 = meadow.camera.unproject_position(expected)
+					if not viewport.has_point(screen):
+						continue
+					var origin: Vector3 = meadow.camera.project_ray_origin(screen)
+					var hit := _mesh_ray_hit(ground_faces, origin, origin + meadow.camera.project_ray_normal(screen) * float(meadow.camera.far))
+					if not hit.is_finite():
+						return _fail("Cloud visible boundary has no actual ground beneath its profile")
+					if hit.distance_to(expected) > PICK_TOLERANCE:
+						continue
+					if meadow.ground_at(screen).is_finite():
+						return _fail("Cloud visible steep flank accepts a tap outside the authoritative corridor at %s" % point)
+					boundary_coverage[index] = true
+					rejected += 1
+		for point in samples:
+			if not coverage.has(str(portrait_size) + "/" + str(point)):
+				return _fail("Cloud mandatory shelf/connector picking sample was never exercised at %s, size %s" % [point, portrait_size])
+		for point in CLOUD_SHELVES:
+			# Following one end need not frame the opposite distant shelf. Each
+			# shelf must be exercised in the central view and at its own follow end.
+			for pan in [0.0, -6.0 if point.x < 0 else 6.0]:
+				if not coverage.has("animal/" + str(portrait_size) + "/" + str(pan) + "/" + str(point)):
+					return _fail("Cloud shelf animal was never visible at a required phone/follow extreme: %s size %s pan %.1f" % [point, portrait_size, pan])
+	if not await _portrait_viewport(original_size):
+		return false
+	meadow.fit_camera()
+	if boundary_coverage.size() < 24 or visible_animals < 36:
+		return _fail("Cloud did not exercise enough distinct visible corridor boundaries and shelf animals")
+	print("CLOUD_VISIBILITY: %d clear actual-mesh animal probes, %d rejected flank taps at %d distinct boundaries, 16:9/20:9 portraits" % [visible_animals, rejected, boundary_coverage.size()])
+	return true
 
 func _oasis_ring() -> Array[Vector2]:
 	var points: Array[Vector2] = []
@@ -106,7 +546,7 @@ func _oasis_smoke(game: Node, retained_dog: Node3D) -> bool:
 		return _fail("Oasis must not retain the previous playable river")
 	if not _oasis_ground_mesh(meadow) or not _geometry_budget(game, "oasis"):
 		return false
-	if not await _oasis_frame_ground_coverage(meadow):
+	if not await _frame_ground_coverage(meadow, "oasis", "ValleyGroundOasis"):
 		return false
 	if not _oasis_apron_orientation(meadow):
 		return false
@@ -168,17 +608,17 @@ func _oasis_ground_mesh(meadow: Node) -> bool:
 	print("OASIS_GROUND: %d rendered vertices, %d across the former channel, height span %.2f" % [checked_vertices, former_channel_vertices, maximum - minimum])
 	return true
 
-func _oasis_frame_ground_coverage(meadow: Node) -> bool:
+func _frame_ground_coverage(meadow: Node, biome: String, mesh_name: String) -> bool:
 	# The analytic heightfield extends beyond its finite rendered mesh. Picking
 	# roundtrips cannot detect a visible mesh cutoff at the portrait frame edge.
-	# Cast only against the actual Oasis ground, not scenery or profile samples.
-	var meshes: Array[Node] = meadow.terrain.find_children("ValleyGroundOasis", "MeshInstance3D", true, false)
+	# Cast only against the actual ground, not scenery or profile samples.
+	var meshes: Array[Node] = meadow.terrain.find_children(mesh_name, "MeshInstance3D", true, false)
 	if meshes.size() != 1:
-		return _fail("Oasis frame coverage needs its actual continuous ground mesh")
+		return _fail(biome + " frame coverage needs its actual continuous ground mesh")
 	var ground := meshes[0] as MeshInstance3D
 	var faces: PackedVector3Array = ground.mesh.get_faces()
 	if faces.is_empty() or faces.size() % 3 != 0:
-		return _fail("Oasis frame coverage needs complete rendered ground triangles")
+		return _fail(biome + " frame coverage needs complete rendered ground triangles")
 	for index in faces.size():
 		faces[index] = ground.global_transform * faces[index]
 	var original_size: Vector2i = root.size
@@ -186,11 +626,11 @@ func _oasis_frame_ground_coverage(meadow: Node) -> bool:
 	# The actual Android cutoff appeared on a 1080x2400 phone. Its 20:9 frame
 	# sees farther down the ground than the standard 720x1280 test viewport.
 	for portrait_size in [Vector2i(720, 1280), Vector2i(720, 1600)]:
-		root.size = portrait_size
-		await process_frame
+		if not await _portrait_viewport(portrait_size):
+			return false
 		var viewport: Rect2 = root.get_visible_rect()
 		if viewport.size.y <= 0 or absf(viewport.size.x / viewport.size.y - float(portrait_size.x) / portrait_size.y) > 0.0001:
-			return _fail("Oasis frame coverage did not exercise the requested portrait aspect: %s vs %s" % [viewport.size, portrait_size])
+			return _fail("%s frame coverage did not exercise the requested portrait aspect: %s vs %s" % [biome, viewport.size, portrait_size])
 		for pan in [-6.0, 6.0]:
 			for zoom in [0.8, 1.0, 1.18]:
 				meadow.zoom = zoom
@@ -211,14 +651,14 @@ func _oasis_frame_ground_coverage(meadow: Node) -> bool:
 								covered = true
 								break
 						if not covered:
-							return _fail("Oasis rendered ground ends inside the lower portrait frame (size %s, pan %.1f, zoom %.2f, column %.2f, row %.2f, ray origin %s, direction %s)" % [portrait_size, pan, zoom, column, row, origin, direction])
+							return _fail("%s rendered ground ends inside the lower portrait frame (size %s, pan %.1f, zoom %.2f, column %.2f, row %.2f, ray origin %s, direction %s)" % [biome, portrait_size, pan, zoom, column, row, origin, direction])
 						checked += 1
-	root.size = original_size
-	await process_frame
+	if not await _portrait_viewport(original_size):
+		return false
 	meadow.fit_camera()
 	if checked != 72:
-		return _fail("Oasis lower-frame coverage must exercise both follow extremes and all zooms")
-	print("OASIS_FRAME_GROUND: %d lower-portrait rays hit actual ground triangles at both follow extremes, all zooms, and 16:9/20:9 phone aspects" % checked)
+		return _fail(biome + " lower-frame coverage must exercise both follow extremes and all zooms")
+	print("%s_FRAME_GROUND: %d lower-portrait rays hit actual ground triangles at both follow extremes, all zooms, and 16:9/20:9 phone aspects" % [biome.to_upper(), checked])
 	return true
 
 func _oasis_apron_orientation(meadow: Node) -> bool:

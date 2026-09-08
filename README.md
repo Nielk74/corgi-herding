@@ -5,7 +5,7 @@
 Two herders. Two corgis. Ten sheep and a shared journey.
 
 A portrait-first cooperative Android game about caring for a flock together, set in an Alpine
-valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard or Canyon Oasis. Distant mountain ranges and layered
+valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard, Canyon Oasis or Cloud Pasture. Distant mountain ranges and layered
 landscapes make the walkable valley feel part of a much larger world. Steep rock,
 woods and water mark its natural limits. No combat, score or timer: a wandering
 sheep creates another little story.
@@ -25,7 +25,7 @@ slopes. This is mobile raster lighting, not hardware ray tracing.
 
 <img src="docs/images/larch-hollow.png" width="300" alt="Portrait Android Larch Hollow with autumn trees, an offset bridge and an open pasture gate"> <img src="docs/images/sunward-orchard.png" width="300" alt="Portrait Android Sunward Orchard, two herders and sheep nibbling fallen apples below a distant hamlet">
 
-<img src="docs/images/canyon-oasis.png" width="300" alt="Portrait Android Canyon Oasis, two herders resting near their flock below a spring and sunlit canyon walls">
+<img src="docs/images/canyon-oasis.png" width="300" alt="Portrait Android Canyon Oasis, two herders resting near their flock below a spring and sunlit canyon walls"> <img src="docs/images/cloud-pasture.png" width="300" alt="Portrait Android Cloud Pasture, herders and corgis resting on a grassy ridge above an Alpine tarn">
 
 Captured from the signed Android prototype in an emulator connected to the Go
 server. Command controls appear only when a corgi is tapped.
@@ -46,6 +46,11 @@ they have eaten, including after reconnecting; no repeated chore or snack meter.
 Canyon Oasis opens two dry routes around low weathered stone. There is no gate:
 take the flock together, split around the rock, or linger in the green pasture.
 Dogs follow the route you choose, and a disconnected herder resumes the same walk.
+
+Cloud Pasture is a broad climbing ridge with three grassy shelves overlooking
+an Alpine valley. Wander up, back down, or sit halfway with the dogs. There is no
+bridge, gate or arrival prompt. Steep flanks frame the gentle ground without
+falls; a split flock can be patiently reunited on the ridge.
 
 The initial server runs on the developer's Mac over LAN. The server address is
 editable on the start screen, so self-hosting does not require rebuilding the APK.
@@ -74,12 +79,16 @@ go test -race ./...
 ```
 
 ```sh
-godot --headless --path client --editor --quit
-godot --headless --path client --script res://tests/smoke.gd
-godot --headless --path client --script res://tests/terrain_smoke.gd
-godot --headless --path client --script res://tests/static_scenery_batch.gd
-godot --headless --path client --script res://tests/layout_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --editor --quit
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/terrain_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/static_scenery_batch.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/layout_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/cloud_navigation_smoke.gd
 ```
+
+The wrapper also rejects errors printed by Godot with a zero exit status.
+CI exercises two connected clients in every landscape, including reconnection.
 
 ## Automatic delivery
 
@@ -100,7 +109,7 @@ it prevents Android from installing future releases as updates.
 
 ## Scope
 
-This is milestone 1, not the full journey game. It includes five landscape levels,
+This is milestone 1, not the full journey game. It includes six landscape levels,
 shared dog commands, sheep steering, invitations, reconnection, and file
 checkpoints, a small persistent orchard distraction and a two-route rock landscape. Puppy adoption/training, richer animations and sound, PostgreSQL,
 camp customization and travel between connected regions are subsequent milestones. Two-phone

@@ -193,3 +193,63 @@ replacement Orchard regression compares a full previous-build trace with exact
 gameplay states and a 1e-12 bound only on actor position, velocity and target coordinates, stricter
 than the former 1e-6 rounding. The failed workflow published nothing and left
 the live server untouched.
+
+## Sixth place — Cloud Pasture
+
+Three broad grassy shelves follow a climbing ridge above an Alpine valley.
+This changes the legal ground again: a union of shelf disks and wide path
+capsules replaces the river crossing or rock bypass. Both players and both
+dogs follow the whole safe route; checking only its endpoints would allow a
+shortcut across steep country. Analytical segment coverage and a small
+visibility graph are mirrored between Go and Godot, with 32 shared fixtures
+and 6,006 ordered server routes. Lost-tap reconnect and retained routes are
+checked through actual network disconnection, not test-state resets.
+
+The first signed Android views were rejected at the starting shelf, middle
+and upper end. The foreground was a soft empty green expanse, the snowy massif
+ended on a flat-looking wall, and the tarn was a uniform cyan oval. A Cloud-only
+pass added rocky runnels outside the walking corridor, a staggered foothill,
+sparse distant woodland and an inlet with shallow-water colors. Far terrain
+uses its own material surface in the same continuous mesh to avoid noisy
+received shadows. Nearby terrain and animals retain their shadows; the global
+light rig and every older landscape remain unchanged.
+
+An Android-created staging herd and a second client using ordinary dog
+commands brought all ten sheep uphill at tick 754, downhill at tick 2610,
+and uphill again at tick 4029. Separate server tests retrieve a genuine
+dog-created split. No actor positions are overwritten to pass these tests.
+Every shelf supports calm grazing, and Cloud never announces completion,
+including when returning to an already settled herd.
+
+Two testing defects were found along the way. Godot can print a script parse
+error but return exit zero; all CI import, test and export commands now pass
+through an error-log guard. Also, a headless startup can reset the requested
+window to 64x64, producing a square logical viewport. Tests now explicitly
+set and verify the logical portrait dimensions. The corrected total is 1,267
+terrain picks: 915 in the old five landscapes and 352 on Cloud. Fewer incidental
+points are on-screen than in the earlier square window; no required fixture
+or threshold was removed. Cloud additionally checks all 1,200 water triangles
+against the ridge, 400 covered shoreline samples, 40 real-bank rays, 72 ground
+frame rays and 92 actor-visibility probes. Geometry remains below 100,000 triangles.
+
+Compatibility checks now include an independently captured 700-tick Oasis
+trace from the previous build. Old/new snapshots are byte-identical within
+each tested platform; exact state, geometry and route anchors remain required
+across platforms, with a 1e-12 allowance only for actor coordinates. A successful
+join also clears the stale “Opening a little world…” line when reopening the menu.
+
+The refined signed APK was inspected on Android at both actual follow extremes,
+including the upper herder at X=13.33, and on the middle shelf. There are no
+visible holes, exposed backfaces, cut-off water or props hiding the animals.
+The descent, resting shelves and tarn read more distinctly. Remaining work is
+explicit: the mountain-foot silhouette is still quite wall-like, pine forms
+repeat, and some broad terrain remains overly smooth. Distant stippled shading,
+sparse animation and missing environmental sound still limit the atmosphere.
+These captures verify a playable prototype, not real-phone performance or the
+feel of two human players.
+
+Actual Android taps called Maple, revealed the nearby Pet action and let the
+herder sit beside their companion. The authoritative checkpoint recorded the
+petting herder and happy dog. The [quiet portrait capture](images/cloud-pasture.png)
+contains both herders, both corgis and the flock with no invite, command panel,
+arrival text or permanent action bar.

@@ -3,11 +3,12 @@ extends Node3D
 const Connection = preload("res://scripts/network.gd")
 const Meadow = preload("res://scripts/meadow.gd")
 const RockNavigation = preload("res://scripts/rock_navigation.gd")
+const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
 const ACCENT := Color("466e59")
-const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis"}
+const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard", "oasis": "Canyon Oasis", "cloud": "Cloud Pasture"}
 
 var meadow: MeadowDiorama
 var network: HerdConnection
@@ -60,6 +61,7 @@ var cactus_button: Button
 var larch_button: Button
 var orchard_button: Button
 var oasis_button: Button
+var cloud_button: Button
 var region_label: Label
 var world_layout := {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 
@@ -209,7 +211,8 @@ func _build_welcome() -> void:
 	larch_button = _button("Larch Hollow", func() -> void: _select_landscape("larch"))
 	orchard_button = _button("Sunward Orchard", func() -> void: _select_landscape("orchard"))
 	oasis_button = _button("Canyon Oasis", func() -> void: _select_landscape("oasis"))
-	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button]:
+	cloud_button = _button("Cloud Pasture", func() -> void: _select_landscape("cloud"))
+	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button]:
 		button.custom_minimum_size.y = 64
 		button.add_theme_font_size_override("font_size", 18)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -328,6 +331,8 @@ func _configure() -> bool:
 	return network.configure(endpoint_input.text, name_input.text)
 
 func _default_layout(landscape: String) -> Dictionary:
+	if landscape == "cloud":
+		return CloudNavigation.layout()
 	if landscape == "oasis":
 		return {"version": 3, "bridge_y": 0.0, "gate_y": 0.0, "rock_pass": {"center": {"x": 0.0, "y": 0.0}, "radius": 3.4}}
 	if landscape == "orchard":
@@ -347,6 +352,13 @@ func _matches_layout(value: Variant, expected: Variant) -> bool:
 			if not value.has(key) or not _matches_layout(value[key], expected[key]):
 				return false
 		return true
+	if expected is Array:
+		if not value is Array or value.size() != expected.size():
+			return false
+		for i in expected.size():
+			if not _matches_layout(value[i], expected[i]):
+				return false
+		return true
 	if typeof(expected) in [TYPE_INT, TYPE_FLOAT]:
 		return typeof(value) in [TYPE_INT, TYPE_FLOAT] and float(value) == float(expected)
 	return typeof(value) == typeof(expected) and value == expected
@@ -359,16 +371,16 @@ func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
 	route_target = Vector2.INF
 	world_layout = _default_layout(landscape) if layout.is_empty() else layout.duplicate(true)
 	meadow.set_landscape(landscape, world_layout)
-	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button]:
+	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button]:
 		button.remove_theme_stylebox_override("normal")
 		button.remove_theme_stylebox_override("hover")
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_hover_color")
-	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button}[landscape])
+	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button, "oasis": oasis_button, "cloud": cloud_button}[landscape])
 	if region_label != null:
 		region_label.text = LANDSCAPES[landscape]
 	if create_button != null:
-		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis"}[landscape]
+		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard", "oasis": "Find shade in the oasis", "cloud": "Wander above the valley"}[landscape]
 
 func _create() -> void:
 	if not request_busy and _configure():
@@ -397,11 +409,13 @@ func _set_busy(value: bool) -> void:
 	larch_button.disabled = value
 	orchard_button.disabled = value
 	oasis_button.disabled = value
+	cloud_button.disabled = value
 	if value:
 		menu_error.text = "Opening a little world…"
 
 func _on_herd_joined(code: String) -> void:
 	_set_busy(false)
+	menu_error.text = ""
 	local_id = str(network.credentials.get("player_id", ""))
 	invite_label.text = "Invite · " + code
 	welcome.hide()
@@ -528,7 +542,7 @@ func _pick_world_interaction(screen_pos: Vector2) -> String:
 			candidates.append({"id": "dog:" + id, "position": actors[id].node.position + Vector3(0, 0.5, 0), "radius": 44.0})
 	if actors.has(local_id):
 		candidates.append({"id": "player", "position": actors[local_id].node.position + Vector3(0, 0.9, 0), "radius": 40.0})
-		if selected_landscape != "oasis" and not meadow.gate_open:
+		if not _has_route_navigation() and not meadow.gate_open:
 			candidates.append({"id": "gate", "position": _surface_position(Vector2(6, world_layout.gate_y)) + Vector3(0, 0.7, 0), "radius": 42.0})
 	var nearest := ""
 	var nearest_distance := INF
@@ -568,12 +582,17 @@ func _world_tap(screen_pos: Vector2) -> void:
 		_hint("The steep slopes shelter this valley. Keep to the open ground.", 3.0)
 		return
 	# Water is readable as a real obstacle; tap the bridge or other bank to cross.
-	if selected_landscape != "oasis" and absf(ground.x) < 1.5 and absf(ground.z - float(world_layout.bridge_y)) > 1.85:
+	if not _has_route_navigation() and absf(ground.x) < 1.5 and absf(ground.z - float(world_layout.bridge_y)) > 1.85:
 		_hint("The bridge is the dry way across.")
 		return
 	var target := Vector2(ground.x, ground.z)
 	if not _walkable(target):
-		_hint("There is open ground around the rock." if selected_landscape == "oasis" else "Follow the fence to the gate.", 3.0)
+		var message := "Follow the fence to the gate."
+		if selected_landscape == "oasis":
+			message = "There is open ground around the rock."
+		elif selected_landscape == "cloud":
+			message = "The grassy ridge is the gentle way through."
+		_hint(message, 3.0)
 		return
 	meadow.mark_destination(ground)
 	if go_pending:
@@ -621,8 +640,8 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 			var id := str(data.id)
 			present[id] = true
 			var point := Vector2(float(data.position.x), float(data.position.y))
-			if selected_landscape == "oasis":
-				point = RockNavigation.presentation_point(point)
+			if _has_route_navigation():
+				point = _presentation_point(point)
 			var pos := _surface_position(point)
 			if not actors.has(id):
 				var node := meadow.make_actor(kind, id, kind == "player" and id != local_id)
@@ -652,8 +671,8 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 						actor.node.position = pos
 						if data.has("target"):
 							movement_target = Vector2(float(data.target.x), float(data.target.y))
-							if selected_landscape == "oasis":
-								movement_target = RockNavigation.presentation_point(movement_target)
+							if _has_route_navigation():
+								movement_target = _presentation_point(movement_target)
 							moving = actor.state == "walking" and Vector2(pos.x, pos.z).distance_to(movement_target) > 0.12
 						else:
 							movement_target = Vector2(pos.x, pos.z)
@@ -662,13 +681,13 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 						route_target = Vector2.INF
 						awaiting_authoritative_snapshot = false
 					if server_seq >= movement_seq:
-						if selected_landscape == "oasis":
-							movement_route = RockNavigation.decode_route(data.get("route", []))
+						if _has_route_navigation():
+							movement_route = CloudNavigation.decode_route(data.get("route", [])) if selected_landscape == "cloud" else RockNavigation.decode_route(data.get("route", []))
 							route_target = movement_target
 						# Small correction retains immediate touch feedback; large drift snaps.
 						var drift: float = actor.node.position.distance_to(pos)
 						var correction: Vector3 = actor.node.position.lerp(pos, 0.24)
-						if selected_landscape == "oasis" and not RockNavigation.visible(Vector2(actor.node.position.x, actor.node.position.z), Vector2(correction.x, correction.z)):
+						if _has_route_navigation() and not _route_visible(Vector2(actor.node.position.x, actor.node.position.z), Vector2(correction.x, correction.z)):
 							correction = pos
 						actor.node.position = pos if drift > 2.0 else correction
 						if actor.state == "sitting" or actor.state == "petting":
@@ -684,7 +703,12 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	var settled := int(snapshot.get("settled", 0))
 	if first_snapshot and settled == 10:
 		arrival_noticed = true
-	if settled == 10 and last_settled < 10 and not arrival_noticed:
+	if selected_landscape == "cloud":
+		# All three shelves are places to linger; reaching the highest one is
+		# neither a completion event nor more important than resting halfway.
+		moment_label.text = ""
+		moment_time = 0.0
+	elif settled == 10 and last_settled < 10 and not arrival_noticed:
 		arrival_noticed = true
 		moment_label.text = "A peaceful place to rest."
 		moment_label.modulate.a = 1.0
@@ -719,11 +743,11 @@ func _process(delta: float) -> void:
 	for id in actors:
 		var actor: Dictionary = actors[id]
 		var node: Node3D = actor.node
-		if selected_landscape == "oasis":
-			var safe_point := RockNavigation.presentation_point(Vector2(node.position.x, node.position.z))
+		if _has_route_navigation():
+			var safe_point := _presentation_point(Vector2(node.position.x, node.position.z))
 			node.position.x = safe_point.x
 			node.position.z = safe_point.y
-			var safe_target := RockNavigation.presentation_point(Vector2(actor.target.x, actor.target.z))
+			var safe_target := _presentation_point(Vector2(actor.target.x, actor.target.z))
 			actor.target.x = safe_target.x
 			actor.target.z = safe_target.y
 		var before := node.position
@@ -737,16 +761,16 @@ func _process(delta: float) -> void:
 				moving = false
 		elif id != local_id:
 			var next_position: Vector3 = node.position.lerp(actor.target, 1.0 - exp(-delta * 12.0))
-			if selected_landscape == "oasis":
+			if _has_route_navigation():
 				var point := Vector2(node.position.x, node.position.z)
 				var next := Vector2(next_position.x, next_position.z)
-				if not RockNavigation.visible(point, next):
+				if not _route_visible(point, next):
 					# Interpolating a chord across a curved route must not draw an
 					# animal through solid rock during a delayed snapshot.
 					var target := Vector2(actor.target.x, actor.target.z)
-					var route := RockNavigation.plan(point, target)
-					next = point.move_toward(RockNavigation.next_waypoint(point, target, route), point.distance_to(next))
-					if RockNavigation.visible(point, next):
+					var route := _plan_route(point, target)
+					next = point.move_toward(_route_waypoint(point, target, route), point.distance_to(next))
+					if _route_visible(point, next):
 						next_position.x = next.x
 						next_position.z = next.y
 					else:
@@ -789,24 +813,24 @@ func _process(delta: float) -> void:
 			_capture.call_deferred()
 
 func _predict_step(point: Vector2, target: Vector2, delta: float) -> Vector2:
-	if selected_landscape != "oasis":
+	if not _has_route_navigation():
 		return point.move_toward(_next_waypoint(point, target), 4.0 * delta)
 	var remaining := 4.0 * minf(delta, 0.25)
 	while remaining > 0.00001:
 		var distance := minf(remaining, 0.08)
 		var next := point.move_toward(_next_waypoint(point, target), distance)
-		if not _walkable(next) or not RockNavigation.visible(point, next):
+		if not _walkable(next) or not _route_visible(point, next):
 			break
 		point = next
 		remaining -= distance
 	return point
 
 func _next_waypoint(point: Vector2, target: Vector2) -> Vector2:
-	if selected_landscape == "oasis":
+	if _has_route_navigation():
 		if target != route_target:
-			movement_route = RockNavigation.plan(point, target)
+			movement_route = _plan_route(point, target)
 			route_target = target
-		return RockNavigation.next_waypoint(point, target, movement_route)
+		return _route_waypoint(point, target, movement_route)
 	# Mirror server/internal/game/world.go waypoint, including stops on the bridge.
 	var bridge_y := float(world_layout.bridge_y)
 	# Returning from pasture reaches the fence before the river. On offset
@@ -835,6 +859,8 @@ func _gate_waypoint(point: Vector2) -> Vector2:
 func _walkable(point: Vector2) -> bool:
 	if absf(point.x) > 17 or absf(point.y) > 11:
 		return false
+	if selected_landscape == "cloud":
+		return CloudNavigation.contains(point)
 	if selected_landscape == "oasis":
 		return point.distance_to(Vector2(world_layout.rock_pass.center.x, world_layout.rock_pass.center.y)) >= float(world_layout.rock_pass.radius)
 	if absf(point.x) < 1.5 and absf(point.y - float(world_layout.bridge_y)) > 1.85:
@@ -842,6 +868,21 @@ func _walkable(point: Vector2) -> bool:
 	if absf(point.x - 6) < 0.18 and (not meadow.gate_open or absf(point.y - float(world_layout.gate_y)) > 1.8):
 		return false
 	return true
+
+func _has_route_navigation() -> bool:
+	return selected_landscape in ["oasis", "cloud"]
+
+func _presentation_point(point: Vector2) -> Vector2:
+	return CloudNavigation.presentation_point(point) if selected_landscape == "cloud" else RockNavigation.presentation_point(point)
+
+func _route_visible(from: Vector2, to: Vector2) -> bool:
+	return CloudNavigation.visible(from, to) if selected_landscape == "cloud" else RockNavigation.visible(from, to)
+
+func _plan_route(from: Vector2, to: Vector2) -> Array[Vector2]:
+	return CloudNavigation.plan(from, to) if selected_landscape == "cloud" else RockNavigation.plan(from, to)
+
+func _route_waypoint(from: Vector2, to: Vector2, route: Array[Vector2]) -> Vector2:
+	return CloudNavigation.next_waypoint(from, to, route) if selected_landscape == "cloud" else RockNavigation.next_waypoint(from, to, route)
 
 func _acknowledge(id: String) -> void:
 	if actors.has(id):
@@ -853,11 +894,17 @@ func _show_preview() -> void:
 	_on_herd_joined("MEADOW")
 	var sheep: Array = []
 	for i in range(10):
-		var point := Vector2(-7 + (i % 3) * 1.15, -2 + floorf(i / 3.0) * 1.15) if selected_landscape == "oasis" else Vector2(-5.5 + sin(i * 2.3) * 3, -1.6 + cos(i * 1.6) * 2.6)
+		var point := Vector2(-7 + (i % 3) * 1.15, -2 + floorf(i / 3.0) * 1.15) if _has_route_navigation() else Vector2(-5.5 + sin(i * 2.3) * 3, -1.6 + cos(i * 1.6) * 2.6)
 		sheep.append({"id": "s%d" % i, "position": {"x": point.x, "y": point.y}, "state": "grazing"})
-	_on_snapshot({"gate_open": false, "settled": 0, "landscape": selected_landscape, "layout": world_layout,
+	var preview_snapshot := {"gate_open": false, "settled": 0, "landscape": selected_landscape, "layout": world_layout,
 		"players": [{"id": "p1", "position": {"x": -10, "y": 2}, "state": "idle", "connected": true}, {"id": "p2", "position": {"x": -4, "y": 5}, "state": "idle", "connected": true}],
-		"dogs": [{"id": "mochi", "position": {"x": -8, "y": 3}, "state": "wander"}, {"id": "maple", "position": {"x": -2.5, "y": 4}, "state": "wander"}], "sheep": sheep})
+		"dogs": [{"id": "mochi", "position": {"x": -8, "y": 3}, "state": "wander"}, {"id": "maple", "position": {"x": -2.5, "y": 4}, "state": "wander"}], "sheep": sheep}
+	if selected_landscape == "cloud":
+		preview_snapshot.players[0].position = {"x": -13.0, "y": -1.5}
+		preview_snapshot.players[1].position = {"x": -13.0, "y": 1.5}
+		preview_snapshot.dogs[0].position = {"x": -11.0, "y": -2.0}
+		preview_snapshot.dogs[1].position = {"x": -11.0, "y": 2.0}
+	_on_snapshot(preview_snapshot)
 	status_label.text = "Preview · not connected"
 
 func _capture() -> void:

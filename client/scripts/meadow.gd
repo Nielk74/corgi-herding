@@ -7,6 +7,7 @@ const DARK := Color("293f36")
 const CREAM := Color("fff0d5")
 const TerrainProfile = preload("res://scripts/terrain_profile.gd")
 const SceneryBatch = preload("res://scripts/static_scenery_batch.gd")
+const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 var camera: Camera3D
 var gate: Node3D
 var bridge: Node3D
@@ -35,6 +36,12 @@ var forage_center := Vector2(-7, -5)
 var forage_radius := 2.2
 var rock_center := Vector2.ZERO
 var rock_radius := 3.4
+var ridge: Dictionary = {}
+var ridge_spine: Array[Vector2] = []
+var ridge_half_width := 3.6
+var ridge_shelves: Array = []
+var rest_center := Vector2(11, 4)
+var rest_radius := 4.6
 
 func _ready() -> void:
 	_build_light()
@@ -47,8 +54,8 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis"] else "alpine"
-	var expected_version := 3 if next == "oasis" else (2 if next == "orchard" else 1)
+	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud"] else "alpine"
+	var expected_version := 4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1))
 	var next_layout := {"version": int(incoming_layout.get("version", expected_version)),
 		"bridge_y": float(incoming_layout.get("bridge_y", 3.0 if next == "orchard" else (-4.0 if next == "larch" else 0.0))),
 		"gate_y": float(incoming_layout.get("gate_y", 2.0 if next == "orchard" else (4.0 if next == "larch" else 0.0)))}
@@ -66,6 +73,8 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		var center: Dictionary = rock.get("center", {})
 		next_layout["rock_pass"] = {"center": {"x": float(center.get("x", 0.0)), "y": float(center.get("y", 0.0))},
 			"radius": float(rock.get("radius", 3.4))}
+	elif next == "cloud":
+		next_layout["ridge"] = incoming_layout.get("ridge", CloudNavigation.default_ridge()).duplicate(true)
 	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	landscape = next
@@ -78,6 +87,15 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	elif next == "oasis":
 		rock_center = Vector2(next_layout.rock_pass.center.x, next_layout.rock_pass.center.y)
 		rock_radius = next_layout.rock_pass.radius
+	elif next == "cloud":
+		ridge = next_layout.ridge.duplicate(true)
+		ridge_spine.clear()
+		for point: Dictionary in ridge.spine:
+			ridge_spine.append(Vector2(float(point.x), float(point.y)))
+		ridge_half_width = float(ridge.half_width)
+		ridge_shelves = ridge.shelves.duplicate(true)
+		rest_center = Vector2(float(ridge.rest.center.x), float(ridge.rest.center.y))
+		rest_radius = float(ridge.rest.radius)
 	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
@@ -90,10 +108,12 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	add_child(terrain)
 	if world_environment != null:
 		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1", "d8c7ac")
+		if next == "cloud":
+			world_environment.background_color = Color("a9cbdc")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
-	if landscape != "oasis":
+	if landscape not in ["oasis", "cloud"]:
 		_build_bridge()
 		_build_fence()
 	_build_details()
@@ -183,6 +203,9 @@ func follow_player(pos: Vector3) -> void:
 		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
 
 func _build_land() -> void:
+	if landscape == "cloud":
+		_build_cloud_land()
+		return
 	if landscape == "oasis":
 		_build_oasis_land()
 		return
@@ -230,6 +253,177 @@ func _build_land() -> void:
 	else:
 		_trail([Vector2(-31, -13), Vector2(-24, -7), Vector2(-18, -2), Vector2(-13, -1), Vector2(-8, bridge_y + 0.7), Vector2(-4, bridge_y + 0.3), Vector2(-1.7, bridge_y)], 1.1)
 		_trail([Vector2(1.7, bridge_y), Vector2(6, gate_y), Vector2(10, gate_y + 0.8), Vector2(14, gate_y + 2), Vector2(19, 4), Vector2(27, 3), Vector2(35, -2)], 1.05)
+
+func _build_cloud_land() -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var distant_surface := SurfaceTool.new()
+	distant_surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var step := TerrainProfile.CLOUD_GRID_STEP
+	# One uniform grid continues through every shelf, flank, distant hillside and
+	# snowy crag. There are no shoreline walls, overlapping field plates or seams
+	# between coarse and fine terrain. The source also grounds feet and touch rays.
+	for ix in range(160):
+		for iz in range(168):
+			var x := -60.0 + ix * step
+			var z := -60.0 + iz * step
+			var a := Vector3(x, profile.node_height(x, z), z)
+			var b := Vector3(x + step, profile.node_height(x + step, z), z)
+			var c := Vector3(x + step, profile.node_height(x + step, z + step), z + step)
+			var d := Vector3(x, profile.node_height(x, z + step), z + step)
+			var depth := -(x + step * 0.5) * 0.2063 - (z + step * 0.5) * 0.9785
+			var target := distant_surface if depth > 15.0 else surface
+			_ground_triangle(target, a, b, c, Color.WHITE, true)
+			_ground_triangle(target, a, c, d, Color.WHITE, true)
+	var ground := _finish_surface(surface, "ValleyGroundCloud", true)
+	var combined_mesh := ground.mesh as ArrayMesh
+	distant_surface.commit(combined_mesh)
+	# One mesh keeps every shared edge exact. Only far scenery stops receiving
+	# noisy long-distance shadow maps; its normals still receive ordinary sunlight.
+	ground.material_override = null
+	combined_mesh.surface_set_material(0, vertex_material)
+	var distant_material := vertex_material.duplicate() as StandardMaterial3D
+	distant_material.disable_receive_shadows = true
+	combined_mesh.surface_set_material(1, distant_material)
+
+func _cloud_ground_color(point: Vector3, normal: Vector3) -> Color:
+	var depth := -point.x * 0.2063 - point.z * 0.9785
+	var u := point.x * 0.9785 - point.z * 0.2063
+	var color := Color("8fa96b")
+	var stone := smoothstep(0.075, 0.36, 1.0 - normal.y)
+	color = color.lerp(Color("68776c"), stone * 0.90)
+	color = color.lerp(Color("789780"), (1.0 - smoothstep(-3.0, 0.0, point.y)) * 0.38)
+	color = color.lightened(sin(point.x * 0.35 + sin(point.z * 0.2) * 1.1) * 0.025)
+	if depth < 12.0:
+		var outside := maxf(-profile.cloud_clearance(point.x, point.z), 0.0)
+		var slabs := exp(-pow((point.x + 8.0) / 8.0, 2) - pow((point.z - 13.0) / 9.0, 2))
+		slabs += exp(-pow((point.x - 12.0) / 7.0, 2) - pow((point.z - 17.0) / 8.0, 2)) * 0.80
+		var broken := 0.56 + 0.44 * sin(point.x * 0.72 + point.z * 0.39 + sin(point.z * 0.21))
+		var exposure := slabs * smoothstep(1.15, 3.2, outside) * smoothstep(0.20, 0.76, broken)
+		color = color.lerp(Color("718078"), exposure * 0.84)
+		color = color.lightened(sin(point.x * 0.83 - point.z * 0.58) * exposure * 0.018)
+	var country := smoothstep(12.0, 24.0, depth)
+	color = color.lerp(Color("91a58e").lerp(Color("738a80"), stone), country * 0.74)
+	if depth > 16.0 and depth < 26.0 and profile.cloud_lake_metric(point.x, point.z) < 2.8:
+		var shore := 1.0 - smoothstep(0.04, 0.48, absf(point.y - TerrainProfile.CLOUD_LAKE_LEVEL))
+		color = color.lerp(Color("a4a698"), shore * 0.80)
+	var mountain_front := profile.cloud_mountain_front(u)
+	if depth > mountain_front:
+		var mountain := Color("687f8c").lerp(Color("97adb8"), smoothstep(-4.0, 4.0, point.y))
+		var gully := 0.70 + 0.30 * sin(u * 0.77 + depth * 0.63)
+		var snow := smoothstep(2.2 + gully * 0.4, 4.8 + gully * 0.5, point.y)
+		mountain = mountain.lerp(Color("e3edf0"), snow * 0.96)
+		mountain = mountain.lerp(Color("b6ced9"), smoothstep(37.0, 46.0, depth) * 0.52)
+		color = color.lerp(mountain, smoothstep(mountain_front, mountain_front + 5.0, depth))
+	return color
+
+func _build_cloud_backdrop() -> void:
+	# Open water belongs to the lower valley beyond the ridge, not to a repeated
+	# playable crossing. Its polygon boundary is hidden beneath the sampled banks.
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	var center := across * 5.0 + away * 21.0
+	center.y = TerrainProfile.CLOUD_LAKE_LEVEL
+	var lake := SurfaceTool.new()
+	lake.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ring in range(8):
+		for i in range(80):
+			var angle0 := i * TAU / 80.0
+			var angle1 := (i + 1) * TAU / 80.0
+			var r0 := ring / 8.0
+			var r1 := (ring + 1) / 8.0
+			var a := center + (across * cos(angle0) * 9.5 + away * sin(angle0) * 3.7) * r0
+			var b := center + (across * cos(angle0) * 9.5 + away * sin(angle0) * 3.7) * r1
+			var c := center + (across * cos(angle1) * 9.5 + away * sin(angle1) * 3.7) * r1
+			var d := center + (across * cos(angle1) * 9.5 + away * sin(angle1) * 3.7) * r0
+			_cloud_water_triangle(lake, a, b, c)
+			if ring > 0:
+				_cloud_water_triangle(lake, a, c, d)
+	water = _finish_surface(lake, "CloudDistantTarn")
+
+func _cloud_water_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
+	if (c - a).cross(b - a).y < 0:
+		var previous_b := b
+		b = c
+		c = previous_b
+	for point in [a, b, c]:
+		var water_depth := maxf(TerrainProfile.CLOUD_LAKE_LEVEL - profile.sample(point.x, point.z), 0.0)
+		var color := Color("9ebbb3").lerp(Color("527f94"), smoothstep(0.015, 0.46, water_depth))
+		color = color.lightened(sin(point.x * 0.44 + point.z * 0.81) * 0.022)
+		surface.set_color(color)
+		surface.set_normal(Vector3.UP)
+		surface.add_vertex(point)
+
+func _build_cloud_details() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 684231
+	# Each small grove lives downhill from the actual corridor, separated by air
+	# and landforms. No crown belt encloses the playable space.
+	for p in [Vector3(-18, 0, -7), Vector3(-20.3, 0, -8.5), Vector3(-17.8, 0, -10.5), Vector3(17.5, 0, -3), Vector3(19.5, 0, -4.9), Vector3(21, 0, -2.5)]:
+		_pine(p, rng.randf_range(0.60, 0.90))
+	for p in [Vector3(-14.5, 0, 7.4), Vector3(-10.5, 0, 8.0), Vector3(-7, 0, 6.5), Vector3(1.5, 0, -10.8), Vector3(9.8, 0, -4.8), Vector3(16.9, 0, 8.8)]:
+		if profile.cloud_clearance(p.x, p.z) > -1.25:
+			continue
+		_rock(p + Vector3(0, 0.21, 0), Vector3(rng.randf_range(1.2, 1.8), 0.70, rng.randf_range(0.95, 1.35)))
+		_shrub(p + Vector3(0.7, 0.04, 0.4), 0.45)
+	for p in [Vector3(-10.0, 0, 10.6), Vector3(-6.2, 0, 13.4), Vector3(13.1, 0, 12.5), Vector3(7.1, 0, 17.2)]:
+		if profile.cloud_clearance(p.x, p.z) < -2.0:
+			_cloud_outcrop(p, Vector2(1.9, 1.1), 0.45)
+			_cloud_outcrop(p + Vector3(1.9, 0, 0.9), Vector2(0.9, 0.7), 0.28)
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	# Unequal small woodland pockets follow the distant slope and shore. Their
+	# tiny scale is a distance cue; there is no straight row of full-sized trees.
+	for coordinate: Vector2 in [Vector2(-10.5, 17.8), Vector2(-12.0, 18.4), Vector2(-9.2, 18.9), Vector2(-11.2, 20.0), Vector2(-2.5, 24.0), Vector2(-1.4, 25.1), Vector2(-3.8, 25.3), Vector2(13.1, 20.4), Vector2(15.1, 21.5), Vector2(13.8, 23.0)]:
+		var p := across * coordinate.x + away * coordinate.y
+		if profile.sample(p.x, p.z) > TerrainProfile.CLOUD_LAKE_LEVEL + 0.45:
+			_pine(p, rng.randf_range(0.30, 0.48))
+	for coordinate: Vector2 in [Vector2(2.2, 19.2), Vector2(1.2, 19.5), Vector2(9.4, 21.6)]:
+		var p := across * coordinate.x + away * coordinate.y
+		if profile.sample(p.x, p.z) > TerrainProfile.CLOUD_LAKE_LEVEL + 0.12:
+			_cloud_outcrop(p, Vector2(0.6, 0.4), 0.18)
+	var blooms := SurfaceTool.new()
+	blooms.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(145):
+		var p := Vector2(rng.randf_range(-16.5, 16.5), rng.randf_range(-10.5, 10.5))
+		if not CloudNavigation.contains(p, ridge):
+			continue
+		var ground := _grounded(Vector3(p.x, 0.025, p.y))
+		var scale_value := rng.randf_range(0.08, 0.15)
+		var tint := Color("738955")
+		_triangle(blooms, ground + Vector3(-scale_value, 0, 0), ground + Vector3(scale_value, 0, 0), ground + Vector3(0, scale_value * 1.8, 0.04), tint)
+		if i % 3 == 0:
+			var flower := ground + Vector3(0, scale_value * 1.7, 0)
+			var petals := Color("d5c38c") if i % 2 else Color("c5b8d2")
+			_triangle(blooms, flower + Vector3(-0.075, 0, 0), flower + Vector3(0.075, 0, 0), flower + Vector3(0, 0.075, 0), petals)
+	_finish_surface(blooms, "CloudAlpineFlowers")
+	# A quiet rest shelf, not a destination marker or an interaction hub.
+	var blanket := rest_center + Vector2(0.5, 1.2)
+	_draped_patch(blanket, Vector2(2.7, 1.6), Color("b5a991"), 0.035)
+	for x in [blanket.x - 0.8, blanket.x + 0.8]:
+		_draped_patch(Vector2(x, blanket.y), Vector2(0.11, 1.6), Color("e5dfc7"), 0.05)
+	var basket := cylinder(terrain, _grounded(Vector3(blanket.x + 1.5, 0.22, blanket.y - 0.3)), 0.23, 0.20, 0.44, Color("a58c64"), 8)
+	basket.rotation.z = 0.08
+
+func _cloud_outcrop(pos: Vector3, extent: Vector2, rise: float) -> void:
+	var rock := SurfaceTool.new()
+	rock.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var foot: Array[Vector3] = []
+	var top: Array[Vector3] = []
+	for i in range(7):
+		var angle := i * TAU / 7.0 + pos.x * 0.17
+		var radius := 0.85 + sin(i * 2.3) * 0.15
+		var point := pos + Vector3(cos(angle) * extent.x, 0, sin(angle) * extent.y) * radius
+		foot.append(_grounded(point + Vector3(0, 0.015, 0)))
+		point = point.lerp(pos, 0.25)
+		top.append(_grounded(point + Vector3(0, rise * (0.7 + 0.25 * sin(i * 1.8)), 0)))
+	var peak := _grounded(pos + Vector3(extent.x * 0.12, rise, -extent.y * 0.15))
+	for i in range(7):
+		var next := (i + 1) % 7
+		_triangle(rock, foot[i], foot[next], top[next], Color("64736d"))
+		_triangle(rock, foot[i], top[next], top[i], Color("748078"))
+		_triangle(rock, top[i], top[next], peak, Color("91a08c").darkened((i % 3) * 0.035))
+	_finish_surface(rock, "CloudBedrock", true)
 
 func _build_oasis_land() -> void:
 	var surface := SurfaceTool.new()
@@ -610,6 +804,8 @@ func _ground_horizon_gap(point: Vector3) -> float:
 	elif landscape == "oasis":
 		var across := point.x * 0.9785 - point.z * 0.2063
 		limit = _oasis_front_depth(across) + 0.10
+	elif landscape == "cloud":
+		limit = 49.0
 	return limit - depth
 
 func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
@@ -619,6 +815,17 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
+		if landscape == "cloud":
+			var depth: float = -point.x * 0.2063 - point.z * 0.9785
+			var u: float = point.x * 0.9785 - point.z * 0.2063
+			var mountain_front := profile.cloud_mountain_front(u)
+			if depth > mountain_front + 1.0:
+				var faceting := smoothstep(mountain_front + 1.0, mountain_front + 5.0, depth)
+				normal = normal.lerp((c - a).cross(b - a).normalized(), faceting).normalized()
+			surface.set_color(_cloud_ground_color(point, normal))
+			surface.set_normal(normal)
+			surface.add_vertex(point)
+			continue
 		if landscape == "oasis":
 			surface.set_color(_oasis_ground_color(point, normal))
 			surface.set_normal(normal)
@@ -681,6 +888,9 @@ func _trail(points: Array, width: float) -> void:
 	_finish_surface(surface, "WanderingTrail")
 
 func _build_backdrop() -> void:
+	if landscape == "cloud":
+		_build_cloud_backdrop()
+		return
 	# Connected, asymmetric ridges and gullies follow the reference valleys. A large
 	# crag on one flank faces a lower saddle; there is no row of separate cones.
 	if landscape == "oasis":
@@ -957,7 +1167,7 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	_finish_surface(surface, "DistantRidgeline" if hazy else ("GraniteFlank" if landscape == "larch" else ("AlpineCrags" if snow else "ErodedCanyon")))
 
 func _build_boundaries() -> void:
-	if landscape == "oasis":
+	if landscape in ["oasis", "cloud"]:
 		return # The canyon shoulders and planted outcrops are composed separately.
 	# Scattered outcrops follow the rising slopes. No rectangular necklace of shrubs.
 	var rng := RandomNumberGenerator.new()
@@ -1024,6 +1234,9 @@ func _build_fence() -> void:
 	diagonal.rotation.x = -0.16
 
 func _build_details() -> void:
+	if landscape == "cloud":
+		_build_cloud_details()
+		return
 	if landscape == "oasis":
 		_build_oasis_details()
 		return
@@ -1298,6 +1511,8 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 			if absf(result.x) > 17 or absf(result.z) > 11:
 				return Vector3.INF
 			if landscape == "oasis" and Vector2(result.x, result.z).distance_to(rock_center) < rock_radius:
+				return Vector3.INF
+			if landscape == "cloud" and not CloudNavigation.contains(Vector2(result.x, result.z), ridge):
 				return Vector3.INF
 			result.y = surface_height(result.x, result.z)
 			return result

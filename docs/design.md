@@ -102,7 +102,7 @@ for the [Compatibility renderer](https://docs.godotengine.org/en/4.6/tutorials/r
 The effect count is kept small, but frame time still needs measuring on target
 phones before making a performance claim.
 
-Five selectable landscapes offer quiet cooperative herding: an Alpine
+Six selectable landscapes offer quiet cooperative herding: an Alpine
 valley with snowy peaks, a cactus canyon with warm mesas and saguaro cacti,
 and sheltered Larch Hollow with gold/rust foliage, a sloping rest shelf and
 an offset bridge and gate, plus Sunward Orchard with shallow terraces and broad
@@ -115,6 +115,11 @@ itself: two dry paths around broken stone open toward green pasture. There is
 no gate or river to cross, and sheep remain responsive to the dogs rather than
 automatically choosing a route. The pair can stay together or retrieve a split
 flock from either side. Low rock keeps the animals visible in portrait.
+Cloud Pasture replaces the valley crossing with a broad climbing ridge and
+three grassy shelves. Both dogs can bring the flock uphill, back down, or
+retrieve a split group. Any shelf is a valid resting place; reaching the upper
+one creates no completion prompt. The distant tarn is scenery below the ridge,
+not another mandatory crossing. Steep flanks explain the boundary without falls.
 The creator chooses the location; the server persists it for both players.
 Large vistas are part of the presentation. Continuous free travel between
 regions belongs to a later journey milestone.

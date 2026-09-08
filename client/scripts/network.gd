@@ -130,11 +130,11 @@ func _layout_capability(info: Dictionary) -> int:
 		for version: Variant in versions:
 			if typeof(version) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(version)) or float(version) < 0 or float(version) != floorf(float(version)):
 				return -1
-			if float(version) in [0.0, 1.0, 2.0, 3.0]:
+			if float(version) in [0.0, 1.0, 2.0, 3.0, 4.0]:
 				selected = maxi(selected, int(version))
 		return selected
 	var version: Variant = info.get("layout_version", 0)
-	if typeof(version) in [TYPE_INT, TYPE_FLOAT] and float(version) in [0.0, 1.0, 2.0, 3.0]:
+	if typeof(version) in [TYPE_INT, TYPE_FLOAT] and float(version) in [0.0, 1.0, 2.0, 3.0, 4.0]:
 		return int(version)
 	return -1
 

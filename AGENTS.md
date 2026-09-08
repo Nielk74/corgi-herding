@@ -24,6 +24,15 @@ gate or fence. Keep retained navigation in snapshots/checkpoints, and rebase
 lost predicted inputs on the first snapshot after reconnect without repeating
 arrival messages. Graph math uses double scalars and shared Go/Godot fixtures.
 Any float32 boundary correction is presentation-only; never relax collision.
+Cloud v4 is a union of broad shelf disks and ridge-path capsules, with no gate,
+river or rock obstacle. Verify complete movement segments inside that union;
+valid endpoints alone do not make a straight shortcut safe. Retain routed
+movement across disconnects and restarts. All shelves support quiet grazing:
+never turn reaching the upper shelf into a completion prompt. Preserve exact
+old-landscape structure/state traces and tightly bounded cross-platform actor
+coordinates. Test real portrait logical viewports, not just requested window
+sizes that a headless renderer may reset. Run Godot through
+tools/run-godot-check.sh so a script error cannot silently pass with exit 0.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

@@ -1,14 +1,14 @@
-An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with five quiet landscapes.
+An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with six quiet landscapes.
 
-New place: Canyon Oasis. Wander a sheltered dry saddle beneath warm sandstone walls, with cactus outcrops, a distant spring and green grazing ground. Two paths pass around low broken rock; there is no river, fence or gate here. Take the flock together or regroup sheep from either side. Both herders still command both corgis, with no new button or objective.
+New place: Cloud Pasture. A broad grassy ridge climbs through three resting shelves above an Alpine valley, a distant tarn and snow peaks. Wander uphill, bring the flock back down, or sit halfway with the corgis. Steep flanks frame the gentle ground without falls. There is no bridge, gate, new control or arrival prompt.
 
-Choose among Alpine valley, Cactus canyon, Larch Hollow, Sunward Orchard and Canyon Oasis on the portrait start screen. Each herd keeps its immutable layout, animals and progression. Previous APKs retain access to their supported landscapes; Oasis needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
+Choose among Alpine valley, Cactus canyon, Larch Hollow, Sunward Orchard, Canyon Oasis and Cloud Pasture on the portrait start screen. Each herd keeps its immutable layout, animals and progression. Previous APKs retain access to their supported landscapes; Cloud needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
 
-Oasis herders and dogs retain their chosen route around the rock. A disconnected herder pauses and resumes that walk after returning, including a server restart. Reconnection now also recovers correctly when the last tap was predicted locally but lost before the server received it. Sheep remain guided by dog pressure rather than automatically solving the route to pasture.
+Cloud herders and dogs follow the ridge rather than cutting across steep ground. A disconnected herder pauses and resumes the accepted walk after returning, including a server restart or a lost predicted tap. Sheep remain guided by dog pressure rather than automatically solving the route to pasture. All three shelves are places to graze calmly.
 
 Sunward Orchard remains a place for a gentler detour: two curious sheep can stop for fallen apples. Let them finish or call either corgi. Their finite snack is remembered, so it never becomes a repeating chore. A lowered head supplies the feedback; no snack meter, quest or timer.
 
-The quiet arrival acknowledgement now disappears automatically. It does not repeat when a sheep wanders back or appear when resuming an already settled herd.
+Canyon Oasis retains both dry paths around its rock and the other landscapes keep their original behavior. Frozen full-simulation comparisons guard Orchard and Oasis, alongside the older landscape regressions. Exact route anchors, animal states and input sequences stay unchanged; only tiny cross-platform differences in actor coordinates are tolerated.
 
 Play in portrait. Both players use the same server address: one chooses a landscape, creates a herd and shares its invite code, the other joins. Tap the open ground to walk; tap a corgi to show its Come/Stay/Go menu, which closes after use. Tap the nearby gate to open it, or your herder to sit. No permanent joystick or command bar. Mountain ranges and canyon vistas extend beyond the accessible valley, with natural terrain boundaries and gentle camera following. There is no score or timer.
 

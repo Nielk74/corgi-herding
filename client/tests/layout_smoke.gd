@@ -3,18 +3,29 @@ extends SceneTree
 
 func _initialize() -> void:
 	root.size = Vector2i(720, 1280)
+	# The headless display resets the physical window to 64x64 during startup.
+	# Pin the logical viewport too: otherwise a supposed portrait UI test is square.
+	root.content_scale_size = Vector2i(720, 1280)
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
 	_run.call_deferred()
 
 func _run() -> void:
 	var game: Node = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
+	if root.get_visible_rect().size != Vector2(720, 1280):
+		_fail("layout checks must exercise an actual portrait logical viewport")
+		return
 	if game.network == null or game.meadow == null:
 		_fail("main scene dependencies did not initialize")
 		return
 	game.network.persist_config = false
 	game.preview_mode = true
+	game._set_busy(true)
 	game._show_preview()
+	if game.request_busy or not game.menu_error.text.is_empty():
+		_fail("a successful join must not leave an Opening message in the menu")
+		return
 	game.set_process(false)
 	game.network.set_process(false)
 	var route_checks := 0
@@ -83,18 +94,18 @@ func _run() -> void:
 		if game._pick_world_interaction(gate_screen) != "gate":
 			_fail("offset gate cannot be directly tapped")
 			return
-	# Five choices keep large touch targets; no extra controls enter gameplay.
+	# Six choices keep large touch targets; no extra controls enter gameplay.
 	game._open_settings()
 	await process_frame
-	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button]:
+	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button]:
 		if not root.get_visible_rect().encloses(button.get_global_rect()) or button.size.y < 58 or button.size.x < 230:
 			_fail("portrait landscape choices must fit with usable touch areas")
 			return
 	if game.alpine_button.position.y != game.cactus_button.position.y or game.larch_button.position.y != game.orchard_button.position.y or game.larch_button.position.y <= game.alpine_button.position.y:
 		_fail("the original landscape choices must retain their two portrait rows")
 		return
-	if game.oasis_button.position.y <= game.orchard_button.position.y:
-		_fail("Oasis must have its own usable portrait row")
+	if game.oasis_button.position.y <= game.orchard_button.position.y or game.cloud_button.position.y != game.oasis_button.position.y:
+		_fail("Oasis and Cloud must share the third usable portrait row")
 		return
 	# Canonical nested forage geometry accepts JSON numbers but no silent coercion.
 	var orchard: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("orchard")))
@@ -152,6 +163,8 @@ func _run() -> void:
 	var capabilities := [
 		[{}, 0], [{"layout_version": 1}, 1], [{"layout_version": 2.0}, 2],
 		[{"layout_version": 3.0}, 3], [{"layout_version": 1, "layout_versions": [1, 2, 3]}, 3],
+		[{"layout_version": 4.0}, 4], [{"layout_version": 1, "layout_versions": [1, 2, 3, 4]}, 4],
+		[{"layout_versions": [5, 4, 2]}, 4], [{"layout_version": 5}, -1],
 		[{"layout_version": 1, "layout_versions": [1.0, 2.0]}, 2],
 		[{"layout_version": 1, "layout_versions": [99, 1]}, 1],
 		[{"layout_versions": [99]}, -1], [{"layout_versions": []}, -1],
@@ -188,7 +201,7 @@ func _run() -> void:
 		_fail("unknown layout must not render or replace the supported snapshot")
 		return
 	# Missing offset layouts are not permission to guess openings or forage zones.
-	for kind in ["larch", "orchard", "oasis"]:
+	for kind in ["larch", "orchard", "oasis", "cloud"]:
 		unknown = prior_snapshot.duplicate(true)
 		unknown.landscape = kind
 		unknown.erase("layout")
@@ -210,7 +223,9 @@ func _run() -> void:
 		return
 	if not await _test_oasis(game):
 		return
-	print("LAYOUT_SMOKE_OK: five portrait choices, %d legacy two-way routes, Oasis bypasses, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
+	if not await _test_cloud(game):
+		return
+	print("LAYOUT_SMOKE_OK: six portrait choices, %d legacy two-way routes, Oasis bypasses, Cloud ridge and quiet resting, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
 	quit(0)
 
 func _test_oasis(game: Node) -> bool:
@@ -328,6 +343,90 @@ func _test_oasis(game: Node) -> bool:
 		game._process(1.0 / 60.0)
 	if Vector2(sheep.position.x, sheep.position.z).distance_to(Vector2(-8, 0)) > 0.15:
 		_fail("a boundary-rounding snapshot must not freeze a remote animal")
+		return false
+	return true
+
+func _test_cloud(game: Node) -> bool:
+	game._select_landscape("cloud")
+	game._show_preview()
+	await process_frame
+	game.set_process(false)
+	if game.meadow.gate != null or game.meadow.bridge != null or game.meadow.profile.river_width(0.0) != 0.0:
+		_fail("Cloud retains a phantom river or gate")
+		return false
+	if game.meadow.water != null and game.meadow.water.name != "CloudDistantTarn":
+		_fail("Cloud water must be distant scenery, not the old river channel")
+		return false
+	var canonical: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("cloud")))
+	if not game._supported_layout("cloud", canonical):
+		_fail("canonical Cloud JSON arrays did not decode")
+		return false
+	for mutation in ["missing", "version", "spine_size", "spine_order", "spine_bool", "spine_string", "width", "shelf", "rest", "extra", "rock"]:
+		var bad := canonical.duplicate(true)
+		match mutation:
+			"missing": bad.erase("ridge")
+			"version": bad.version = 3
+			"spine_size": bad.ridge.spine.pop_back()
+			"spine_order": bad.ridge.spine.reverse()
+			"spine_bool": bad.ridge.spine[2].y = true
+			"spine_string": bad.ridge.spine[2].x = "5"
+			"width": bad.ridge.half_width += 0.000001
+			"shelf": bad.ridge.shelves[1].center.x += 0.1
+			"rest": bad.ridge.rest.radius = 5.2
+			"extra": bad.ridge.spine[0]["path"] = true
+			"rock": bad["rock_pass"] = {"center": {"x": 0, "y": 0}, "radius": 3.4}
+		if game._supported_layout("cloud", bad):
+			_fail("unsafe Cloud layout accepted: " + mutation)
+			return false
+	var start := Vector2(-12, 5)
+	var target := Vector2(12, 8)
+	for frequency in [20.0, 60.0, 4.0]:
+		var point := start
+		game.movement_route.clear()
+		game.route_target = Vector2.INF
+		for step in 1600:
+			var next: Vector2 = game._predict_step(point, target, 1.0 / frequency)
+			if not game.CloudNavigation.visible(point, next) or point.distance_to(next) > 4.0 / frequency + 0.0001:
+				_fail("Cloud main prediction leaves the corridor or exceeds walking speed")
+				return false
+			point = next
+			if point.distance_to(target) < 0.04:
+				break
+		if point.distance_to(target) > 0.08:
+			_fail("Cloud main prediction failed to complete its bypass")
+			return false
+	var sheep: Node3D = game.actors.s0.node
+	sheep.position = game._surface_position(start)
+	game.actors.s0.target = game._surface_position(target)
+	for frame in 480:
+		var before := Vector2(sheep.position.x, sheep.position.z)
+		game._process(1.0 / 60.0)
+		if not game.CloudNavigation.visible(before, Vector2(sheep.position.x, sheep.position.z)):
+			_fail("Cloud delayed interpolation cuts across the slope outside the ridge")
+			return false
+	if Vector2(sheep.position.x, sheep.position.z).distance_to(target) > 0.15:
+		_fail("Cloud interpolation never catches up along the ridge")
+		return false
+	game._show_preview()
+	var seq: int = game.network.seq
+	game._world_tap(game.meadow.camera.unproject_position(game._surface_position(Vector2(0, 9))))
+	if game.network.seq != seq:
+		_fail("Cloud void tap must not issue predicted movement")
+		return false
+	var gate_screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, 0)) + Vector3(0, 0.7, 0))
+	if game._pick_world_interaction(gate_screen) == "gate":
+		_fail("Cloud still has an invisible gate interaction")
+		return false
+	var snapshot: Dictionary = game.latest.duplicate(true)
+	snapshot.settled = 10
+	game._on_snapshot(snapshot)
+	if not game.moment_label.text.is_empty() or game.moment_time != 0.0:
+		_fail("Cloud must not announce a completion when sheep reach the upper shelf")
+		return false
+	game._on_status("Reconnecting", false)
+	game._on_snapshot(snapshot)
+	if not game.moment_label.text.is_empty():
+		_fail("Cloud quiet resting must persist through reconnect")
 		return false
 	return true
 

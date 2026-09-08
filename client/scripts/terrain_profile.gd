@@ -6,6 +6,9 @@ extends RefCounted
 const GRID_STEP := 1.0
 const WATER_LEVEL := -0.34
 const OASIS_POOL_LEVEL := 0.72
+const CLOUD_GRID_STEP := 0.75
+const CLOUD_LAKE_LEVEL := -4.4
+const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const BRIDGE_HEIGHT := 0.23
 const PLAY_BOUNDS := Rect2(-17, -11, 34, 22)
 var landscape := "alpine"
@@ -14,11 +17,14 @@ var bridge_y := 0.0
 var gate_y := 0.0
 var rock_center := Vector2.ZERO
 var rock_radius := 3.4
+var ridge: Dictionary = {}
 
 func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 	landscape = kind
 	bridge_y = float(layout.get("bridge_y", 3.0 if kind == "orchard" else (-4.0 if kind == "larch" else 0.0)))
 	gate_y = float(layout.get("gate_y", 2.0 if kind == "orchard" else (4.0 if kind == "larch" else 0.0)))
+	if kind == "cloud":
+		ridge = layout.get("ridge", CloudNavigation.default_ridge()).duplicate(true)
 	if kind == "oasis":
 		var rock: Dictionary = layout.get("rock_pass", {})
 		var center: Dictionary = rock.get("center", {})
@@ -27,7 +33,7 @@ func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 
 func river_width(z: float) -> float:
 	# Beyond the playable meadow the stream opens into a small lake / desert wash.
-	if landscape == "oasis":
+	if landscape in ["oasis", "cloud"]:
 		return 0.0
 	if landscape == "orchard":
 		return 1.5 + smoothstep(12.0, 33.0, z) * 1.7
@@ -43,12 +49,12 @@ func river_center(z: float) -> float:
 	return 0.0
 
 func bridge_at(x: float, z: float) -> bool:
-	if landscape == "oasis":
+	if landscape in ["oasis", "cloud"]:
 		return false
 	return absf(x) <= 1.93 and absf(z - bridge_y) <= 1.95
 
 func surface_height(x: float, z: float) -> float:
-	if landscape == "oasis":
+	if landscape in ["oasis", "cloud"]:
 		return sample(x, z)
 	if bridge_at(x, z):
 		return BRIDGE_HEIGHT
@@ -57,6 +63,18 @@ func surface_height(x: float, z: float) -> float:
 	return sample(x, z)
 
 func sample(x: float, z: float) -> float:
+	if landscape == "cloud":
+		var x0 := floorf(x / CLOUD_GRID_STEP) * CLOUD_GRID_STEP
+		var z0 := floorf(z / CLOUD_GRID_STEP) * CLOUD_GRID_STEP
+		var fx := (x - x0) / CLOUD_GRID_STEP
+		var fz := (z - z0) / CLOUD_GRID_STEP
+		var a := node_height(x0, z0)
+		var b := node_height(x0 + CLOUD_GRID_STEP, z0)
+		var c := node_height(x0 + CLOUD_GRID_STEP, z0 + CLOUD_GRID_STEP)
+		var d := node_height(x0, z0 + CLOUD_GRID_STEP)
+		if fx >= fz:
+			return a + (b - a) * fx + (c - b) * fz
+		return a + (c - d) * fx + (d - a) * fz
 	if landscape == "oasis":
 		# A full dry grid crosses X=0; do not inherit either river-bank origin.
 		var x0 := floorf(x)
@@ -97,7 +115,7 @@ func node_height(x: float, z: float) -> float:
 
 func normal_at(x: float, z: float) -> Vector3:
 	var step := 0.35
-	if landscape == "oasis":
+	if landscape in ["oasis", "cloud"]:
 		var dx := (raw_height(x + step, z) - raw_height(x - step, z)) / (2.0 * step)
 		var dz := (raw_height(x, z + step) - raw_height(x, z - step)) / (2.0 * step)
 		return Vector3(-dx, 1.0, -dz).normalized()
@@ -124,6 +142,8 @@ func normal_at(x: float, z: float) -> Vector3:
 	return Vector3(-dx, 1.0, -dz).normalized()
 
 func raw_height(x: float, z: float) -> float:
+	if landscape == "cloud":
+		return _cloud_height(x, z)
 	if landscape == "oasis":
 		return _oasis_height(x, z)
 	var width := river_width(z)
@@ -205,6 +225,75 @@ func raw_height(x: float, z: float) -> float:
 	height = lerpf(height, 0.30, gate_flat)
 	var bridge_flat := (1.0 - smoothstep(1.93, 3.4, absf(x))) * (1.0 - smoothstep(1.95, 3.1, absf(z - bridge_y)))
 	height = lerpf(height, BRIDGE_HEIGHT, bridge_flat)
+	return height
+
+func cloud_clearance(x: float, z: float) -> float:
+	return CloudNavigation.signed_clearance(Vector2(x, z), ridge)
+
+func cloud_mountain_front(u: float) -> float:
+	return 26.5 + sin(u * 0.15 + 0.3) * 2.4 + 1.7 * exp(-pow((u + 7.0) / 6.0, 2))
+
+func cloud_lake_metric(x: float, z: float) -> float:
+	var u := x * 0.9785 - z * 0.2063
+	var depth := -x * 0.2063 - z * 0.9785
+	return pow((u - 5.0) / 7.0, 2) + pow((depth - 21.0 + sin((u - 2.0) * 0.50) * 0.70) / 2.7, 2)
+
+func _cloud_height(x: float, z: float) -> float:
+	# Broad resting shelves sit on one rising ridge. Their whole shared corridor
+	# stays gentle; only land outside its authoritative union rolls down the flank.
+	var height := 0.90 + 2.80 * smoothstep(-10.0, 11.0, x)
+	height += 0.13 * sin(x * 0.21 + z * 0.19) + 0.09 * cos(z * 0.42)
+	for i in ridge.shelves.size():
+		var shelf: Dictionary = ridge.shelves[i]
+		var center: Dictionary = shelf.center
+		var weight := exp(-pow((x - center.x) / (shelf.radius * 0.66), 2) - pow((z - center.y) / (shelf.radius * 0.66), 2)) * 0.73
+		height = lerpf(height, [0.90, 2.0, 3.70][i], weight)
+	var outside := maxf(-cloud_clearance(x, z), 0.0)
+	var drop := minf(5.4, outside * 0.55 + outside * outside * 0.045) * smoothstep(0.0, 0.75, outside)
+	height -= drop
+	# One low granite shoulder rises on the left; the remaining sides look out
+	# over lower country rather than forming a raised necklace around the ridge.
+	height += smoothstep(0.0, 3.0, outside) * 3.2 * _hill(x, z, -19, -8, 7, 6)
+	# Shallow diagonal erosion channels break the smooth non-walkable foreground
+	# into connected flanks. They start beyond a complete mesh cell around the
+	# corridor, keeping every existing playable triangle and foot height intact.
+	var erosion := 0.85 * exp(-pow((x - z * 0.28 + 8.0) / 1.7, 2) - pow((z - 13.0) / 8.0, 2))
+	erosion += 0.65 * exp(-pow((x + z * 0.34 - 16.0) / 2.0, 2) - pow((z - 17.0) / 9.0, 2))
+	height -= erosion * smoothstep(1.15, 3.0, outside)
+	var u := x * 0.9785 - z * 0.2063
+	var depth := -x * 0.2063 - z * 0.9785
+	var country := -3.3
+	country += 6.0 * _hill(u, depth, -17, 19, 9, 7)
+	country += 4.8 * _hill(u, depth, 18, 24, 10, 7)
+	country += 1.8 * _hill(u, depth, -2, 26, 9, 5)
+	# A diagonal green shoulder overlaps the distant rock foot at unequal depths,
+	# rather than letting all mountain slopes end on one straight green horizon.
+	var shoulder_depth := 23.8 + u * 0.22
+	country += 4.0 * exp(-pow((u + 8.0) / 10.0, 2) - pow((depth - shoulder_depth) / 3.6, 2))
+	country += 1.7 * _hill(u, depth, 12, 27, 6, 4)
+	var lake := cloud_lake_metric(x, z)
+	# The complete distant lake perimeter is ground-covered: only the meeting
+	# of this shallow bowl and the water plane becomes the visible shoreline.
+	var basin := CLOUD_LAKE_LEVEL - 0.48 + lake * 0.64
+	# This low continuous promontory gives the tarn an inlet and a rocky shallow,
+	# not a separate oval decal or a floating island placed over the water.
+	basin += 0.78 * _hill(u, depth, 3.0, 19.8, 1.8, 1.1)
+	country = lerpf(country, basin, 1.0 - smoothstep(0.7, 2.8, lake))
+	height = lerpf(height, country, smoothstep(12.5, 19.0, depth))
+	# The far massif is an actual two-dimensional craggy heightfield, continuous
+	# with lower country. Interlocking asymmetric peaks replace upright strips.
+	var mountain := -9.0
+	var serration := 1.0 + 0.11 * sin(u * 1.65) + 0.045 * sin(u * 3.85 + depth * 0.23)
+	mountain += 12.8 * _hill(u, depth, -3, 35, 7, 5.0) * serration
+	mountain += 11.2 * _hill(u, depth, 10, 37, 5, 4.8) * (1.0 + 0.09 * sin(u * 2.1))
+	mountain += 9.3 * _hill(u, depth, -16, 33, 6, 5.5)
+	mountain -= pow(absf(sin(u * 0.69 + depth * 0.38)), 7) * smoothstep(26.0, 32.0, depth) * 0.85
+	mountain = lerpf(mountain, -30.0, smoothstep(40.0, 49.0, depth))
+	var mountain_front := cloud_mountain_front(u)
+	height = lerpf(height, mountain, smoothstep(mountain_front, mountain_front + 5.0, depth))
+	# The near corners remain below the orthographic near plane at tall-phone
+	# zoom extremes. This taper lies far outside every walkable shelf.
+	height = lerpf(height, -0.8 + 0.18 * sin(x * 0.17), smoothstep(20.0, 35.0, z))
 	return height
 
 func _oasis_height(x: float, z: float) -> float:

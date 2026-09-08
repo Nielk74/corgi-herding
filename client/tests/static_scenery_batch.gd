@@ -79,7 +79,68 @@ func _run() -> void:
 	print("STATIC_SCENERY_BATCH_OK: geometry, normals, winding, authored color, shadow groups, exclusions, idempotence")
 	terrain.queue_free()
 	await process_frame
+	if not await _landscape_batches():
+		return
 	quit(0)
+
+func _landscape_batches() -> bool:
+	var meadow: Node3D = load("res://scripts/meadow.gd").new()
+	root.add_child(meadow)
+	meadow.set_process(false)
+	for landscape in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud"]:
+		meadow.set_landscape(landscape)
+		await process_frame
+		if meadow.landscape != landscape:
+			_fail("batch coverage selected a different landscape: " + landscape)
+			return false
+		var preserved: Array[Dictionary] = []
+		var batches := 0
+		for node in meadow.terrain.find_children("*", "MeshInstance3D", true, false):
+			var instance := node as MeshInstance3D
+			if not String(instance.name).begins_with("StaticSceneryBatch_"):
+				if not instance.mesh is PrimitiveMesh:
+					preserved.append({"node": instance, "mesh": instance.mesh})
+				continue
+			batches += 1
+			var material := instance.material_override as StandardMaterial3D
+			if material == null or not material.vertex_color_use_as_albedo or not material.vertex_color_is_srgb or not is_equal_approx(material.roughness, 0.95):
+				_fail(landscape + " lost lit authored-color scenery material semantics")
+				return false
+			for surface in range(instance.mesh.get_surface_count()):
+				var arrays: Array = instance.mesh.surface_get_arrays(surface)
+				var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+				var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+				if vertices.is_empty() or normals.size() != vertices.size() or colors.size() != vertices.size() or indices.is_empty() or indices.size() % 3 != 0:
+					_fail(landscape + " has incomplete combined scenery geometry")
+					return false
+				for index in vertices.size():
+					if not vertices[index].is_finite() or not normals[index].is_finite() or absf(normals[index].length() - 1.0) > 0.001:
+						_fail(landscape + " has invalid batched positions or normals")
+						return false
+				for index in indices:
+					if index < 0 or index >= vertices.size():
+						_fail(landscape + " has an invalid combined scenery index")
+						return false
+		var exclusions: Array[Node] = []
+		if is_instance_valid(meadow.gate):
+			exclusions.append(meadow.gate)
+		if batches == 0 or preserved.is_empty() or Batcher.merge(meadow.terrain, exclusions) != 0:
+			_fail(landscape + " must preserve custom terrain and already-batched scenery")
+			return false
+		await process_frame
+		for item in preserved:
+			if not is_instance_valid(item.node) or not item.node.visible or item.node.mesh != item.mesh:
+				_fail(landscape + " rebatching modified custom terrain or backdrop surfaces")
+				return false
+		if landscape in ["oasis", "cloud"] and is_instance_valid(meadow.gate):
+			_fail(landscape + " batching must not retain a phantom gate")
+			return false
+		print("STATIC_SCENERY_LANDSCAPE %s: %d lit batches, %d preserved custom meshes, idempotent" % [landscape, batches, preserved.size()])
+	meadow.queue_free()
+	await process_frame
+	return true
 
 func _prop(parent: Node3D, color: Color) -> MeshInstance3D:
 	var instance := MeshInstance3D.new()

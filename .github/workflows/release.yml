@@ -46,12 +46,16 @@ jobs:
       - name: Import and test client
         run: |
           set -o pipefail
-          "$RUNNER_TEMP/godot/godot" --headless --path client --editor --quit 2>&1 | tee "$RUNNER_TEMP/import.log"
-          ! grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' "$RUNNER_TEMP/import.log"
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/smoke.gd
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/terrain_smoke.gd
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/static_scenery_batch.gd
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/layout_smoke.gd
+          # A zero process exit must not hide a Godot script/parse error.
+          if bash tools/run-godot-check.sh bash -c 'printf "SCRIPT ERROR: expected wrapper self-test\n"'; then exit 1; fi
+          if bash tools/run-godot-check.sh bash -c 'exit 7'; then exit 1; fi
+          bash tools/run-godot-check.sh bash -c 'printf "GODOT_CHECK_WRAPPER_OK\n"'
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --editor --quit
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/terrain_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/static_scenery_batch.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/layout_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/cloud_navigation_smoke.gd
       - name: Test Godot client against real Go server
         run: |
           (cd server && go build -o "$RUNNER_TEMP/corgi-test-server" ./cmd/server)
@@ -62,11 +66,13 @@ jobs:
             if curl -fsS http://127.0.0.1:8791/healthz; then break; fi
             sleep 1
           done
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=larch
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=orchard
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=oasis
-          "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/forage_network_smoke.gd -- --server=http://127.0.0.1:8791
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=cactus
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=larch
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=orchard
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=oasis
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/network_smoke.gd -- --server=http://127.0.0.1:8791 --landscape=cloud
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/forage_network_smoke.gd -- --server=http://127.0.0.1:8791
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         if: github.event_name != 'pull_request'
         with:
@@ -91,7 +97,7 @@ jobs:
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: corgi-herding
           GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          "$RUNNER_TEMP/godot/godot" --headless --path client --export-release Android "$GITHUB_WORKSPACE/dist/corgi-herding.apk"
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --export-release Android "$GITHUB_WORKSPACE/dist/corgi-herding.apk"
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs dist/corgi-herding.apk
           "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging dist/corgi-herding.apk
           "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 dist/corgi-herding.apk

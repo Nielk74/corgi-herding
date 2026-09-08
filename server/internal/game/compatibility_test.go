@@ -117,7 +117,12 @@ func TestOrchardBuild7PortableTrace(t *testing.T) {
 
 func loadOrchardBuild7Trace(t *testing.T) []any {
 	t.Helper()
-	encoded, err := os.ReadFile("testdata/build7-orchard.jsonl.gz.b64")
+	return loadCompressedTrace(t, "testdata/build7-orchard.jsonl.gz.b64", "7e49ebeb9c95cb9f42d19db90734de0c2fc510b9081b173a5a76b6430de3dba4")
+}
+
+func loadCompressedTrace(t *testing.T, path, checksum string) []any {
+	t.Helper()
+	encoded, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,8 +136,8 @@ func loadOrchardBuild7Trace(t *testing.T) []any {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum := fmt.Sprintf("%x", sha256.Sum256(data)); sum != "7e49ebeb9c95cb9f42d19db90734de0c2fc510b9081b173a5a76b6430de3dba4" {
-		t.Fatalf("build 7 reference provenance/checksum changed: %s", sum)
+	if sum := fmt.Sprintf("%x", sha256.Sum256(data)); sum != checksum {
+		t.Fatalf("%s reference provenance/checksum changed: %s", path, sum)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber() // Sequences/ticks must remain exact, including beyond 2^53.
@@ -147,7 +152,7 @@ func loadOrchardBuild7Trace(t *testing.T) []any {
 		snapshots = append(snapshots, snapshot)
 	}
 	if len(snapshots) != 700 {
-		t.Fatalf("incomplete build 7 reference: %d snapshots", len(snapshots))
+		t.Fatalf("incomplete %s reference: %d snapshots", path, len(snapshots))
 	}
 	return snapshots
 }

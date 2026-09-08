@@ -4,7 +4,7 @@ The first playable milestone runs one Go process with a 20 Hz actor for each
 two-player herd. Each herd owns two shared corgis and ten sheep. Worlds pause
 when nobody is connected. Both herders can return with their locally saved
 credentials; reconnecting replaces the previous connection for that herder.
-New herds can select `alpine` (the default), `cactus`, `larch`, `orchard`, or `oasis`. The
+New herds can select `alpine` (the default), `cactus`, `larch`, `orchard`, `oasis`, or `cloud`. The
 choice and immutable layout are stored with the herd and shared in snapshots.
 Alpine/Cactus retain centered openings. Larch Hollow has its bridge at Y=-4 and
 gate at Y=4, creating a different route through the same playable footprint.
@@ -15,15 +15,21 @@ persist. Canyon Oasis uses version 3: a radius-3.4 rock spur at (0,0), two dry
 routes around it, and no playable river, fence or gate. Eight fixed navigation
 anchors route both herders and corgis. Sheep follow dog pressure around the rock
 and can split/reunite; they do not automatically navigate toward pasture.
-Existing version-1/2 herds keep their exact prior simulation behavior.
+Cloud Pasture uses version 4: a winding capsule ridge and three quiet shelf disks.
+Four fixed anchors route herders and corgis, with analytical whole-segment checks
+against the playable union. Sheep stay on the ridge through local edge avoidance
+and dog pressure, with no automatic attraction uphill; any shelf permits calm
+grazing. There is no playable river, gate, fence or forage patch. Existing
+version-1/2/3 herds keep their exact prior simulation behavior.
 Existing saves without a landscape load as Alpine; existing centered saves
 without a layout migrate without changing their animals or credentials. Unknown
 saved layout versions or impossible forage state fail startup. Clients negotiate
-`layout_versions:[1,2,3]` from health before authenticating. The legacy singular
+`layout_versions:[1,2,3,4]` from health before authenticating. The legacy singular
 `layout_version:1` stays unchanged. Capability 1 admits version 1 worlds;
-capability 2 admits versions 1/2, and capability 3 admits all three. Unsupported layouts return `update_required`/4002
+capability 2 admits versions 1/2, capability 3 admits 1/2/3, and capability 4 admits
+all four versions. Unsupported layouts return `update_required`/4002
 without changing credentials or replacing an existing player connection.
-Oasis herders keep a bounded, validated route queue while disconnected, resuming
+Oasis and Cloud herders keep a bounded, validated route queue while disconnected, resuming
 on reconnect. Older herds retain their original stop-on-disconnect behavior.
 
 ```sh
@@ -62,7 +68,7 @@ instead of silently resetting progress. Schema migrations, PostgreSQL, puppy
 training, permanent progression, account recovery and expired-herd cleanup are
 future milestones. Existing herds are not evicted to create capacity.
 
-Player and dog targets route through the bridge and gate, or around Oasis rock.
+Player and dog targets route through the bridge and gate, around Oasis rock, or along Cloud ridge.
 Sheep combine grazing,
 walking and fleeing states with local cohesion, separation, alignment, herder
 avoidance and dog pressure. Nearby sheep form connected flock groups. Commands

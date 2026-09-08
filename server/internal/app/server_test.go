@@ -278,7 +278,7 @@ func TestHTTPValidationCapacityAndHealth(t *testing.T) {
 	if err = json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 || !reflect.DeepEqual(health.LayoutVersions, []int{1, 2, 3}) {
+	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 || !reflect.DeepEqual(health.LayoutVersions, []int{1, 2, 3, 4}) {
 		t.Fatalf("invalid health: %+v", health)
 	}
 }
@@ -343,6 +343,7 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 		{"larch", `{"name":"Ada","landscape":"larch"}`, "larch"},
 		{"orchard", `{"name":"Ada","landscape":"orchard"}`, "orchard"},
 		{"oasis", `{"name":"Ada","landscape":"oasis"}`, "oasis"},
+		{"cloud", `{"name":"Ada","landscape":"cloud"}`, "cloud"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -355,7 +356,7 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, creds := range []credentials{a, b} {
-				version := 3
+				version := 4
 				conn := connectVersion(t, h.URL, creds, &version)
 				w := snapshot(t, conn, func(w *game.World) bool { return true })
 				if w.Landscape != tc.want {
@@ -370,7 +371,7 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, restored := newTestServer(t, dir, 10)
-			version := 3
+			version := 4
 			conn := connectVersion(t, restored.URL, a, &version)
 			w := snapshot(t, conn, func(w *game.World) bool { return true })
 			if w.Landscape != tc.want {
@@ -526,11 +527,12 @@ func TestUnknownSavedLayoutsFailWithoutOverwriting(t *testing.T) {
 		name, landscape string
 		layout          *game.Layout
 	}{
-		{"unknown_version", game.LandscapeAlpine, &game.Layout{Version: 4}},
+		{"unknown_version", game.LandscapeAlpine, &game.Layout{Version: 5}},
 		{"wrong_center", game.LandscapeCactus, &game.Layout{Version: 1, GateY: 4}},
 		{"missing_larch", game.LandscapeLarch, nil},
 		{"missing_orchard", game.LandscapeOrchard, nil},
 		{"missing_oasis", game.LandscapeOasis, nil},
+		{"missing_cloud", game.LandscapeCloud, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := game.New("ABCDEF")
