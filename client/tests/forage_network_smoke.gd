@@ -23,6 +23,8 @@ func _run() -> void:
 	game.network.endpoint = endpoint
 	game.network.request_failed.connect(func(message: String) -> void: error_message = message)
 	game.network.snapshot_received.connect(_audit_snapshot)
+	for _frame in range(3):
+		await process_frame
 	game.network.create_herd("orchard")
 	if not await _until(func() -> bool: return game.network.connected):
 		_fail("create an authoritative orchard")

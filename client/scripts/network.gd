@@ -194,10 +194,13 @@ func _request(path: String, extra: Dictionary = {}) -> void:
 		request_failed.emit("A request is already in progress. Try again in a moment.")
 
 func _on_http_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
-	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
 	if result != HTTPRequest.RESULT_SUCCESS:
 		request_failed.emit("Cannot reach this meadow. Check the server address and connection.")
 		return
+	# Failed transports have no response body. Unexpected server text is also
+	# an ordinary protocol error, not a reason to emit an engine parse error.
+	var json := JSON.new()
+	var parsed: Variant = json.data if json.parse(body.get_string_from_utf8()) == OK else null
 	if response_code < 200 or response_code >= 300:
 		var message := "The meadow could not be opened (%d)." % response_code
 		if parsed is Dictionary:

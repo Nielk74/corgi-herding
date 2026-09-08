@@ -253,3 +253,16 @@ herder sit beside their companion. The authoritative checkpoint recorded the
 petting herder and happy dog. The [quiet portrait capture](images/cloud-pasture.png)
 contains both herders, both corgis and the flock with no invite, command panel,
 arrival text or permanent action bar.
+
+The build-10 release attempt stopped during Cloud's initial HTTP connection on
+Linux and published nothing. The server independently handled repeated six-herd
+workloads with Cloud creation taking 7–37 ms. A controlled Godot experiment
+instead reproduced an immediate HTTP timeout after a 13-second construction
+frame, before the server received a request. The real-network tests now let
+three engine frames finish before starting HTTP. CI deliberately inserts the
+13-second startup delay on Cloud to retain this regression; the HTTP and network
+test timeouts are unchanged. Empty timeout bodies and non-JSON server errors
+also report ordinary connection errors without emitting engine JSON errors or
+erasing the saved invitation. The default network test now explicitly covers
+Alpine, with a separate Cactus invocation instead of accidentally testing Cactus
+twice. The live server remains on the last completed release during failed CI.

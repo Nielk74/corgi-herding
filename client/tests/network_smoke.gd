@@ -13,7 +13,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var endpoint := "http://127.0.0.1:8791"
-	var landscape := "cactus"
+	var landscape := "alpine"
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--server="):
 			endpoint = argument.trim_prefix("--server=")
@@ -26,6 +26,16 @@ func _run() -> void:
 	game.network.endpoint = endpoint
 	game.network.display_name = "Smoke herder A"
 	game.network.request_failed.connect(func(message: String) -> void: error_message = message)
+	if "--slow-startup" in OS.get_cmdline_user_args():
+		# Reproduce a terrain-construction frame longer than the unchanged HTTP
+		# timeout. No request is active yet, just as before a user presses Start.
+		OS.delay_msec(13000)
+	# HTTPRequest's real-time Timer can charge the entire measured construction
+	# frame when armed from a process_frame callback, before any packet is sent.
+	# Finish initialization and its following process cycles before arming it.
+	# The explicit slow-start regression guards this startup scheduling boundary.
+	for _frame in range(3):
+		await process_frame
 	game.network.create_herd(landscape)
 	if not await _until(func() -> bool: return game.network.connected):
 		_fail("first Godot HTTP creation/WebSocket authentication")

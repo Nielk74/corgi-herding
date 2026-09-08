@@ -28,6 +28,23 @@ func _run() -> void:
 		return
 	game.set_process(false)
 	game.network.set_process(false)
+	# Timeouts and non-JSON HTTP responses are recoverable transport/protocol
+	# errors. They must not throw JSON engine errors or erase a saved invitation.
+	var transport := HerdConnection.new()
+	transport.persist_config = false
+	root.add_child(transport)
+	transport.set_process(false)
+	var saved := {"code": "ABCDEF", "player_id": "0123456789abcdef", "token": "test-only-token"}
+	transport.credentials = saved.duplicate(true)
+	var failures: Array[String] = []
+	transport.request_failed.connect(func(message: String) -> void: failures.append(message))
+	transport._on_http_completed(HTTPRequest.RESULT_TIMEOUT, 0, PackedStringArray(), PackedByteArray())
+	transport._on_http_completed(HTTPRequest.RESULT_SUCCESS, 200, PackedStringArray(), "not json".to_utf8_buffer())
+	transport._on_http_completed(HTTPRequest.RESULT_SUCCESS, 503, PackedStringArray(), "<html>unavailable</html>".to_utf8_buffer())
+	if failures.size() != 3 or transport.credentials != saved:
+		_fail("HTTP failures must retain the saved invitation and report normally")
+		return
+	transport.queue_free()
 	var route_checks := 0
 	for kind in ["alpine", "cactus", "larch", "orchard"]:
 		game._select_landscape(kind)
