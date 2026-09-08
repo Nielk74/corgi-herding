@@ -52,6 +52,14 @@ an Alpine valley. Wander up, back down, or sit halfway with the dogs. There is n
 bridge, gate or arrival prompt. Steep flanks frame the gentle ground without
 falls; a split flock can be patiently reunited on the ridge.
 
+Short wind breaths and occasional distant bird phrases leave long gaps of quiet.
+There is no music loop or sound on every command. Sound stops when opening the
+menu, losing the connection or backgrounding the app, then returns with a new
+quiet delay after a fresh snapshot. The menu's **Sound** toggle is saved on this
+device separately from the herd invitation. The original synthesized sounds are
+an early atmosphere pass, not field recordings; phone-speaker listening feedback
+is still needed.
+
 The initial server runs on the developer's Mac over LAN. The server address is
 editable on the start screen, so self-hosting does not require rebuilding the APK.
 The Mac needs to be awake and on the same network. Public internet hosting is
@@ -85,6 +93,8 @@ bash tools/run-godot-check.sh godot --headless --path client --script res://test
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/static_scenery_batch.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/layout_smoke.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/cloud_navigation_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/soundscape_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/android_ambience_smoke.gd
 ```
 
 The wrapper also rejects errors printed by Godot with a zero exit status.
@@ -111,7 +121,9 @@ it prevents Android from installing future releases as updates.
 
 This is milestone 1, not the full journey game. It includes six landscape levels,
 shared dog commands, sheep steering, invitations, reconnection, and file
-checkpoints, a small persistent orchard distraction and a two-route rock landscape. Puppy adoption/training, richer animations and sound, PostgreSQL,
+checkpoints, a small persistent orchard distraction, a two-route rock landscape
+and sparse environmental sound. Puppy adoption/training, richer animations and
+animal vocalizations, PostgreSQL,
 camp customization and travel between connected regions are subsequent milestones. Two-phone
 playtesting is necessary before judging the quality of the animal behavior.
 

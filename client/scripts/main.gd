@@ -4,6 +4,7 @@ const Connection = preload("res://scripts/network.gd")
 const Meadow = preload("res://scripts/meadow.gd")
 const RockNavigation = preload("res://scripts/rock_navigation.gd")
 const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
+const Soundscape = preload("res://scripts/soundscape.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
@@ -12,6 +13,8 @@ const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larc
 
 var meadow: MeadowDiorama
 var network: HerdConnection
+var soundscape: HerdSoundscape
+var sound_button: Button
 var actors: Dictionary = {}
 var latest: Dictionary = {}
 var local_id := ""
@@ -74,6 +77,8 @@ func _ready() -> void:
 	network.status_changed.connect(_on_status)
 	network.request_failed.connect(_on_error)
 	network.herd_joined.connect(_on_herd_joined)
+	soundscape = Soundscape.new()
+	add_child(soundscape)
 	_build_ui()
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--preview":
@@ -237,11 +242,20 @@ func _build_welcome() -> void:
 	menu_error.custom_minimum_size.x = 540
 	menu_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(menu_error)
+	var settings_row := _row(column)
 	var server_toggle := _button("Server address", func() -> void: endpoint_input.visible = not endpoint_input.visible)
 	server_toggle.flat = true
 	server_toggle.add_theme_font_size_override("font_size", 17)
-	server_toggle.custom_minimum_size.y = 38
-	column.add_child(server_toggle)
+	server_toggle.custom_minimum_size.y = 64
+	server_toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_row.add_child(server_toggle)
+	sound_button = _button("Sound · on" if soundscape.enabled else "Sound · off", func() -> void: soundscape.set_enabled(not soundscape.enabled))
+	sound_button.flat = true
+	sound_button.add_theme_font_size_override("font_size", 17)
+	sound_button.custom_minimum_size.y = 64
+	sound_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_row.add_child(sound_button)
+	soundscape.enabled_changed.connect(func(value: bool) -> void: sound_button.text = "Sound · on" if value else "Sound · off")
 	endpoint_input = _field("https://your-server.example", network.endpoint)
 	endpoint_input.add_theme_font_size_override("font_size", 18)
 	endpoint_input.hide()
@@ -414,6 +428,7 @@ func _set_busy(value: bool) -> void:
 		menu_error.text = "Opening a little world…"
 
 func _on_herd_joined(code: String) -> void:
+	soundscape.invalidate_snapshot()
 	_set_busy(false)
 	menu_error.text = ""
 	local_id = str(network.credentials.get("player_id", ""))
@@ -439,8 +454,10 @@ func _on_herd_joined(code: String) -> void:
 	last_settled = 0
 	arrival_noticed = false
 	moment_time = 0.0
+	_sync_soundscape_gates()
 
 func _on_status(text: String, is_connected: bool) -> void:
+	soundscape.set_connected(is_connected)
 	status_label.text = "" if is_connected else text
 	status_label.visible = not is_connected
 	status_label.add_theme_color_override("font_color", Color("4a7459") if is_connected else Color("926e4e"))
@@ -459,6 +476,7 @@ func _on_error(message: String) -> void:
 		_open_settings()
 
 func _open_settings() -> void:
+	soundscape.set_gameplay_visible(false)
 	network.disconnect_herd()
 	welcome.show()
 	hud.hide()
@@ -466,6 +484,11 @@ func _open_settings() -> void:
 	endpoint_input.text = network.endpoint
 	name_input.text = network.display_name
 	moving = false
+	_sync_soundscape_gates()
+
+func _sync_soundscape_gates() -> void:
+	soundscape.set_gameplay_visible(hud.visible and not welcome.visible and not preview_mode)
+	soundscape.set_connected(network.connected and not network.paused)
 
 func _copy_invite() -> void:
 	DisplayServer.clipboard_set(str(network.credentials.get("code", "MEADOW")))
@@ -718,6 +741,10 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 		moment_time = 0.0
 	last_settled = settled
 	_update_context()
+	_sync_soundscape_gates()
+	if actors.has(local_id) and not awaiting_authoritative_snapshot:
+		soundscape.set_listener_position(actors[local_id].node.position)
+		soundscape.observe_snapshot()
 
 func _update_context() -> void:
 	if not actors.has(local_id):
@@ -731,6 +758,7 @@ func _update_context() -> void:
 		pet_button.hide()
 
 func _process(delta: float) -> void:
+	_sync_soundscape_gates()
 	elapsed += delta
 	if moment_time > 0:
 		moment_time = maxf(0.0, moment_time - delta)
@@ -801,6 +829,7 @@ func _process(delta: float) -> void:
 				head.rotation.x = lerpf(head.rotation.x, head_angle, minf(delta * 7.0, 1.0))
 	if actors.has(local_id) and hud.visible:
 		meadow.follow_player(actors[local_id].node.position)
+		soundscape.set_listener_position(actors[local_id].node.position)
 	if actors.has(selected_dog) and hud.visible and (command_panel.visible or go_pending):
 		meadow.selection.visible = true
 		meadow.place_marker(meadow.selection, actors[selected_dog].node.position)

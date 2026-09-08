@@ -266,3 +266,88 @@ also report ordinary connection errors without emitting engine JSON errors or
 erasing the saved invitation. The default network test now explicitly covers
 Alpine, with a separate Cactus invocation instead of accidentally testing Cactus
 twice. The live server remains on the last completed release during failed CI.
+
+The corrected build 11 passed CI and published its signed APK. Independent
+downloads matched the release checksums and stable signing certificate. The
+ordinary scheduled server update preserved all five existing herds exactly,
+including the post-update checkpoint flush. A sixth Cloud herd created through
+the published Android APK retained an interrupted walk through force-stop and
+Return, reaching its original destination without another input. The resulting
+six-herd checkpoint is the next release's preservation baseline.
+
+## Sparse sound — an atmosphere experiment
+
+The landscape had become more expansive, but it remained silent. This iteration
+adds short filtered-noise wind breaths and occasional synthesized bird phrases,
+not a permanent ambience loop or music. Two wind clips and three bird phrases
+are generated once into 570,210 bytes of mono 16-bit PCM. There are at most two
+ambient voices. Nothing is emitted for an optimistic command acknowledgment or each
+individual sheep. The spatial listener follows the herder rather than the camera.
+
+The first wind waits 9–16 seconds after a fresh accepted snapshot; the first
+bird waits 24–42 seconds. Subsequent same-kind gaps are 28–52 and 42–86 seconds
+after each clip. A four-minute deterministic scheduler trial produced eight
+starts and a longest all-voice silence of 47.25 seconds. The scheduler discards
+missed events after a stalled frame, menu, disconnect, focus loss or Android pause.
+Reopening the gates alone is insufficient: a new accepted snapshot starts a new
+quiet interval. A same-tick snapshot from a paused herd remains valid.
+
+Sound on/off lives beside Server address, only in the existing menu. Both
+buttons have 64-logical-pixel touch targets. The saved Return action and expanded
+server field still fit a verified 720×1280 portrait. The preference uses its own
+audio.cfg and does not mix with invitation credentials. Tests recreate the
+muted preference and exercise twenty focus, background, menu and disconnect
+cycles each, including actually started streams, rejected snapshots, duplicate
+receipts, simultaneous voices and fixed cache/player allocations.
+
+PCM checks establish faded endpoints, bounded peak, no clipping and negligible
+DC offset. They do not establish pleasant sound. These short tonal bird calls
+can feel whistle-like, and two wind variants may eventually become recognizable.
+Phone-speaker/headphone listening and two-person playtesting remain needed;
+the sounds are original synthesis, not field recordings. Keep the small mute
+option and long silence while gathering that feedback.
+
+The first actual Android interruption recording rejected the initial playback
+implementation despite its passing scene tests. A roughly 120 ms fragment of
+wind reappeared immediately on resume, before the fresh sound deadline. Its
+waveform continued the interrupted source (correlation 0.917), and Android's
+independent output power history corroborated it. Turning off system touch
+sounds did not remove it. The pinned [Godot 4.6.3 OpenSL driver](https://github.com/godotengine/godot/blob/4.6.3-stable/platform/android/audio_driver_opensl.cpp)
+pauses its native queue without clearing already mixed PCM. Another scene timer
+or bus mute cannot remove those queued samples.
+
+The replacement keeps scheduling and synthesis platform-neutral but uses two
+disposable static [Android AudioTracks](https://developer.android.com/reference/android/media/AudioTrack)
+through Godot's built-in Java bridge. Interruption pauses and releases both
+native voices; no old track is resumed, reloaded or looped. Other platforms keep
+the two Godot players. Android distance attenuation and restrained stereo
+placement use the herder's location and bearing when a brief bird phrase starts.
+An API failure releases both slots and leaves the session quiet, without falling
+back to the affected engine queue. The unchanged cached bank is 570,210 bytes;
+two simultaneous static sample buffers add at most 301,644 bytes, excluding
+transient JNI copies and Android's own overhead. No custom engine, Gradle plugin,
+media permission or system-volume change is part of this implementation.
+
+Capture validation also found a separate emulator recording problem: some runs
+delivered only about one sixteenth of the PCM expected from their packet cadence.
+Those recordings are rejected. Missing payload is not silence, and an ordinary
+Android standby gap is explicitly distinguished from under-rate arriving packets.
+The replacement passed an independent guest-side, output-only FLAC recording.
+All 5,726,208 stereo frames were decoded at 48 kHz (119.296 seconds), without
+the earlier sustained capture loss. One complete wind follows the first return.
+A later wind starts afresh, is interrupted about two seconds into its 4.6-second
+source, and is never resumed. Every sample in the final 29.296 seconds is exactly
+zero, spanning backgrounding and the second return. That recording ends before
+the next fresh wind after the second return; it does not claim that later onset.
+This directly checks the former short stale-tail failure rather than only the
+scene's stopped flags. Android's independent native-track history also records
+the interrupted static voice being destroyed with unplayed frames remaining.
+
+A second output recording contains 64.768 seconds of decoded, exactly zero PCM
+while opening settings, selecting Sound off, force-stopping/relaunching the app,
+and returning to the saved Cloud herd. Portrait captures before and after
+restart both show the saved off preference. The default phone media volume was
+left unchanged during these acceptance recordings. A further 454 fake-native
+regressions exercise exact PCM writes, two-slot ownership, partial-write/API
+errors, immediate cleanup of both slots, lifecycle interruption and teardown.
+They supplement, not replace, the actual Android output checks.

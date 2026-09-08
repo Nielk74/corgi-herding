@@ -1,10 +1,11 @@
 # Landscape routes
 
-Five places share a quiet cooperative world. Larch Hollow has an offset route;
+Six places share a quiet cooperative world. Larch Hollow has an offset route;
 Sunward Orchard adds an optional apple detour. Canyon Oasis opens two dry paths
-around weathered rock instead of using a river crossing.
+around weathered rock instead of using a river crossing. Cloud Pasture follows
+a climbing ridge with broad shelves above an Alpine tarn.
 
-The two existing landscapes retain their current playable bounds and route.
+The original Alpine and Cactus landscapes retain their playable bounds and route.
 Every herd keeps its animals, invite credentials, saved positions, and selected
 landscape. New landscapes should add a place to travel together without timers,
 scores, forced restarts, or harsher failure.
@@ -70,6 +71,25 @@ against 32 shared Go/Godot route fixtures. A tiny outward presentation projectio
 handles single-precision position rounding at the rock edge; server collision
 and the rock radius are never relaxed.
 
+## Cloud Pasture
+
+The canonical version-4 layout is the union of three grassy shelf disks and
+wide capsules along four ridge anchors. Its complete definition is in
+[the protocol](../protocol/README.md). Steep flanks, rocky runnels and a distant
+tarn explain the accessible ridge without a gate, invisible river or falls.
+Each shelf supports quiet grazing; reaching the upper shelf is not completion.
+
+Whole movement segments must remain in the walkable union. Matching analytical
+coverage and a six-node visibility graph prevent herders and dogs from cutting
+across the valley between valid endpoints. Retained routes survive interruption
+and restart. Remote interpolation follows safe segments, too. The tiny inward
+float32 presentation correction does not widen authoritative collision.
+
+Ordinary dog-command simulations bring all ten sheep uphill and back down; a
+dog-created split is recoverable. Shared route fixtures cover navigation. Portrait
+acceptance covers both true follow extremes and the middle shelf; water and
+mountain scenery must not hide the actors or imply a playable shortcut.
+
 ## One authoritative layout
 
 Each herd receives an immutable layout when created. The server owns it and
@@ -94,6 +114,10 @@ rock footprint. Its legacy bridge/gate fields are zero and have no gameplay
 meaning. Other layouts, saved routes and simulation traces are unchanged.
 Invalid rock geometry, unsafe route segments and impossible animal positions
 are rejected before starting sessions or overwriting a checkpoint.
+
+Version 4 explicitly uses Cloud's canonical ridge union. Its legacy bridge/gate
+fields are zero and unused. The original six-herd server checkpoint and frozen
+older-world simulation traces guard against accidentally changing old saves.
 
 The same layout must drive:
 
@@ -124,9 +148,9 @@ credentials and show an update message instead of retrying forever. Legacy
 clients may continue using the unchanged centered landscapes.
 
 The health response retains `layout_version: 1` for existing APKs and adds
-`layout_versions: [1, 2, 3]`. New clients choose the highest mutually supported
+`layout_versions: [1, 2, 3, 4]`. New clients choose the highest mutually supported
 version; old APKs still reach their version-1 landscapes. Orchard needs version
-2; Oasis needs version 3. A single re-probe also covers a newer health response followed by a server
+2; Oasis needs version 3; Cloud needs version 4. A single re-probe also covers a newer health response followed by a server
 rollback before authentication, including a resulting 4002 response.
 
 New clients first probe `/healthz`: older servers do not advertise layout
@@ -152,6 +176,9 @@ supported checkpoint fixtures.
   commands, and resuming a walk after a dropped input or restart. Ordinary dog
   commands move all ten sheep through either route; a genuinely split flock
   can be retrieved without editing positions or relaxing collision.
+- Cloud supports uphill/downhill herding and retrieval of a split on its ridge.
+  Full-segment coverage, retained routes, lost-tap reconnection, all shelf
+  boundaries and quiet return behavior remain covered. No arrival banner.
 - Both herders can command either corgi. A deterministic simulation moves all
   ten sheep through the offset bridge and gate into the pasture without
   teleporting animals, relaxing collision, or adding a failure timer.

@@ -56,6 +56,8 @@ jobs:
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/static_scenery_batch.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/layout_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/cloud_navigation_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/soundscape_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/android_ambience_smoke.gd
       - name: Test Godot client against real Go server
         run: |
           (cd server && go build -o "$RUNNER_TEMP/corgi-test-server" ./cmd/server)

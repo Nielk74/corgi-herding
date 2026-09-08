@@ -33,6 +33,17 @@ old-landscape structure/state traces and tightly bounded cross-platform actor
 coordinates. Test real portrait logical viewports, not just requested window
 sizes that a headless renderer may reset. Run Godot through
 tools/run-godot-check.sh so a script error cannot silently pass with exit 0.
+Environmental audio stays sparse and non-looping, with no optimistic command
+confirmation or per-animal chorus. Keep its cached PCM and voice count bounded.
+Stop sound on menu, disconnect, application pause or focus loss; require a fresh
+accepted snapshot and a new quiet delay before resuming. Never replay missed
+events. The listener follows the herder, not the elevated camera. Store the local
+sound preference separately from invitation credentials. Test lifecycle gates
+and actual mixed Android output; do not claim subjective listening from metrics.
+On Android, release interrupted static AudioTracks rather than resuming cached
+native queues. Fail silent and release both slots after any backend error. Keep
+the engine's OpenSL players silent on Android; their queued PCM survives pause.
+Reject under-rate recordings and distinguish missing payload from real silence.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

@@ -1,6 +1,10 @@
 An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with six quiet landscapes.
 
-New place: Cloud Pasture. A broad grassy ridge climbs through three resting shelves above an Alpine valley, a distant tarn and snow peaks. Wander uphill, bring the flock back down, or sit halfway with the corgis. Steep flanks frame the gentle ground without falls. There is no bridge, gate, new control or arrival prompt.
+New in this build: a small environmental sound layer. Short wind breaths and occasional distant bird phrases leave long gaps of silence. No music loop, command beeps or animal chorus. At most two sounds play together, using a small bank of original synthesized samples. The listener follows the herder, not the high camera. A Sound on/off toggle fits beside Server address in the existing menu and saves separately from the herd invitation.
+
+Sound stops on menu, disconnect, background or focus loss. Returning requires a fresh accepted snapshot and a new quiet delay; missed sounds are discarded. This is an early atmosphere experiment. Measured output and lifecycle checks cannot establish subjective comfort on phone speakers, and human listening feedback is still needed.
+
+Cloud Pasture remains the newest place. A broad grassy ridge climbs through three resting shelves above an Alpine valley, a distant tarn and snow peaks. Wander uphill, bring the flock back down, or sit halfway with the corgis. Steep flanks frame the gentle ground without falls. There is no bridge, gate, new control or arrival prompt.
 
 Choose among Alpine valley, Cactus canyon, Larch Hollow, Sunward Orchard, Canyon Oasis and Cloud Pasture on the portrait start screen. Each herd keeps its immutable layout, animals and progression. Previous APKs retain access to their supported landscapes; Cloud needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
 
