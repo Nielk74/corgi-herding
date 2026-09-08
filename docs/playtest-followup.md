@@ -96,6 +96,13 @@ and verifies before export. Runtime checks the scene's embedded recipe and
 loads it without running the terrain generator. The fallback builder exists
 for development; release acceptance explicitly tests the cached path.
 
+The compiler supervisor now has bounded version and cook deadlines. A script
+error, parse error or timeout stops only its owned process group, preserving
+the last valid cached scene and receipt. Regression fixtures cover broken,
+slow and orphaning compilers without stopping an unrelated sentinel process.
+This keeps repeated authoring iterations from hanging or destroying usable
+partial work; failed cooks are never accepted as a successful map update.
+
 The current complete Alpine/cactus cooks take approximately 1.8/1.5 seconds on
 the authoring host and produce roughly 3MB scenes. This is **not Android FPS**,
 whole-level design time or proof of finished gameplay. All-world art budgets
@@ -108,7 +115,9 @@ setters. Explicit CPU MultiMesh buffers and saved AABBs fix that failure. Tests
 decode the actual serialized buffers, ground them against rendered triangles,
 and independently verify before/after disk reload. Source transform calculations
 alone are not export evidence. Maximum declared grass wind remains inside the
-expanded culling bounds and keeps roots fixed. Pine geometry is currently static.
+expanded culling bounds and keeps roots fixed. Pine trunks remain static; the
+next large-valley candidate adds bounded needle movement through isolated
+per-world material bindings, as detailed in [material studies](material-studies.md).
 
 The [verified CC0 material kit](materials.md) provides real ground and stone
 texture data. Use mipmaps and bounded mobile compression. Distribute vegetation
@@ -243,3 +252,23 @@ or new-herd creation was needed. The disconnected checkpoint preserved the
 original player position, target and sequence 1, credentials and animal identities;
 the other eight herds stayed exact. This separates the public upgrade/Return
 check from the earlier private-candidate tutorial and large-valley play checks.
+
+## Calmer valley candidate — after build 15
+
+The next signed gameplay candidate combines the invalid-drag explanation,
+broken Alpine scree, less contrasty grass and bounded pine-needle motion. The
+normal game has no studio comparison buttons. The isolated Android installation
+returned to its existing large-valley herd, used the contextual Stay command,
+then directly dragged that corgi to another patch of grass. The authoritative
+dog reached the requested target while the herder's accepted movement sequence
+remained unchanged. A separate ordinary tap moved the herder and incremented
+that sequence once. Backgrounding and resuming retained that endpoint, the dog's
+Go target and all ten sheep. No script or renderer errors appeared in the checked
+Android log. This is a real-network emulator check, not a second human's opinion
+of the controls or physical-phone frame-time evidence.
+
+The visual result is calmer, but the broad slopes still look uniform and the
+mountain silhouettes remain recognizably procedural. Further art work should
+add distinct terrain structure and localized detail, not just increase scatter
+counts. A separate, unaccepted Dry Wash prototype explores broad sand fans,
+shallow banks and low mesas; it is not included in this valley-only candidate.

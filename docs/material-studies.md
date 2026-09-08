@@ -28,5 +28,14 @@ missed time. Geometry tests retain all original triangles, placement buffers and
 whole-crown clearance. Actual sampled Android frames show small crown movement
 without obvious tearing, palette jumps or shadow flashes. The software-rendered
 emulator recording is too slow to establish animation comfort or phone FPS.
-Runtime binding, picking and map-transition checks remain separate acceptance
-work; a studio comparison is not a completed multiplayer playtest.
+The next gameplay candidate binds this motion only in the large Alpine valley.
+Each world owns three cloned pine meshes, 134 affected instance batches and one
+clock; the cached scene and other worlds retain their original references.
+This adds no draw batches. The exposed extra mesh/instance array payload is
+about 505 KiB per active world, not a measurement of allocator or GPU memory.
+Touch picking conservatively includes the moving crowns' bounded envelopes;
+the trunks and walking surface do not change. Two-world isolation, lifecycle,
+camera and old-landscape tests cover the integration. Actual candidate-APK
+Return, contextual Stay, direct Go and ordinary walking were then exercised
+against an isolated authoritative server. This remains emulator evidence, not
+a completed two-human or physical-phone performance playtest.
