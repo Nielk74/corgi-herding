@@ -6,7 +6,9 @@ Two herders. Two corgis. Ten sheep and a shared journey.
 
 A portrait-first cooperative Android game about caring for a flock together, set in an Alpine
 valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard, Canyon Oasis,
-Cloud Pasture or Juniper Shore. Distant mountain ranges and layered
+Cloud Pasture, Juniper Shore, Bellflower Commons or the larger Long Alpine valley.
+An optional Practice meadow guide teaches the controls one step at a time.
+Distant mountain ranges and layered
 landscapes make the walkable valley feel part of a much larger world. Steep rock,
 woods and water mark its natural limits. No combat, score or timer: a wandering
 sheep creates another little story.
@@ -21,6 +23,8 @@ slopes. This is mobile raster lighting, not hardware ray tracing.
 · [All releases](https://github.com/Nielk74/corgi-herding/releases)
 · [Design and roadmap](docs/design.md)
 · [Run a server](docs/deployment.md)
+
+<img src="docs/images/long-alpine-valley.png" width="300" alt="Actual portrait Android large-valley playtest: two connected herders, two corgis and ten sheep on rising textured ground beneath snowy mountains"> <img src="docs/images/practice-meadow.png" width="300" alt="Actual portrait Android practice meadow with one skippable walking instruction">
 
 <img src="docs/images/ten-sheep-and-a-gate.png" width="300" alt="Portrait Android prototype in an Alpine valley with minimal controls"> <img src="docs/images/cactus-canyon.png" width="300" alt="Portrait Android prototype in a cactus canyon">
 
@@ -38,9 +42,19 @@ See the [temporary corgi command panel](docs/images/contextual-controls.png).
 
 1. Install the APK on two Android phones with access to the same game server.
 2. One player chooses a landscape, creates a herd and shares its invite code. The other joins the same landscape.
-3. Hold the phone upright. Tap the ground to walk; tap either corgi to reveal Come, Stay or Go. The small menu closes after a command.
+3. Hold the phone upright. Tap the ground to walk; tap either corgi to reveal Come, Stay or Go. You can also press a corgi and drag to some grass to place them directly. The small menu closes after a command.
 4. Wander together and guide the flock toward open pasture. In the river valleys, use the bridge and tap the nearby gate to open it. In Canyon Oasis, either dry path around the rock is a way through.
 5. Tap your herder to sit, or approach and tap a corgi to pet it. There is no deadline.
+
+Practice meadow is the first choice for a new player without a saved invitation.
+Its optional guide explains walking, either shared corgi, commands, sheep pressure
+and rest. Skip any lesson, hide the guide, or restart it in settings. Normal
+landscapes keep the minimal display; the guide does not appear there.
+
+Long Alpine valley connects sixteen broad clearings and return loops inside
+144 × 192 bounds. This is newly walkable ground, not just larger scenery. The
+fixed-perspective portrait camera follows your herder and rests when you stop.
+There is no finish line or requirement to herd the whole flock in one session.
 
 In Sunward Orchard, two curious sheep may wander toward fallen apples. Let them
 finish their small snack or guide them back with either dog. They remember that
@@ -88,6 +102,20 @@ plane at 20 Hz; the Godot client renders a fixed 3D view with movement feedback
 and entity interpolation. WebSocket JSON messages are documented in
 [protocol/README.md](protocol/README.md).
 
+For fast large-map authoring, edit a reviewed JSON recipe and prepare its complete
+terrain, grass, props and scenic ring before exporting to Android:
+
+```sh
+node tools/build-landscapes.mjs /absolute/path/to/godot
+node tools/build-landscapes.mjs --check
+```
+
+Unchanged source/asset fingerprints reuse the cache. Both current complete art
+recipes cook in roughly two seconds each on the development host; that is build
+time, not Android frame time. The cactus dry wash is an authoring variant, not
+an additional accepted multiplayer level. See [authoring and critical playtest
+notes](docs/playtest-followup.md) and [licensed materials](docs/materials.md).
+
 ```sh
 cd server
 go vet ./...
@@ -131,14 +159,16 @@ it prevents Android from installing future releases as updates.
 
 ## Scope
 
-This is milestone 1, not the full journey game. It includes seven landscape levels,
+This is milestone 1, not the full journey game. It includes nine landscape choices,
 shared dog commands, sheep steering, invitations, reconnection, and file
 checkpoints, a small persistent orchard distraction, a two-route rock landscape
-and sparse environmental sound. Puppy adoption/training, richer animations and
+an optional practice guide, prepared large-region scenery, and sparse environmental
+sound. Puppy adoption/training, richer animations and
 animal vocalizations, PostgreSQL,
 camp customization and travel between connected regions are subsequent milestones. Two-phone
 playtesting is necessary before judging the quality of the animal behavior.
 
-The art is original code-generated geometry. Godot's license is included with
+The geometry is original code-generated art, with a [credited CC0 natural
+material kit](docs/materials.md). Godot's license is included with
 its runtime. The project source is provided for inspection; no open-source
 license grant has been selected yet.

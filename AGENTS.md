@@ -5,6 +5,10 @@ Preserve the no-combat, no-timer, soft-failure design. Both players control both
 Android is portrait-first. Keep controls hidden until an animal or interaction is
 tapped; no persistent command bars. Compose broad Alpine and cactus landscapes
 behind readable playable ground, with natural boundaries rather than a board rim.
+The September8 playtest prioritizes larger WALKABLE regions, easier corgi
+placement, realistic detail/motion and a dedicated gentle tutorial. One-at-a-time
+skippable tutorial instructions are explicitly allowed; do not hide essential
+teaching behind a blanket minimalist-UI rule. See docs/playtest-followup.md.
 Keep contextual command slots stable as animals move. Dim unavailable Pet instead
 of removing it and shifting Go under an intended tap; recheck reach at activation.
 Relief must affect the rendered playable ground, not only distant scenery.

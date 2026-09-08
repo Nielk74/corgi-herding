@@ -3,7 +3,7 @@
 The Go server owns a 20 Hz simulation on an X/Y plane; Godot maps Y to Z.
 HTTP base is user configurable (default http://127.0.0.1:8790).
 
-`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4,5],sessions}`.
+`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4,5,6,7],sessions}`.
 The singular capability deliberately remains 1 so existing clients can still
 visit their version 1 herds. New clients choose the highest known advertised
 `layout_versions` entry, falling back to the singular field on older servers.
@@ -11,7 +11,7 @@ Clients can probe this before authentication: older servers omit `layout_version
 and strictly reject unknown auth fields, so omit the capability when connecting
 to those servers. Never discard saved credentials merely because a server has
 not yet upgraded to support layout negotiation.
-`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"|"juniper"}` creates a two-person herd and returns
+`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"|"juniper"|"bellflower"|"alpine_valley"}` creates a two-person herd and returns
 `{code,player_id,token}`. `POST /api/herds/{code}/join` with `{name:string}`
 returns the same fields for the second player. Save these credentials locally.
 No third member is accepted. Names are limited to 24 characters.
@@ -31,6 +31,8 @@ herd has an immutable layout included in every snapshot:
 | `oasis` | 3 | unused (0) | unused (0) |
 | `cloud` | 4 | unused (0) | unused (0) |
 | `juniper` | 5 | unused (0) | unused (0) |
+| `bellflower` | 6 | unused (0) | unused (0) |
+| `alpine_valley` | 7 | unused (0) | unused (0) |
 
 Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 
@@ -68,15 +70,32 @@ It has no gate, bridge, fence, rock obstacle, forage or rest/finish region:
 Only Juniper includes `shore`. `lake_side` describes presentation to the left of
 the ordered path, not additional collision. `settled` always remains 0 here.
 
+Bellflower Commons has a broad central meadow and two distinct grassy branches.
+Its explicit corridor pairs must not be flattened into a single ordered path:
+
+```json
+{"version":6,"bridge_y":0,"gate_y":0,"commons":{"anchors":[{"x":-5,"y":0},{"x":0,"y":0},{"x":4,"y":-4},{"x":10,"y":-6},{"x":4,"y":4},{"x":10,"y":6}],"corridors":[[0,1],[1,2],[2,3],[1,4],[4,5]],"half_width":3.6,"clearings":[{"center":{"x":-5,"y":0},"radius":7.2},{"center":{"x":10,"y":-6},"radius":4.8},{"center":{"x":10,"y":6},"radius":4.8}]}}
+```
+
+Only Bellflower includes `commons`. It has no gate, bridge, water obstacle,
+forage, ridge, shoreline or finish region; `settled` always remains 0.
+
+Long Alpine Valley uses version 7, zero bridge/gate coordinates, and `region`
+equal to the exact object in [the canonical region](alpine-valley-region.json).
+Only this landscape includes `region`. The older `alpine` landscape and its
+saved herds remain unchanged. This new region also has no finish, gate or water
+obstacle, and its `settled` remains 0.
+
 Connect `GET /api/herds/{code}/ws` (WebSocket, no credentials in URL), then send
-`{type:"auth",player_id,token,layout_version:5}` within 5 seconds when the server
-advertises version 5 and the client implements it. Server replies with snapshots.
+`{type:"auth",player_id,token,layout_version:7}` within 5 seconds when the server
+advertises version 7 and the client implements it. Server replies with snapshots.
 Reconnection uses the same credentials; players remain in the herd. A replacement
 connection supersedes the old connection. Never expose tokens in snapshots/logs.
 Omitted/zero `layout_version` is legacy support for centered Alpine/Cactus
 layouts only. Capability 1 accepts all version 1 layouts; capability 2 accepts
 versions 1 and 2; capability 3 accepts versions 1, 2 and 3; capability 4 accepts
-versions 1 through 4; capability 5 accepts versions 1 through 5.
+versions 1 through 4; capability 5 accepts versions 1 through 5; capability 6
+accepts versions 1 through 6; capability 7 accepts versions 1 through 7.
 Authenticated clients lacking support for their herd's layout
 or sending an unknown capability receive `{type:"error",code:"update_required",message:...}`
 followed by WebSocket close 4002, before they receive a snapshot or replace an
@@ -214,8 +233,8 @@ V5 first checks strict endpoint walkability (including zero-length segments).
 If both endpoints belong to the **same** clearing disk or spine capsule, its
 convexity proves the entire chord safe, using exactly the existing disk or
 nearest-point/squared-radius membership predicate. Otherwise the original
-analytical union-coverage test must pass in **both** directions. This v5-only
-rule avoids a last-bit projection/rectangle mismatch stranding legal boundary
+analytical union-coverage test must pass in **both** directions. This rule, introduced in v5,
+avoids a last-bit projection/rectangle mismatch stranding legal boundary
 points and makes visibility symmetric without an epsilon, coordinate movement,
 or any change to Cloud. [Shared boundary regressions](shore-boundaries.json)
 include the exact Linux failing point and reject outside endpoints/lake chords;
@@ -247,7 +266,98 @@ changed v5 geometry, actors in water/outside bounds, unsafe/noncanonical/duplica
 or overlong queues, phantom gates, and nonzero `settled` reject the complete
 checkpoint before actors start or files are overwritten. Old layout migrations
 and v1–4 simulation behavior remain unchanged. Old clients may keep using their
-existing worlds; only clients with advertised/implemented capability 5 enter Juniper.
+existing worlds; only clients with advertised/implemented capability 5 or higher enter Juniper.
+
+### Bellflower Commons navigation
+
+Version 6 intersects the unchanged world bounds with the union of three closed
+clearing disks and radius-3.6 capsules along its five **declared** corridors.
+The central clearing is larger than either branch clearing; neither branch is
+a preferred destination. `(7,0)` is outside, and the direct chord between the
+two branch centers crosses the divider. Valid endpoints cannot authorize that
+shortcut.
+
+A read-only adapter visits anchor indices `[0,1,2,3,2,1,4,5]` in that order.
+Every traversed undirected edge is declared, and every declared edge is covered.
+Retraced capsules add no new walking area; there is deliberately no `3→4` edge.
+The adapter uses the unchanged v5 strict endpoint/convex-primitive/bidirectional
+analytical coverage predicates. Membership, local steering and full movement
+segments all use that same ordered union. No collision tolerance is added.
+
+The planner uses six **unique** anchors, source index 6 and target index 7, not
+the repeated traversal entries. It retains the existing double-scalar `1e-9`
+tie rules and `0.08` arrival/retarget/reconnect behavior. Queues contain at most
+six unique canonical anchors and must have safe initial, intermediate and final
+segments. [Shared route fixtures](commons-routes.json) cover both branches and
+directions, ties, direct central walks and forbidden divider shortcuts.
+
+[Boundary fixtures](commons-boundaries.json) retain their original JSON decimal
+points and companion IEEE754 bit strings. Go verifies those bits against its
+JSON-decoded doubles; Godot decodes the exact bits to test scalar geometry parity.
+This is distinct from testing the real network presentation path: Godot 4.6.3
+rounds some long decimal literals to an adjacent double before `Vector2` adds
+float32 rounding. Separate checks pass the actual JSON/Vector2 positions through
+the existing narrowly bounded presentation correction and complete strictly
+contained movement. They do not change the authoritative point or relax collision.
+
+New herders start at `(-10,-1)` and `(-10,2)`, and Mochi/Maple at `(-8.2,-2)`
+and `(-8.2,1)`. Sheep `i=0..9` retain IDs and start at
+`(-6.7+i%3, -0.4+floor(i/3)*1.05)`. Existing speeds remain unchanged. Loading a
+checkpoint never reapplies spawns. Sheep respond to local dog pressure rather
+than graph routes or automatic destination attraction. All three clearings
+support quiet grazing, including after a split is recovered.
+
+Snapshots and checkpoints deep-clone anchors, each corridor pair and clearings.
+Malformed, missing or changed v6 geometry, extra corridor indices, noncanonical
+or unsafe queues, invalid actors, phantom gates or nonzero `settled` reject the
+complete checkpoint before gameplay or overwrite. Disconnect/restart retains
+accepted herder targets, sequences and routes. All seven earlier landscapes
+keep their geometry, save behavior and frozen simulation traces.
+
+### Large Alpine region navigation
+
+Version 7 intersects explicit bounds with closed clearing disks and variable-width
+capsules for each declared graph edge. The canonical region spans X −72..72 and
+Y −96..96, with 16 anchors, 26 corridors and 16 clearings. There is no implicit
+edge between consecutive array entries and no change to any earlier footprint.
+
+The bounded generic geometry validator permits 2–32 unique anchors, 1–64 unique
+undirected edges and up to 32 clearings whose centers are canonical anchors.
+Dimensions cannot exceed 256 per axis, absolute coordinates cannot exceed 512,
+and positive radii/widths cannot exceed 64. Nonfinite values, disconnected graphs,
+duplicate/reversed edges and edges whose squared length is exactly zero or
+nonfinite reject before navigation. The last check prevents binary64 underflow
+division, without introducing a collision epsilon. A saved world additionally
+requires exact equality with its named canonical recipe, not merely valid bounds.
+
+Membership and full-chord visibility use scalar binary64 arithmetic. Version 7
+explicitly rounds products before combining them in dot/cross/nearest-point and
+circle/slab operations, avoiding architecture-dependent multiply-add fusion.
+This is allowed by the [Go floating-point rules](https://go.dev/ref/spec#Floating_point_operators)
+and does not alter v1–6 arithmetic. Strict endpoints and a common convex primitive
+can prove a chord; other chords require complete analytical interval coverage in
+both directions. There is no geometry epsilon.
+
+Each immutable region caches only anchor-to-anchor visibility. Source and target
+links are evaluated per route. The planner retains the existing `1e-9` tie order
+and `0.08` arrival behavior; queues can contain up to N unique canonical anchors,
+not a legacy six-anchor cap. Initial, intermediate and final legs must all be
+safe. Clients use `validated_route(data, from, target)` so malformed queues cannot
+be confused with a legitimate empty direct route.
+
+[64 shared routes](region-routes.json), [28 exact-bit boundary cases](region-boundaries.json)
+and a [32-anchor variable-width stress recipe](region-stress.json) exercise the
+same rules in Go and Godot. The stress case retains 30 anchors in both directions.
+The narrow float32 presentation correction is separate from strict collision;
+it never changes server geometry or admits a genuinely unsafe shortcut.
+
+New herders start at `(-48,74)` and `(-45,74)`; Mochi/Maple at `(-47,71.8)` and
+`(-44,71.8)`. Sheep i=0..9 start at `(-44.7+i%3,62.4+floor(i/3)*1.05)` with the
+same IDs and existing movement speeds. Sheep continue to respond to ordinary
+local pressure, not graph waypoints or a scripted destination. Complete outward,
+return and side-loop herding, a real 3+7 split/reunion, quiet grazing and retained
+routes across reconnect/restart are server regression checks. Presentation and
+two-human fun still require actual playtesting.
 
 Older checkpoints without a landscape field load as `alpine`; existing Alpine
 and Cactus saves without a layout migrate to centered version 1 without changing

@@ -1,8 +1,10 @@
 # Natural material source kit
 
-These nine original texture files are an approved, reusable source kit. They are
-not yet a claim of integrated or profiled Android rendering. No Godot import,
-renderer setting, existing terrain, or lighting bake was changed when adding them.
+These nine original texture files are a verified, reusable source kit. The large
+Alpine landscape and cactus authoring variant now use their albedo, normal and
+roughness data in prepared terrain and stone materials. Actual Android renders
+have been inspected; physical-phone frame time and GPU memory remain unprofiled.
+No baked indirect lighting or hardware ray tracing is included.
 
 | Material | Intended use | Source-map bytes |
 | --- | --- | ---: |
@@ -47,7 +49,7 @@ self-test rejects altered/truncated data and wrong hashes using memory buffers;
 it does not damage files. Adjacent Godot `.import` sidecars are allowed but do not
 count as additional source maps. No dependency installation or image import occurs.
 
-## Intended renderer integration
+## Renderer integration and constraints
 
 - Treat albedo as sRGB color; normals and roughness as linear data. The normal
   maps use OpenGL +X/+Y/+Z convention. Do not invert their green channel.
@@ -68,5 +70,9 @@ These integration choices follow the pinned Godot 4.6 documentation for
 [texture imports](https://docs.godotengine.org/en/4.6/tutorials/assets_pipeline/importing_images.html),
 [renderer support](https://docs.godotengine.org/en/4.6/tutorials/rendering/renderers.html)
 and [LightmapGI](https://docs.godotengine.org/en/4.6/classes/class_lightmapgi.html).
-Visual acceptance, normal orientation, repetition, asset memory and frame cost
-must still be checked on the actual Android build before calling this kit integrated.
+The complete landscape uses an opaque custom ground/rock/snow blending shader,
+with world-space sampled normal perturbations. UV2 remains reserved rather than
+being repurposed as a fake lightmap. Saved-resource tests and actual Android
+views cover integration and grounding; visible repetition is still an art issue
+being refined. Neither those tests nor emulator counters establish real-phone
+asset memory or frame cost. See [the authoring and playtest notes](playtest-followup.md).

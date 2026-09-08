@@ -1,10 +1,11 @@
 # Landscape routes
 
-Seven places share a quiet cooperative world. Larch Hollow has an offset route;
+Nine places share a quiet cooperative world. Larch Hollow has an offset route;
 Sunward Orchard adds an optional apple detour. Canyon Oasis opens two dry paths
 around weathered rock instead of using a river crossing. Cloud Pasture follows
 a climbing ridge with broad shelves above an Alpine tarn. Juniper Shore curves
-around a lake through three broad grassy clearings.
+around a lake through three broad grassy clearings. Bellflower Commons offers
+an optional practice guide; Long Alpine valley adds a much larger walkable region.
 
 The original Alpine and Cactus landscapes retain their playable bounds and route.
 Every herd keeps its animals, invite credentials, saved positions, and selected
@@ -108,6 +109,36 @@ genuinely split flock. Every clearing is a place to graze or sit; Juniper never
 announces arrival or completion. Thirty-two shared Go/Godot fixtures guard the
 two planners, alongside full-segment and malformed-checkpoint checks.
 
+## Bellflower Commons / Practice meadow
+
+Version 6 introduces the canonical Commons graph and clearing union, with a
+roomy fork around a grassy divider. No bridge, gate or completion zone. The
+optional Practice guide is a client-side teaching layer over this same layout,
+not a different simulation or an easier set of collision rules. It observes
+fresh accepted actions/results and allows skipping, hiding or restarting.
+Direct corgi dragging also works outside practice; both humans retain control
+of both dogs. Existing layouts 1–5 are not modified.
+
+## Long Alpine valley
+
+Version 7 uses the exact [canonical region](../protocol/alpine-valley-region.json):
+144 × 192 bounds, sixteen anchors/clearings and twenty-six broad corridors.
+The larger ground connects a rising main route, side meadows and return loops.
+Animal size, movement speeds and personal interaction ranges are unchanged.
+There is no gate, finish zone or automatic journey completion.
+
+Both planners validate complete segments through the union and retain canonical
+anchor queues. Shared route/boundary/stress fixtures, normal-command herding and
+split recovery, checkpoint rejection, and actual two-peer WebSocket tests guard
+the simulation. The client loads prepared, source-verified terrain and samples
+its indexed triangles for feet and picking. A fixed-perspective portrait camera
+follows in both horizontal axes, makes bounded clearance adjustments when
+foreground terrain would hide the herder, and freezes at rest. Decorative birds,
+wind grass and scenic rock do not define collision or simulate on the server.
+
+The cactus dry-wash recipe is an art-authoring variant only. It is not an extra
+selectable large multiplayer region until its own layout and gameplay are tested.
+
 ## One authoritative layout
 
 Each herd receives an immutable layout when created. The server owns it and
@@ -141,6 +172,11 @@ Version 5 uses Juniper's canonical shore union with separate new-world spawns.
 Loading a checkpoint never resets those actors. The legacy bridge/gate fields
 remain zero and unused. All six earlier layouts and simulation traces stay fixed.
 
+Versions 6 and 7 add the Commons and large Alpine region respectively. The
+legacy bridge/gate fields remain zero and unused; neither creates a completion
+zone. Exact canonical geometry is checked before starting a restored session.
+Old saves are never widened or replaced with newly generated art recipes.
+
 The same layout must drive:
 
 - Server collision checks, player and dog waypoints, gate interaction distance,
@@ -170,9 +206,10 @@ credentials and show an update message instead of retrying forever. Legacy
 clients may continue using the unchanged centered landscapes.
 
 The health response retains `layout_version: 1` for existing APKs and adds
-`layout_versions: [1, 2, 3, 4, 5]`. New clients choose the highest mutually supported
+`layout_versions: [1, 2, 3, 4, 5, 6, 7]`. New clients choose the highest mutually supported
 version; old APKs still reach their version-1 landscapes. Orchard needs version
-2; Oasis needs version 3; Cloud needs version 4; Juniper needs version 5.
+2; Oasis needs version 3; Cloud needs version 4; Juniper needs version 5;
+Commons/Practice needs version 6 and Long Alpine valley needs version 7.
 A single re-probe also covers a newer health response followed by a server
 rollback before authentication, including a resulting 4002 response.
 
@@ -209,6 +246,13 @@ supported checkpoint fixtures.
 - Both herders can command either corgi. A deterministic simulation moves all
   ten sheep through the offset bridge and gate into the pasture without
   teleporting animals, relaxing collision, or adding a failure timer.
+- Practice remains optional and remembers hidden/completed visibility separately
+  from credentials. Walking, dog selection and commands advance only with fresh
+  evidence; a reconnect baseline cannot automatically finish a lesson.
+- The large region preserves complete player/dog routes and all fourteen actors
+  across outward/return travel and dropped-input reconnects. Both humans can
+  command both dogs. All sixteen clearings remain visible/pickable in portrait;
+  actual scene geometry and authoritative walking limits remain separate.
 - People and dogs can stop on the offset bridge, approach the gate from either
   side, and open it only within the existing interaction distance. Sheep never
   cross the river or fence away from those openings.
