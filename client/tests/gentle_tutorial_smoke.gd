@@ -21,6 +21,7 @@ func _run() -> void:
 			_full_flow(local_id, dog_id)
 	_movement_and_selection()
 	_commands_and_reconnect()
+	_nonconflicting_actions()
 	_pressure_and_care()
 	_malformed_receipts()
 	_malformed_actions()
@@ -390,6 +391,94 @@ func _pressure_and_care() -> void:
 	snapshot.dogs[0].state = "happy"
 	guide.observe_snapshot(snapshot, 1)
 	_check(guide.stage() == "freeplay", "inclusive 2.5m diagonal uses server XY, not rendered height")
+
+func _nonconflicting_actions() -> void:
+	for lesson: String in ["come", "stay", "place", "pressure", "withdraw"]:
+		for activity: String in ["walk", "sit", "other_dog"]:
+			var fixture := _fresh(lesson)
+			var guide: RefCounted = fixture.guide
+			var snapshot: Dictionary = fixture.snapshot
+			var command := lesson if lesson in ["come", "stay"] else "go"
+			var target := _point(7, -6) if lesson in ["place", "pressure"] else _point(-3, 0)
+			_arm(guide, _command(command, "mochi", target))
+			var action := _move(1, _point(-6, 0)) if activity == "walk" else (_sit() if activity == "sit" else _command("stay", "maple"))
+			_check(not guide.record_local_action(action, 1), "non-conflicting activity does not claim new lesson evidence: " + lesson + "/" + activity)
+			_check(guide.stage() == lesson and guide.debug_state().pending, "pending selected-dog result survives valid " + activity + " during " + lesson)
+			snapshot = _next(snapshot)
+			if activity == "walk":
+				snapshot.players[0].seq = 1
+				snapshot.players[0].target = action.target.duplicate()
+				snapshot.players[0].position = action.target.duplicate()
+			elif activity == "sit":
+				snapshot.players[0].state = "sitting"
+			else:
+				snapshot.dogs[1].caller = "herder-a"
+			_result(snapshot, "herder-a", "mochi", command, target)
+			if lesson == "pressure":
+				snapshot.sheep[0].position.x += 0.08
+				snapshot.sheep[0].velocity = _point(0.8, 0)
+				snapshot.sheep[0].state = "walking"
+			guide.observe_snapshot(snapshot, 1)
+			_check(guide.stage() != lesson, "original freshly requested dog result still teaches after " + activity + " during " + lesson)
+	for conflict: Dictionary in [_command("stay"), _pet()]:
+		var fixture := _fresh("place")
+		var guide: RefCounted = fixture.guide
+		var snapshot: Dictionary = fixture.snapshot
+		_arm(guide, _command("go", "mochi", _point(-3, 0)))
+		_check(not guide.record_local_action(conflict, 1) and not guide.debug_state().pending, "selected-dog Stay or Pet cancels the old Go evidence")
+		snapshot = _next(snapshot)
+		_result(snapshot, "herder-a", "mochi", "go", _point(-3, 0))
+		guide.observe_snapshot(snapshot, 1)
+		_check(guide.stage() == "place", "late result from a conflictingly replaced command cannot advance")
+	var fixture := _fresh("place")
+	var guide: RefCounted = fixture.guide
+	var snapshot: Dictionary = fixture.snapshot
+	_arm(guide, _command("go", "mochi", _point(-3, 0)))
+	_arm(guide, _command("go", "mochi", _point(-2, 0)))
+	snapshot = _next(snapshot)
+	_result(snapshot, "herder-a", "mochi", "go", _point(-3, 0))
+	guide.observe_snapshot(snapshot, 1)
+	_check(guide.stage() == "place", "a new selected-dog Go replaces the required destination")
+	snapshot = _next(snapshot)
+	_result(snapshot, "herder-a", "mochi", "go", _point(-2, 0))
+	guide.observe_snapshot(snapshot, 1)
+	_check(guide.stage() == "pressure", "only the newer selected-dog destination completes placement")
+	for interaction: Dictionary in [_sit(), _pet()]:
+		fixture = _fresh("care")
+		guide = fixture.guide
+		snapshot = fixture.snapshot
+		_arm(guide, interaction)
+		_check(not guide.record_local_action(_move(1, _point(-5, 0)), 1) and not guide.debug_state().pending, "walking still conflicts with pending care evidence")
+		snapshot = _next(snapshot)
+		snapshot.players[0].state = "sitting" if interaction.action == "sit" else "petting"
+		snapshot.dogs[0].position = _point(-6, 0)
+		snapshot.dogs[0].target = _point(-6, 0)
+		snapshot.dogs[0].state = "happy"
+		guide.observe_snapshot(snapshot, 1)
+		_check(guide.stage() == "care", "late care state cannot credit an action canceled by walking")
+	fixture = _fresh("walk")
+	guide = fixture.guide
+	snapshot = fixture.snapshot
+	_arm(guide, _move(1, _point(-5, 0)))
+	_arm(guide, _move(2, _point(-4, 0)))
+	_check(not guide.record_local_action(_move(1, _point(-5, 0)), 1), "stale emitted sequence cannot replace newer pending movement")
+	snapshot = _next(snapshot)
+	snapshot.players[0].seq = 1
+	snapshot.players[0].position = _point(-5, 0)
+	snapshot.players[0].target = _point(-5, 0)
+	guide.observe_snapshot(snapshot, 1)
+	_check(guide.stage() == "walk", "conflicting newer walk still excludes the old movement result")
+	_check(not guide.record_local_action(_command("stay", "maple"), 1) and guide.debug_state().pending, "helping a dog does not stop the herder's valid walk evidence")
+	snapshot = _next(snapshot)
+	snapshot.players[0].seq = 2
+	snapshot.players[0].position = _point(-4, 0)
+	snapshot.players[0].target = _point(-4, 0)
+	guide.observe_snapshot(snapshot, 1)
+	_check(guide.stage() == "select", "newer arrived walk remains observable after helping a dog")
+	for action: Dictionary in [{"type": "move", "seq": "1", "target": _point(-5, 0)}, _command("stay", "unknown-dog"), {"type": "interact", "action": "sit", "dog_id": "mochi"}]:
+		fixture = _fresh("place")
+		guide = fixture.guide
+		_check(not guide.record_local_action(action, 1) and not guide.debug_state().pending, "invalid actions never invent pending evidence")
 
 func _malformed_receipts() -> void:
 	var mutations: Array[Callable] = [

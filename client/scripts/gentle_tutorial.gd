@@ -122,12 +122,18 @@ func select_dog(dog_id: String, epoch: int) -> bool:
 func record_local_action(message: Dictionary, epoch: int) -> bool:
 	if not _can_record(epoch):
 		return false
-	# Any actual local action supersedes old intent, including one irrelevant to
-	# this lesson. Never credit a move/command after the player changed their mind.
-	_pending.clear()
 	if not _valid_action(message):
 		return false
 	var kind: String = message.type
+	if kind == "move" and (int(message.seq) <= int(_actor(_latest.players, _local_id).seq) or (_pending.get("kind") == "move" and int(message.seq) <= int(_pending.seq))):
+		return false
+	if (kind == "command" or (kind == "interact" and message.action == "pet")) and _actor(_latest.dogs, message.dog_id).is_empty():
+		return false
+	# Moving/sitting beside a commanded dog or helping the other dog does not
+	# replace that dog's intent. Preserve its original receipt boundary; only a
+	# genuinely conflicting action can cancel or replace existing evidence.
+	if _conflicts_with_pending(message):
+		_pending.clear()
 	var current := stage()
 	if kind == "move":
 		if current != "walk":
@@ -148,6 +154,18 @@ func record_local_action(message: Dictionary, epoch: int) -> bool:
 	_pending.kind = kind
 	_pending.tick = _last_tick
 	return true
+
+func _conflicts_with_pending(message: Dictionary) -> bool:
+	if _pending.is_empty():
+		return false
+	match String(_pending.kind):
+		"command":
+			return (message.type == "command" and message.dog_id == _pending.dog_id) or (message.type == "interact" and message.action == "pet" and message.dog_id == _pending.dog_id)
+		"move":
+			return message.type in ["move", "interact"] # Sit/Pet stop the herder.
+		"interact":
+			return message.type in ["move", "interact"] or (_pending.action == "pet" and message.type == "command" and message.dog_id == _pending.dog_id)
+	return false
 
 func skip_current_lesson() -> void:
 	if _enabled and stage() != "freeplay":
