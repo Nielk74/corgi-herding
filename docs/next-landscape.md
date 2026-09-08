@@ -91,3 +91,43 @@ without moving the shoreline or hiding actors behind more scenery. Lake motion
 can be restrained opaque shading; it is not a ray-traced reflection. Sparse
 environmental sound remains its separately tested system, with no additional HUD.
 Actual portrait play at both ends and two-person feedback remain necessary.
+
+## Eighth-place proposal — Bellflower Commons
+
+Return to the Alps with a broad meadow that branches toward a sunny shoulder
+and a sheltered grassy hollow. Both are places to spend time, not competing
+objectives. The central common should be pleasant enough that nobody needs
+to leave. This is a branching space, not another lake crescent or a recolored
+ridge. A cactus dry wash with shallow erosion terraces remains a distinct
+later possibility, not an extra landscape promised in the next release.
+
+Before adding a place, address Juniper's return-view criticism: the camera can
+retain too much of its old rightward position while the herder walks left.
+Prototype a calm local-herder follow adjustment, retaining fixed angle, zoom
+and pan limits. Do not follow the flock centroid or chase distant strays. Stop
+movement when the herder rests, and inspect actual Android reversal footage
+for drift, oscillation and excessive motion before accepting the change.
+
+For the meadow spike, use a new versioned footprint only after testing ordinary
+spawn-to-branch herding in both directions. A fork needs explicit connections;
+an ordered spine must not accidentally create a shortcut between the branches.
+Keep generous gathering areas and the same two herders, two shared dogs and
+ten sheep. No new commands, animal behavior, gate, arrival message or reward.
+
+Compose one continuous sampled heightfield: a shallow central hollow, a softly
+raised shoulder and a lower sheltered branch. Improve the shapes of the land
+before adding props. An asymmetric exposed-rock flank, diagonal erosion folds,
+broken vegetation groups and a valley opening should connect the near grass
+to distant peaks. Avoid smooth foreground wedges, repeated conical mountains,
+regular tree rows and a surrounding wall. The photographs guide composition;
+they are not textures or other distributable game assets.
+
+Acceptance requires all ten sheep to visit either branch and return, and a
+naturally split flock to be recoverable using ordinary commands. Retained routes
+must survive reconnect and restart. Mesh, feet, picking and full movement
+segments must agree. Inspect the center and both branches in both portrait
+aspects and at true camera extremes; reject hidden animals, visible mesh edges
+and unclear walking limits. Keep the existing triangle budget and all seven
+released layouts, heights, saved state and simulation traces intact. Human
+two-person feedback remains necessary to judge whether wandering and resting
+actually feel unhurried.

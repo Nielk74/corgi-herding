@@ -439,3 +439,19 @@ pause between legs. Both humans stayed at the east end during the return drive.
 After the dogs retreated, all ten resumed grazing at each end. These are test
 observations, not player-facing timers or scores. No actor state was overwritten,
 no sheep were replaced and `settled` remained zero throughout.
+
+Build 13 subsequently passed the complete release workflow. All five downloaded
+artifact checksums matched, and the APK retained its signing certificate,
+portrait requirement and Internet-only permission. The exact published APK
+installed over published build 12 and returned to its saved Cloud herd on the
+older server. The normal scheduled updater installed the released server without
+a manual trigger; the final old-version backup and first new-version checkpoint
+preserved all six existing herds exactly.
+
+The published APK then created one fresh Juniper herd on that updated server.
+An ordinary ground tap reached the middle clearing. Network interruption,
+backgrounding, process restart and Return retained the herd and accepted input
+sequence; the separately saved Sound-off preference also survived. The final
+disconnected checkpoint preserved the original six herds and the valid seventh
+world, with no gate or completion state. These were emulator and checkpoint
+checks, not a claim of measured real-phone performance or two-human playtesting.
