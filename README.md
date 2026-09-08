@@ -34,6 +34,10 @@ slopes. This is mobile raster lighting, not hardware ray tracing.
 
 <img src="docs/images/juniper-shore.png" width="300" alt="Portrait Android Juniper Shore, both herders and corgis beside ten grazing sheep on a dry beach below Alpine peaks">
 
+<img src="docs/images/wide-cactus-wash.png" width="300" alt="Actual portrait Android Wide cactus wash: herder and corgi beneath drifting clouds and distant mesas">
+
+See [sky and wash validation](docs/sky-and-wash.md) for this version's scope and limitations.
+
 Captured from the signed Android prototype in an emulator connected to the Go
 server. Command controls appear only when a corgi is tapped.
 See the [temporary corgi command panel](docs/images/contextual-controls.png).
