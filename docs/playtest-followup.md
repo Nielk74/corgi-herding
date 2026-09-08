@@ -242,8 +242,8 @@ all nine existing herds exactly. Health and readiness now report build 15 and
 layouts 1–7. No live herd was created or changed for that preservation check.
 
 This release includes guided practice, direct dog dragging and the large valley.
-The later invalid-drag explanation, scree hints and subsequent pine/grass studies
-remain private follow-up candidates, not features of public build 15.
+At that release, the later invalid-drag explanation, scree hints and subsequent
+pine/grass studies remained private follow-ups, not features of public build 15.
 
 The exact published APK subsequently upgraded the existing Android installation
 and returned to its saved Juniper herd on the updated server. The same herder,
@@ -253,7 +253,7 @@ original player position, target and sequence 1, credentials and animal identiti
 the other eight herds stayed exact. This separates the public upgrade/Return
 check from the earlier private-candidate tutorial and large-valley play checks.
 
-## Calmer valley candidate — after build 15
+## Calmer valley — candidate review for build 16
 
 The next signed gameplay candidate combines the invalid-drag explanation,
 broken Alpine scree, less contrasty grass and bounded pine-needle motion. The
@@ -272,3 +272,31 @@ mountain silhouettes remain recognizably procedural. Further art work should
 add distinct terrain structure and localized detail, not just increase scatter
 counts. A separate, unaccepted Dry Wash prototype explores broad sand fans,
 shallow banks and low mesas; it is not included in this valley-only candidate.
+
+## Verified publication — build 16
+
+[CI build 16](https://github.com/Nielk74/corgi-herding/actions/runs/34211888631)
+passed for `6ecf8ef46d425cfd308a498f964a096afe341d63`, including the isolated
+pine-resource and bounded-cook regressions. The
+[completed release](https://github.com/Nielk74/corgi-herding/releases/tag/build-16)
+was downloaded independently: all five artifact hashes, the unchanged APK signing
+certificate, version 16 / 0.1.16, portrait orientation, 16 KiB alignment and three
+server architectures passed verification.
+
+The normal five-minute updater installed the exact released server at 10:03:57
+UTC on 8 September, without a manual trigger. The final old-version backup and
+a later new-version checkpoint both preserved all nine existing herds and all
+checkpoint metadata exactly. Health/readiness report build 16 with layouts 1–7.
+The preservation verification did not create or modify any live herd.
+
+The exact public APK subsequently upgraded build 15 and returned to the same
+saved Juniper herd, with version 0.1.16, all nine choices and Sound off retained.
+The herder, two dogs and ten sheep rendered normally. After Settings disconnected
+the session, the Long Alpine valley preview rendered its Linux-prepared scene
+and tall pines without starting a new herd. The app was then closed. Its ordinary
+checkpoint preserved the original Juniper player object, credentials, position,
+target and sequence 1; only idle animal positions and the world tick advanced.
+The other eight complete herds remained exact. No movement or dog command was
+issued during this public upgrade check, so the control observations above
+remain separate candidate-APK evidence. Dry Wash remains a private prototype,
+not a tenth public landscape.

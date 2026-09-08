@@ -493,3 +493,41 @@ retained that player's identity, credentials, position, target and sequence 1,
 while the world's idle simulation advanced normally. The other eight complete
 herds remained exact. This was an emulator upgrade/reconnection check, not a
 two-human playtest or a frame-rate measurement.
+
+## Calmer valley controls and scenery — build 16
+
+The next pass gives an intentional invalid-ground corgi drag a brief explanation,
+while ordinary UI and lifecycle cancellations remain quiet. Broken scree hints,
+less contrasty grass and restrained pine-needle motion improve the existing
+large valley without introducing another layout. Pine resources and their clock
+are private to each displayed world; leaving one cannot mutate another world or
+the cached scene. The [candidate Android review](playtest-followup.md) exercised
+real Stay, Go, walking and pause/resume, not studio-only scale figures. The
+separate Dry Wash landforms and plant studies are not part of this release.
+
+A hung compiler during private art work also exposed a tooling gap. Offline
+cooks now stop their own process group on fatal Godot output or after 120 seconds,
+retain the failure log and leave previous scene/receipt files intact. Isolated
+mock tests cover a hanging compiler, lingering descendants and an early wrapper
+exit without touching actual maps or live services.
+
+[Build 16](https://github.com/Nielk74/corgi-herding/releases/tag/build-16), source
+`6ecf8ef46d425cfd308a498f964a096afe341d63`, passed its complete
+[release workflow](https://github.com/Nielk74/corgi-herding/actions/runs/34211888631).
+Independent downloads passed all five artifact checksums, the existing signing
+certificate, APK version 16 / 0.1.16, portrait orientation, 16 KiB alignment and
+all three server architecture checks. The ordinary updater installed the matching
+server at 10:03:57 UTC on 8 September. Its final build-15 backup and subsequent
+build-16 checkpoint preserved all nine complete herds and checkpoint metadata
+exactly, including credentials, retained routes and feeding state. Health and
+readiness report build 16 and layouts 1–7.
+
+The exact published APK then upgraded build 15 and returned to the existing
+Juniper herd. Version 0.1.16, all nine landscape choices and Sound off were
+retained. After disconnecting, the large-valley preview rendered the
+Linux-prepared scene and tall pines; Start was not pressed. The final ordinary
+checkpoint retained the original Juniper player, credentials, position, target
+and sequence 1, with only its idle animal simulation and tick advancing. The
+other eight complete herds remained exact, and no new herd was created. This
+public upgrade/Return check is separate from the candidate's Stay/Go and walking
+checks; neither is a physical-phone performance measurement.
