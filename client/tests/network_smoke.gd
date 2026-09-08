@@ -44,8 +44,9 @@ func _run() -> void:
 	if game.latest.get("landscape") != landscape or other_snapshot.get("landscape") != landscape or game.selected_landscape != landscape:
 		_fail("both clients display the creator's landscape")
 		return
-	if landscape == "larch" and (not game._supported_layout(landscape, game.latest.get("layout", {})) or game.meadow.bridge_y != -4 or game.meadow.gate_y != 4):
-		_fail("Larch snapshot, terrain and prediction share the offset route")
+	var layout: Dictionary = game._default_layout(landscape)
+	if not game._supported_layout(landscape, game.latest.get("layout", {})) or game.meadow.bridge_y != layout.bridge_y or game.meadow.gate_y != layout.gate_y:
+		_fail("snapshot, terrain and prediction share the authoritative route")
 		return
 	game.network.seq = 50
 	game.network.move_to(Vector2(-10, -1.5))
@@ -61,20 +62,21 @@ func _run() -> void:
 	if not await _until(func() -> bool: return _dog_command("mochi") == "come"):
 		_fail("second herder commands the shared first dog")
 		return
-	if landscape == "larch":
-		var gate_screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, 4)) + Vector3(0, 0.7, 0))
+	if landscape in ["larch", "orchard"]:
+		var gate_y: float = layout.gate_y
+		var gate_screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, gate_y)) + Vector3(0, 0.7, 0))
 		game._world_tap(gate_screen)
-		if not await _until(func() -> bool: return _own_position().distance_to(Vector2(5, 4)) < 0.3):
+		if not await _until(func() -> bool: return _own_position().distance_to(Vector2(5, gate_y)) < 0.3):
 			_fail("touching distant offset gate routes the herder over the bridge")
 			return
-		gate_screen = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, 4)) + Vector3(0, 0.7, 0))
+		gate_screen = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, gate_y)) + Vector3(0, 0.7, 0))
 		game._world_tap(gate_screen)
 		if not await _until(func() -> bool: return game.meadow.gate_open and other_snapshot.get("gate_open", false)):
 			_fail("nearby offset gate tap opens the same gate for both clients")
 			return
 		game.network.move_to(Vector2(11, 7))
 		if not await _until(func() -> bool: return _own_position().distance_to(Vector2(11, 7)) < 0.3):
-			_fail("herder reaches the Larch rest pasture")
+			_fail("herder reaches the rest pasture")
 			return
 		game.network.move_to(Vector2(-10, 0))
 		if not await _until(func() -> bool: return _own_position().distance_to(Vector2(-10, 0)) < 0.3):

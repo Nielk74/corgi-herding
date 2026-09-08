@@ -1,7 +1,7 @@
 # Landscape routes
 
-Three places share a quiet cooperative world, with a distinct route through
-Larch Hollow following the Alpine valley / Cactus canyon relief revision.
+Four places share a quiet cooperative world. Larch Hollow has an offset route;
+Sunward Orchard opens toward rolling farmland and adds an optional apple detour.
 
 The two existing landscapes retain their current playable bounds and route.
 Every herd keeps its animals, invite credentials, saved positions, and selected
@@ -20,11 +20,32 @@ room to regroup and call the dogs back if sheep scatter.
 | Alpine valley | 0 | 0 | X [-17, 17], Y [-11, 11] |
 | Cactus canyon | 0 | 0 | X [-17, 17], Y [-11, 11] |
 | Larch Hollow | -4 | +4 | X [-17, 17], Y [-11, 11] |
+| Sunward Orchard | +3 | +2 | X [-17, 17], Y [-11, 11] |
 
 The river remains at X [-1.5, 1.5], the fence remains at X=6, and opening widths
 retain the current margins. This changes where the animals must go without
 adding a new navigation system. Trees and autumn details must preserve readable
 walkable space, including both approaches to the bridge and gate.
+
+## Sunward Orchard
+
+A sun-facing hillside with shallow grazing terraces, broad apple crowns and a
+view toward distant farmland. Small tree groups leave the animals and crossing
+approaches open. The orchard is not a rigid grid or a screen of trees around a
+board. Inspect both the spawn view and the pasture view on a portrait Android
+frame; a lower horizon must still reveal layered terrain rather than flat bands.
+
+The version-2 layout adds one windfall zone at (-7, -5), radius 2.2. At most two
+individual sheep discover it over the lifetime of this herd. They approach and
+nibble when calm, then resume ordinary grazing. Either herder can use either dog
+to interrupt them immediately; feeding progress is retained when interrupted.
+Waiting is also a complete solution. There is no reward, counter or timer on screen.
+
+The server owns the finite snack progress and persists it with the sheep, along
+with the landscape layout. Reconnecting, backgrounding and restarting the server
+must not reset it. Completed sheep never repeat the windfall distraction. The
+client communicates nibbling only with a lowered head, without simulating local
+progress or exposing the internal four seconds of feeding as an objective.
 
 ## One authoritative layout
 
@@ -39,6 +60,11 @@ Version 1 fixes the existing bounds, river width, bridge and gate opening widths
 fence X, player speed, and interaction distances. Only the two opening centers
 vary. Future geometry changes need an explicit layout version rather than
 silently changing an existing herd's route.
+
+Version 2 retains those bounds and movement rules, adding the canonical Orchard
+opening centers and forage zone. Exact nested geometry is validated on both
+ends, including after JSON number decoding. Unknown or corrupt layouts and
+invalid forage progress are rejected instead of overwriting checkpoints.
 
 The same layout must drive:
 
@@ -68,6 +94,12 @@ not an invalid-authentication response. Updated clients preserve their saved
 credentials and show an update message instead of retrying forever. Legacy
 clients may continue using the unchanged centered landscapes.
 
+The health response retains `layout_version: 1` for existing APKs and adds
+`layout_versions: [1, 2]`. New clients choose the highest mutually supported
+version; old APKs still reach their version-1 landscapes. Orchard needs version
+2. A single re-probe also covers a version-2 health response followed by a server
+rollback before authentication, including a resulting 4002 response.
+
 New clients first probe `/healthz`: older servers do not advertise layout
 support, so they receive the original authentication fields. One bounded
 re-probe covers a rollback between that check and authentication. Rejections
@@ -83,6 +115,10 @@ supported checkpoint fixtures.
 - Alpine and Cactus retain their current footprints, route, and saved profiles.
 - A new Larch herd can be selected, joined by a second player, reconnected, and
   restarted with the same layout and all fourteen entities.
+- A new Orchard herd supports the same journey checks. Two calm sheep discover
+  the windfall, finish without intervention, and retain partial or completed
+  progress through reconnect and restart. Dog pressure overrides nibbling and
+  ordinary herding can still bring all ten sheep to pasture.
 - Both herders can command either corgi. A deterministic simulation moves all
   ten sheep through the offset bridge and gate into the pasture without
   teleporting animals, relaxing collision, or adding a failure timer.

@@ -14,6 +14,11 @@ Negotiate server capabilities before auth; update/policy errors must not erase
 saved invitations. Test outward and return routes when openings are offset.
 Lighting should reveal slopes and preserve animal readability; describe shadow
 mapping and stylized light shafts honestly, not as hardware ray tracing.
+Orchard windfall behavior is server-owned and bounded to two individual sheep.
+Keep partial/completed feeding in checkpoints; neither interruption nor reconnect
+may reset it. Waiting is a valid solution. Communicate with animal posture, not
+snack meters, chores or extra permanent controls. Inspect real portrait captures
+at both camera-follow extremes before accepting a new landscape composition.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

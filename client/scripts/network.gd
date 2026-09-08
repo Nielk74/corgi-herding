@@ -109,15 +109,34 @@ func _on_protocol_ready(result: int, response_code: int, _headers: PackedStringA
 	if typeof(protocol) not in [TYPE_INT, TYPE_FLOAT] or float(protocol) != 1.0:
 		require_update("Update Corgi Herding to connect to this server.")
 		return
-	var capability: Variant = info.get("layout_version", 0)
-	if typeof(capability) not in [TYPE_INT, TYPE_FLOAT] or float(capability) not in [0.0, 1.0]:
+	var capability := _layout_capability(info)
+	if capability < 0:
 		require_update("Update Corgi Herding to connect to this server.")
 		return
-	advertised_layout_version = int(capability)
+	advertised_layout_version = capability
 	socket = WebSocketPeer.new()
 	var ws_url := endpoint.replace("https://", "wss://").replace("http://", "ws://")
 	if socket.connect_to_url(ws_url + "/api/herds/" + str(credentials.code) + "/ws") != OK:
 		_retry()
+
+func _layout_capability(info: Dictionary) -> int:
+	# Keep the legacy scalar fallback for older deployments. New servers keep
+	# it at v1 for old APKs and advertise additional versions separately.
+	if info.has("layout_versions"):
+		var versions: Variant = info.layout_versions
+		if not versions is Array or versions.is_empty():
+			return -1
+		var selected := -1
+		for version: Variant in versions:
+			if typeof(version) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(version)) or float(version) < 0 or float(version) != floorf(float(version)):
+				return -1
+			if float(version) in [0.0, 1.0, 2.0]:
+				selected = maxi(selected, int(version))
+		return selected
+	var version: Variant = info.get("layout_version", 0)
+	if typeof(version) in [TYPE_INT, TYPE_FLOAT] and float(version) in [0.0, 1.0, 2.0]:
+		return int(version)
+	return -1
 
 func disconnect_herd() -> void:
 	paused = true
@@ -136,6 +155,16 @@ func require_update(message: String) -> void:
 	update_required = true
 	disconnect_herd()
 	request_failed.emit(message)
+
+func _layout_rejected(message: String) -> void:
+	# A v2 health probe can race a rollback to a v1 server, which uses 4002
+	# even for unchanged herds. Re-probe once; a genuine newer landscape then
+	# stops with an update message, never an infinite retry or lost invitation.
+	if not connected and advertised_layout_version >= 2 and not capability_retry_used:
+		capability_retry_used = true
+		_retry()
+		return
+	require_update(message)
 
 func move_to(target: Vector2) -> int:
 	seq += 1
@@ -206,7 +235,7 @@ func _process(delta: float) -> void:
 			authenticated = true
 			var auth := {"type": "auth", "player_id": credentials.player_id, "token": credentials.token}
 			if advertised_layout_version >= 1:
-				auth["layout_version"] = 1
+				auth["layout_version"] = advertised_layout_version
 			send(auth)
 		while socket.get_available_packet_count() > 0:
 			var message: Variant = JSON.parse_string(socket.get_packet().get_string_from_utf8())
@@ -224,7 +253,7 @@ func _process(delta: float) -> void:
 					return
 			elif message.get("type") == "error":
 				if message.get("code") == "update_required":
-					require_update(str(message.get("message", "Update Corgi Herding to visit this landscape.")))
+					_layout_rejected(str(message.get("message", "Update Corgi Herding to visit this landscape.")))
 					return
 				request_failed.emit(str(message.get("message", "The meadow needs a moment.")))
 		snapshot_age += delta
@@ -232,7 +261,7 @@ func _process(delta: float) -> void:
 			_retry()
 	elif state == WebSocketPeer.STATE_CLOSED:
 		if socket.get_close_code() == 4002:
-			require_update("Update Corgi Herding to visit this landscape.")
+			_layout_rejected("Update Corgi Herding to visit this landscape.")
 			return
 		# A rollback can occur between health negotiation and WebSocket auth.
 		# Re-probe once; an older server may now need the legacy auth message.

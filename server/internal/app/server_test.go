@@ -268,16 +268,17 @@ func TestHTTPValidationCapacityAndHealth(t *testing.T) {
 	}
 	defer resp.Body.Close()
 	var health struct {
-		Status        string `json:"status"`
-		Version       string `json:"version"`
-		Sessions      int    `json:"sessions"`
-		Protocol      int    `json:"protocol"`
-		LayoutVersion int    `json:"layout_version"`
+		Status         string `json:"status"`
+		Version        string `json:"version"`
+		Sessions       int    `json:"sessions"`
+		Protocol       int    `json:"protocol"`
+		LayoutVersion  int    `json:"layout_version"`
+		LayoutVersions []int  `json:"layout_versions"`
 	}
 	if err = json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 {
+	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 || !reflect.DeepEqual(health.LayoutVersions, []int{1, 2}) {
 		t.Fatalf("invalid health: %+v", health)
 	}
 }
@@ -340,6 +341,7 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 		{"alpine", `{"name":"Ada","landscape":"alpine"}`, "alpine"},
 		{"cactus", `{"name":"Ada","landscape":"cactus"}`, "cactus"},
 		{"larch", `{"name":"Ada","landscape":"larch"}`, "larch"},
+		{"orchard", `{"name":"Ada","landscape":"orchard"}`, "orchard"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -352,13 +354,13 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, creds := range []credentials{a, b} {
-				version := 1
+				version := 2
 				conn := connectVersion(t, h.URL, creds, &version)
 				w := snapshot(t, conn, func(w *game.World) bool { return true })
 				if w.Landscape != tc.want {
 					t.Fatalf("player received landscape %q, want %q", w.Landscape, tc.want)
 				}
-				if w.Layout == nil || *w.Layout != *game.LayoutForLandscape(tc.want) {
+				if !w.Layout.Equal(game.LayoutForLandscape(tc.want)) {
 					t.Fatalf("wrong shared layout: %+v", w.Layout)
 				}
 				_ = conn.CloseNow()
@@ -367,13 +369,13 @@ func TestLandscapeSelectionSharedAndRestored(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, restored := newTestServer(t, dir, 10)
-			version := 1
+			version := 2
 			conn := connectVersion(t, restored.URL, a, &version)
 			w := snapshot(t, conn, func(w *game.World) bool { return true })
 			if w.Landscape != tc.want {
 				t.Fatalf("restart changed landscape to %q, want %q", w.Landscape, tc.want)
 			}
-			if w.Layout == nil || *w.Layout != *game.LayoutForLandscape(tc.want) {
+			if !w.Layout.Equal(game.LayoutForLandscape(tc.want)) {
 				t.Fatalf("restart changed immutable layout: %+v", w.Layout)
 			}
 		})
@@ -492,7 +494,7 @@ func TestLegacyLayoutMigrationPreservesSavedHerd(t *testing.T) {
 			}
 			restored, server := newTestServer(t, dir, 10)
 			state := restored.find(a.Code).state.Load()
-			if state.World.Layout == nil || *state.World.Layout != *game.LayoutForLandscape(landscape) {
+			if !state.World.Layout.Equal(game.LayoutForLandscape(landscape)) {
 				t.Fatal("missing legacy layout was not migrated to centered v1")
 			}
 			actual := state.World.Clone()
@@ -523,9 +525,10 @@ func TestUnknownSavedLayoutsFailWithoutOverwriting(t *testing.T) {
 		name, landscape string
 		layout          *game.Layout
 	}{
-		{"unknown_version", game.LandscapeAlpine, &game.Layout{Version: 2}},
+		{"unknown_version", game.LandscapeAlpine, &game.Layout{Version: 3}},
 		{"wrong_center", game.LandscapeCactus, &game.Layout{Version: 1, GateY: 4}},
 		{"missing_larch", game.LandscapeLarch, nil},
+		{"missing_orchard", game.LandscapeOrchard, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := game.New("ABCDEF")

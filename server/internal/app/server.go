@@ -303,7 +303,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		status = "persistence_error"
 		code = http.StatusServiceUnavailable
 	}
-	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "sessions": n})
+	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2}, "sessions": n})
 }
 
 func (s *Server) allow(remote string) bool {
@@ -380,12 +380,12 @@ func decodeCreation(w http.ResponseWriter, r *http.Request) (string, string, err
 	if len(body.Landscape) > 0 {
 		var selected string
 		if err := json.Unmarshal(body.Landscape, &selected); err != nil {
-			return "", "", errors.New("landscape must be alpine, cactus or larch")
+			return "", "", errors.New("landscape must be alpine, cactus, larch or orchard")
 		}
 		landscape = selected
 	}
 	if !game.ValidLandscape(landscape) {
-		return "", "", errors.New("landscape must be alpine, cactus or larch")
+		return "", "", errors.New("landscape must be alpine, cactus, larch or orchard")
 	}
 	name, err := cleanName(body.Name)
 	return name, landscape, err
@@ -750,12 +750,15 @@ func (s *Server) load() error {
 			return errors.New("invalid saved landscape")
 		}
 		if saved.World.Layout == nil {
-			if saved.World.Landscape == game.LandscapeLarch {
-				return errors.New("missing saved Larch layout")
+			if saved.World.Landscape == game.LandscapeLarch || saved.World.Landscape == game.LandscapeOrchard {
+				return errors.New("missing saved landscape layout")
 			}
 			saved.World.Layout = game.LayoutForLandscape(saved.World.Landscape)
 		}
 		if err := saved.World.ValidateLayout(); err != nil {
+			return err
+		}
+		if err := saved.World.ValidateForage(); err != nil {
 			return err
 		}
 		for _, p := range saved.World.Players {

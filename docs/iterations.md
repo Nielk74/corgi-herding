@@ -79,6 +79,55 @@ Keep improving: the shoreline and trail bends remain visibly polygonal, the
 far ridge faces are still too repetitive, and ambient sound and richer animal
 animation are missing. This is a playable place to iterate on, not final art.
 
-Later ideas to assess through play: an orchard with shallow terraces, a broad
-high pasture above cloud, and a sheltered canyon oasis. Do not add a new place
+Later ideas to assess through play: a broad high pasture above cloud, and a
+sheltered canyon oasis. Do not add a new place
 until its own composition and route readability have been inspected.
+
+## Fourth place — Sunward Orchard
+
+An open sun-facing hillside, two shallow grazing terraces and a windfall beneath
+broad apple crowns. This should feel spatially different from the enclosing
+mountain valleys. The distant landscape matters as much as the tree palette.
+
+The first actual Android composition was rejected. Broad nearly horizontal
+terrain bands occupied the upper frame, the far village was not legible, and
+an exposed upstream water cutoff drew attention to the construction. The canal
+dominated the scene. Rework the landscape from the actual herder-follow view,
+not only a centered preview. Keep playable heights and collision unchanged.
+
+The second view established a readable mountain, hamlet and winding distant
+brook, but revealed torn field-overlay triangles and regular shoreline shadow
+teeth. Field color now belongs to the real ground vertices, not floating mesh
+patches. Curved-bank normal sampling follows the bank instead of accidentally
+sampling the submerged bed. An isolated square snow patch was also removed.
+The revised Android frame no longer shows those defects. A new regression
+checks 1,188 shoreline normals, in addition to the 793 terrain-picking cases.
+The next capture exposed fine/coarse terrain cracks. Matching exterior grid
+spacing and explicit transition triangles now stitch those seams; the final
+Android windfall view no longer shows bright gaps through the hillside.
+
+The small gameplay change is server-owned: at most two sheep discover windfalls,
+pause for a finite snack, and return to grazing. Either dog can interrupt them;
+waiting is a valid solution too. Partial and completed progress persist. A
+lowered muzzle supplies the feedback, with no objective or additional control.
+The real two-client test verifies natural discovery, monotonic snack progress
+through reconnect and self-resolving feeding; scene tests verify the head pose.
+An actual Android capture also shows the two feeding sheep slightly apart from
+the flock with lowered muzzles; completed sheep return to normal grazing.
+A subsequent live check used Android ground/gate taps and an automated second
+client issuing ordinary dog commands: all ten sheep reached the pasture. It
+also exposed a lingering arrival banner. That acknowledgement now fades once,
+never repeats when a sheep wanders back, and stays silent when resuming a settled
+herd. Human two-phone playtesting remains necessary to judge the feel.
+
+The four landscape choices now occupy two portrait rows with large touch areas.
+Thirty-two two-way predicted routes and exact nested JSON layout checks pass.
+The new APK negotiates layout v2 without breaking v1 clients or erasing saved
+invitations during upgrade, policy rejection or a server rollback.
+
+Keep improving: the central channel still reads like a canal, distant houses
+repeat, the palette is quite pale, and the foreground could tell more of a
+place's story. These are explicit prototype limitations, not final art. The
+[next landscape experiment](next-landscape.md) tests a rock spur with two dry
+routes so the level structure itself can change, rather than repeating another
+river and gate in different colors.

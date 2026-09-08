@@ -10,43 +10,67 @@ import (
 const TickRate = 20
 
 const (
-	LandscapeAlpine = "alpine"
-	LandscapeCactus = "cactus"
-	LandscapeLarch  = "larch"
+	LandscapeAlpine  = "alpine"
+	LandscapeCactus  = "cactus"
+	LandscapeLarch   = "larch"
+	LandscapeOrchard = "orchard"
 )
 
 func ValidLandscape(landscape string) bool {
-	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch
+	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch || landscape == LandscapeOrchard
 }
 
 // Layout is immutable herd geometry. Version 1 retains the original bounds,
 // river/fence X coordinates and opening widths, varying only opening centers.
 type Layout struct {
-	Version int     `json:"version"`
-	BridgeY float64 `json:"bridge_y"`
-	GateY   float64 `json:"gate_y"`
+	Version int         `json:"version"`
+	BridgeY float64     `json:"bridge_y"`
+	GateY   float64     `json:"gate_y"`
+	Forage  *ForageZone `json:"forage,omitempty"`
+}
+
+type ForageZone struct {
+	ID     string  `json:"id"`
+	Center Vec2    `json:"center"`
+	Radius float64 `json:"radius"`
+}
+
+func (l *Layout) Equal(other *Layout) bool {
+	if l == nil || other == nil {
+		return l == other
+	}
+	if l.Version != other.Version || l.BridgeY != other.BridgeY || l.GateY != other.GateY {
+		return false
+	}
+	if l.Forage == nil || other.Forage == nil {
+		return l.Forage == other.Forage
+	}
+	return *l.Forage == *other.Forage
 }
 
 func LayoutForLandscape(landscape string) *Layout {
 	layout := &Layout{Version: 1}
 	if landscape == LandscapeLarch {
 		layout.BridgeY, layout.GateY = -4, 4
+	} else if landscape == LandscapeOrchard {
+		layout.Version, layout.BridgeY, layout.GateY = 2, 3, 2
+		layout.Forage = &ForageZone{ID: "windfall", Center: Vec2{-7, -5}, Radius: 2.2}
 	}
 	return layout
 }
 
 func (w *World) ValidateLayout() error {
-	if w.Layout == nil || w.Layout.Version != 1 {
+	if w.Layout == nil || (w.Layout.Version != 1 && w.Layout.Version != 2) {
 		return errors.New("unsupported saved layout version")
 	}
-	if !ValidLandscape(w.Landscape) || *w.Layout != *LayoutForLandscape(w.Landscape) {
+	if !ValidLandscape(w.Landscape) || !w.Layout.Equal(LayoutForLandscape(w.Landscape)) {
 		return errors.New("saved layout does not match its landscape version")
 	}
 	return nil
 }
 
 func (w *World) SupportsLayout(version int) bool {
-	return version == 1 || (version == 0 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
+	return (version == 2 && w.Layout.Version <= 2) || (version == 1 && w.Layout.Version == 1) || (version == 0 && w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
 }
 
 type Vec2 struct {
@@ -89,11 +113,20 @@ type Dog struct {
 }
 
 type Sheep struct {
-	ID       string `json:"id"`
-	Position Vec2   `json:"position"`
-	Velocity Vec2   `json:"velocity"`
-	State    string `json:"state"`
-	Group    int    `json:"group"`
+	ID       string       `json:"id"`
+	Position Vec2         `json:"position"`
+	Velocity Vec2         `json:"velocity"`
+	State    string       `json:"state"`
+	Group    int          `json:"group"`
+	Forage   *SheepForage `json:"forage,omitempty"`
+}
+
+const ForageNibbleTicks = 4 * TickRate
+
+type SheepForage struct {
+	ZoneID         string `json:"zone_id"`
+	RemainingTicks int    `json:"remaining_ticks"`
+	Satiated       bool   `json:"satiated"`
 }
 
 type World struct {
@@ -136,11 +169,21 @@ func (w *World) Clone() *World {
 	n := *w
 	if w.Layout != nil {
 		layout := *w.Layout
+		if w.Layout.Forage != nil {
+			zone := *w.Layout.Forage
+			layout.Forage = &zone
+		}
 		n.Layout = &layout
 	}
 	n.Players = append([]Player{}, w.Players...)
 	n.Dogs = append([]Dog{}, w.Dogs...)
 	n.Sheep = append([]Sheep{}, w.Sheep...)
+	for i := range n.Sheep {
+		if n.Sheep[i].Forage != nil {
+			state := *n.Sheep[i].Forage
+			n.Sheep[i].Forage = &state
+		}
+	}
 	return &n
 }
 
@@ -381,6 +424,9 @@ func (w *World) Step() {
 }
 
 func (w *World) stepSheep() {
+	if w.Layout.Forage != nil {
+		w.assignForagers()
+	}
 	previous := append([]Sheep(nil), w.Sheep...)
 	w.Settled = 0
 	for i := range w.Sheep {
@@ -451,6 +497,23 @@ func (w *World) stepSheep() {
 		if p.X > 8 && fear < 0.08 {
 			velocity = velocity.Mul(0.28)
 			s.State = "grazing"
+		}
+		if w.Layout.Forage != nil && s.Forage != nil && !s.Forage.Satiated && fear == 0 && w.forageCalm(p) {
+			zone := w.Layout.Forage
+			if p.Sub(zone.Center).Len() <= zone.Radius+2.5 {
+				if p.Sub(zone.Center).Len() <= zone.Radius*0.65 {
+					s.State = "nibbling"
+					velocity = separation.Mul(0.1).Add(wander.Mul(0.1))
+					s.Forage.RemainingTicks--
+					if s.Forage.RemainingTicks == 0 {
+						s.Forage.Satiated = true
+						s.State = "grazing"
+					}
+				} else {
+					s.State = "foraging"
+					velocity = velocity.Mul(0.25).Add(zone.Center.Sub(p).Unit().Mul(0.55))
+				}
+			}
 		}
 		if velocity.Len() > 2.6 {
 			velocity = velocity.Unit().Mul(2.6)

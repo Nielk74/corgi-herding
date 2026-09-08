@@ -1,8 +1,10 @@
-An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with Alpine valley, Cactus canyon and Larch Hollow landscapes.
+An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with four quiet landscapes.
 
-New place: Larch Hollow. Gold and rust larches shelter a grassy rest shelf beneath a granite shoulder, with an open saddle toward distant mountains. Its bridge and pasture gate sit at different ends of the clearing, forming a gentle S-shaped herding route. Take your time, regroup, or simply sit together. There is no new timer or score.
+New place: Sunward Orchard. Wander shallow grazing terraces beneath broad apple trees, with a view toward rolling farmland. Two curious sheep may stop for fallen apples. Let them finish, or call on either corgi to help them rejoin the flock. Their small snack is remembered across reconnects and server restarts, so it never becomes a repeating chore. A lowered head communicates feeding; there is no snack meter, quest or timer.
 
-Bridge and gate layouts are now shared by the server and both clients, and persisted with each herd. Existing Alpine and Cactus saves keep their original route and animals. Older APKs can still enter those two places; Larch Hollow asks for an update without invalidating the saved invitation.
+Choose among Alpine valley, Cactus canyon, Larch Hollow and Sunward Orchard on a two-row portrait selector. Each place keeps its authoritative bridge/gate layout, animals and progression. Previous APKs retain access to their supported landscapes; Orchard needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
+
+The quiet arrival acknowledgement now disappears automatically. It does not repeat when a sheep wanders back or appear when resuming an already settled herd.
 
 Play in portrait. Both players use the same server address: one chooses a landscape, creates a herd and shares its invite code, the other joins. Tap the open ground to walk; tap a corgi to show its Come/Stay/Go menu, which closes after use. Tap the nearby gate to open it, or your herder to sit. No permanent joystick or command bar. Mountain ranges and canyon vistas extend beyond the accessible valley, with natural terrain boundaries and gentle camera following. There is no score or timer.
 

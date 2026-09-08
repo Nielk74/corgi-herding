@@ -4,14 +4,20 @@ The first playable milestone runs one Go process with a 20 Hz actor for each
 two-player herd. Each herd owns two shared corgis and ten sheep. Worlds pause
 when nobody is connected. Both herders can return with their locally saved
 credentials; reconnecting replaces the previous connection for that herder.
-New herds can select `alpine` (the default), `cactus`, or `larch`. The choice and
-immutable version 1 layout are stored with the herd and shared in snapshots.
+New herds can select `alpine` (the default), `cactus`, `larch`, or `orchard`. The
+choice and immutable layout are stored with the herd and shared in snapshots.
 Alpine/Cactus retain centered openings. Larch Hollow has its bridge at Y=-4 and
 gate at Y=4, creating a different route through the same playable footprint.
+Sunward Orchard uses version 2, bridge Y=3, gate Y=2 and a windfall patch at
+(-7,-5). At most two sheep become curious and nibble briefly; either dog can
+immediately guide them away. Partial nibbling progress and one-time satiation
+persist. Existing version 1 herds keep their exact prior simulation behavior.
 Existing saves without a landscape load as Alpine; existing centered saves
 without a layout migrate without changing their animals or credentials. Unknown
-saved layout versions fail startup. Clients send `layout_version:1` during
-WebSocket authentication; unsupported layouts return `update_required`/4002
+saved layout versions or impossible forage state fail startup. Clients negotiate
+`layout_versions:[1,2]` from health before authenticating. The legacy singular
+`layout_version:1` stays unchanged. Capability 1 admits version 1 worlds;
+capability 2 admits both. Unsupported layouts return `update_required`/4002
 without changing credentials or replacing an existing player connection.
 
 ```sh

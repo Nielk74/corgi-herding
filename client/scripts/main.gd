@@ -6,7 +6,7 @@ const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
 const ACCENT := Color("466e59")
-const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow"}
+const LANDSCAPES := {"alpine": "Alpine valley", "cactus": "Cactus canyon", "larch": "Larch Hollow", "orchard": "Sunward Orchard"}
 
 var meadow: MeadowDiorama
 var network: HerdConnection
@@ -48,10 +48,13 @@ var pet_button: Button
 var sit_button: Button
 var player_marker: Node3D
 var last_settled := 0
+var arrival_noticed := false
+var moment_time := 0.0
 var selected_landscape := "alpine"
 var alpine_button: Button
 var cactus_button: Button
 var larch_button: Button
+var orchard_button: Button
 var region_label: Label
 var world_layout := {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 
@@ -191,13 +194,18 @@ func _build_welcome() -> void:
 	column.add_child(_label("Two herders, two corgis. No rush.", 22, MUTED))
 	name_input = _field("Herder", network.display_name, 24)
 	column.add_child(name_input)
-	var landscapes := _row(column, 8)
+	var landscapes := GridContainer.new()
+	landscapes.columns = 2
+	landscapes.add_theme_constant_override("h_separation", 8)
+	landscapes.add_theme_constant_override("v_separation", 8)
+	column.add_child(landscapes)
 	alpine_button = _button("Alpine valley", func() -> void: _select_landscape("alpine"))
 	cactus_button = _button("Cactus canyon", func() -> void: _select_landscape("cactus"))
 	larch_button = _button("Larch Hollow", func() -> void: _select_landscape("larch"))
-	for button in [alpine_button, cactus_button, larch_button]:
+	orchard_button = _button("Sunward Orchard", func() -> void: _select_landscape("orchard"))
+	for button in [alpine_button, cactus_button, larch_button, orchard_button]:
 		button.custom_minimum_size.y = 64
-		button.add_theme_font_size_override("font_size", 16)
+		button.add_theme_font_size_override("font_size", 18)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		landscapes.add_child(button)
 	_primary(alpine_button)
@@ -314,36 +322,43 @@ func _configure() -> bool:
 	return network.configure(endpoint_input.text, name_input.text)
 
 func _default_layout(landscape: String) -> Dictionary:
+	if landscape == "orchard":
+		return {"version": 2, "bridge_y": 3.0, "gate_y": 2.0, "forage": {"id": "windfall", "center": {"x": -7.0, "y": -5.0}, "radius": 2.2}}
 	return {"version": 1, "bridge_y": -4.0 if landscape == "larch" else 0.0, "gate_y": 4.0 if landscape == "larch" else 0.0}
 
 func _supported_layout(landscape: String, layout: Dictionary) -> bool:
-	var expected := _default_layout(landscape)
-	if layout.size() != expected.size():
-		return false
-	for key in expected:
-		var value: Variant = layout.get(key)
-		# JSON decodes numbers as floats. Compare numeric values after checking
-		# types, not dictionary identity (which distinguishes integer versions).
-		if typeof(value) not in [TYPE_INT, TYPE_FLOAT] or float(value) != float(expected[key]):
+	return LANDSCAPES.has(landscape) and _matches_layout(layout, _default_layout(landscape))
+
+func _matches_layout(value: Variant, expected: Variant) -> bool:
+	# JSON numbers decode as floats; nested terrain/forage geometry must still
+	# match exactly. Unknown keys or coerced string/bool coordinates are unsafe.
+	if expected is Dictionary:
+		if not value is Dictionary or value.size() != expected.size():
 			return false
-	return true
+		for key in expected:
+			if not value.has(key) or not _matches_layout(value[key], expected[key]):
+				return false
+		return true
+	if typeof(expected) in [TYPE_INT, TYPE_FLOAT]:
+		return typeof(value) in [TYPE_INT, TYPE_FLOAT] and float(value) == float(expected)
+	return typeof(value) == typeof(expected) and value == expected
 
 func _select_landscape(landscape: String, layout: Dictionary = {}) -> void:
 	if not LANDSCAPES.has(landscape):
 		return
 	selected_landscape = landscape
-	world_layout = _default_layout(landscape) if layout.is_empty() else layout.duplicate()
+	world_layout = _default_layout(landscape) if layout.is_empty() else layout.duplicate(true)
 	meadow.set_landscape(landscape, world_layout)
-	for button in [alpine_button, cactus_button, larch_button]:
+	for button in [alpine_button, cactus_button, larch_button, orchard_button]:
 		button.remove_theme_stylebox_override("normal")
 		button.remove_theme_stylebox_override("hover")
 		button.remove_theme_color_override("font_color")
 		button.remove_theme_color_override("font_hover_color")
-	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button}[landscape])
+	_primary({"alpine": alpine_button, "cactus": cactus_button, "larch": larch_button, "orchard": orchard_button}[landscape])
 	if region_label != null:
 		region_label.text = LANDSCAPES[landscape]
 	if create_button != null:
-		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow"}[landscape]
+		create_button.text = {"alpine": "Start in the Alps", "cactus": "Start in the canyon", "larch": "Rest in Larch Hollow", "orchard": "Wander through the orchard"}[landscape]
 
 func _create() -> void:
 	if not request_busy and _configure():
@@ -370,6 +385,7 @@ func _set_busy(value: bool) -> void:
 	alpine_button.disabled = value
 	cactus_button.disabled = value
 	larch_button.disabled = value
+	orchard_button.disabled = value
 	if value:
 		menu_error.text = "Opening a little world…"
 
@@ -393,6 +409,8 @@ func _on_herd_joined(code: String) -> void:
 	companion_label.show()
 	moment_label.text = ""
 	last_settled = 0
+	arrival_noticed = false
+	moment_time = 0.0
 
 func _on_status(text: String, is_connected: bool) -> void:
 	status_label.text = "" if is_connected else text
@@ -565,12 +583,13 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	if not LANDSCAPES.has(landscape) or not layout is Dictionary:
 		network.require_update("Update Corgi Herding to visit this landscape.")
 		return
-	if layout.is_empty() and landscape != "larch":
+	if layout.is_empty() and landscape in ["alpine", "cactus"]:
 		layout = _default_layout(landscape)
 	if not _supported_layout(landscape, layout):
 		network.require_update("Update Corgi Herding to follow this valley's route.")
 		return
 	layout = _default_layout(landscape)
+	var first_snapshot := not had_snapshot
 	latest = snapshot
 	if landscape != selected_landscape or layout != world_layout:
 		_select_landscape(landscape, layout)
@@ -627,11 +646,16 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	companion_label.visible = player_count < 2
 	companion_label.text = "Waiting for your other herder"
 	var settled := int(snapshot.get("settled", 0))
-	if settled == 10 and last_settled < 10:
-		moment_label.text = "A peaceful place to rest. You brought them here together."
-		_hint("Sit together. The corgis have earned a little affection.", 10.0)
-	elif settled < 10 and last_settled == 10:
+	if first_snapshot and settled == 10:
+		arrival_noticed = true
+	if settled == 10 and last_settled < 10 and not arrival_noticed:
+		arrival_noticed = true
+		moment_label.text = "A peaceful place to rest."
+		moment_label.modulate.a = 1.0
+		moment_time = 6.0
+	elif settled < 10:
 		moment_label.text = ""
+		moment_time = 0.0
 	last_settled = settled
 	_update_context()
 
@@ -648,6 +672,11 @@ func _update_context() -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
+	if moment_time > 0:
+		moment_time = maxf(0.0, moment_time - delta)
+		moment_label.modulate.a = minf(moment_time, 1.0)
+		if moment_time == 0:
+			moment_label.text = ""
 	hint_time -= delta
 	if hint_time <= 0 and hint_time > -delta:
 		hint_label.text = "Tap a place for %s." % selected_dog.capitalize() if go_pending else ""
@@ -682,6 +711,13 @@ func _process(delta: float) -> void:
 		if actor.kind == "dog":
 			var tail: Node3D = body.get_node("Tail")
 			tail.position.x = sin(elapsed * 19) * (0.13 if actor.ack > 0 or actor.state == "happy" else 0.025)
+		elif actor.kind == "sheep":
+			var head := body.get_node_or_null("Head") as Node3D
+			if head != null:
+				# A lowered muzzle is the feedback: no apple counter or task popup.
+				var nibbling: bool = actor.state == "nibbling" and not walking
+				var head_angle := -0.82 + sin(phase * 0.75) * 0.06 if nibbling else 0.0
+				head.rotation.x = lerpf(head.rotation.x, head_angle, minf(delta * 7.0, 1.0))
 	if actors.has(local_id) and hud.visible:
 		meadow.follow_player(actors[local_id].node.position)
 	if actors.has(selected_dog) and hud.visible and (command_panel.visible or go_pending):

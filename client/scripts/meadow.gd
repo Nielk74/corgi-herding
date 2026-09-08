@@ -31,6 +31,8 @@ var profile: ValleyTerrainProfile
 var layout: Dictionary = {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
 var bridge_y := 0.0
 var gate_y := 0.0
+var forage_center := Vector2(-7, -5)
+var forage_radius := 2.2
 
 func _ready() -> void:
 	_build_light()
@@ -43,19 +45,29 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	var next := id if id in ["alpine", "cactus", "larch"] else "alpine"
-	var next_layout := {"version": int(incoming_layout.get("version", 1)),
-		"bridge_y": float(incoming_layout.get("bridge_y", -4.0 if next == "larch" else 0.0)),
-		"gate_y": float(incoming_layout.get("gate_y", 4.0 if next == "larch" else 0.0))}
-	if next_layout.version != 1:
+	var next := id if id in ["alpine", "cactus", "larch", "orchard"] else "alpine"
+	var expected_version := 2 if next == "orchard" else 1
+	var next_layout := {"version": int(incoming_layout.get("version", expected_version)),
+		"bridge_y": float(incoming_layout.get("bridge_y", 3.0 if next == "orchard" else (-4.0 if next == "larch" else 0.0))),
+		"gate_y": float(incoming_layout.get("gate_y", 2.0 if next == "orchard" else (4.0 if next == "larch" else 0.0)))}
+	if next_layout.version != expected_version:
 		push_error("Unsupported landscape layout version")
 		return
+	if next == "orchard":
+		var forage: Dictionary = incoming_layout.get("forage", {})
+		var center: Dictionary = forage.get("center", {})
+		next_layout["forage"] = {"id": String(forage.get("id", "windfall")),
+			"center": {"x": float(center.get("x", -7.0)), "y": float(center.get("y", -5.0))},
+			"radius": float(forage.get("radius", 2.2))}
 	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	landscape = next
 	layout = next_layout
 	bridge_y = next_layout.bridge_y
 	gate_y = next_layout.gate_y
+	if next == "orchard":
+		forage_center = Vector2(next_layout.forage.center.x, next_layout.forage.center.y)
+		forage_radius = next_layout.forage.radius
 	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
@@ -64,7 +76,7 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	terrain.name = "Landscape_" + landscape
 	add_child(terrain)
 	if world_environment != null:
-		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca")
+		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
@@ -77,7 +89,9 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		for actor in preview.get_children():
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
 
-func _color(alpine: String, cactus: String, larch := "") -> Color:
+func _color(alpine: String, cactus: String, larch := "", orchard := "") -> Color:
+	if landscape == "orchard" and not orchard.is_empty():
+		return Color(orchard)
 	return Color(cactus if landscape == "cactus" else (larch if landscape == "larch" and not larch.is_empty() else alpine))
 
 func material(color: Color, unshaded := false) -> StandardMaterial3D:
@@ -163,6 +177,23 @@ func _build_land() -> void:
 				var x1: float = side * (2.5 + ix)
 				var z0 := -40.0 + iz
 				var z1 := z0 + 1.0
+				if landscape == "orchard" and (z0 >= 12.0 or z1 <= -12.0):
+					# Beyond the immutable play area, the brook meanders through hills.
+					# Fit the mesh edge to that curve instead of exposing a stepped grid.
+					var columns := 2 if ix < 4 else 1
+					# Every column shares the same Z vertices. A finer shore beside a
+					# one-unit outer edge creates visible curved T-junction cracks.
+					for sz in range(2):
+						var from_z := z0 + sz * 0.5
+						var to_z := from_z + 0.5
+						if columns == 2 and (from_z == 12.0 or to_z == -12.0):
+							var inner_z := from_z if from_z == 12.0 else to_z
+							var outer_z := to_z if from_z == 12.0 else from_z
+							_orchard_transition_strip(surface, side, ix, inner_z, outer_z)
+							continue
+						for sx in range(columns):
+							_orchard_bank_quad(surface, side, ix + sx / float(columns), ix + (sx + 1) / float(columns), from_z, to_z)
+					continue
 				var a := Vector3(x0, profile.node_height(x0, z0), z0)
 				var b := Vector3(x1, profile.node_height(x1, z0), z0)
 				var c := Vector3(x1, profile.node_height(x1, z1), z1)
@@ -171,34 +202,67 @@ func _build_land() -> void:
 				_ground_triangle(surface, a, c, d, Color.WHITE, true)
 		_finish_surface(surface, "ValleyGround%d" % (0 if side < 0 else 1), true)
 	_build_river()
-	if landscape == "larch":
+	if landscape == "orchard":
+		_trail([Vector2(-30, -2), Vector2(-22, 0), Vector2(-16, 1), Vector2(-11, 1.4), Vector2(-7, 2.3), Vector2(-3.6, bridge_y), Vector2(-1.7, bridge_y)], 0.95)
+		_trail([Vector2(1.7, bridge_y), Vector2(3.8, 2.8), Vector2(6, gate_y), Vector2(10, 2.7), Vector2(14, 4.3), Vector2(23, 2.5), Vector2(33, -4)], 0.95)
+	elif landscape == "larch":
 		_trail([Vector2(-29, -8), Vector2(-21, -3), Vector2(-15, 0), Vector2(-11, -0.5), Vector2(-7, bridge_y + 1.0), Vector2(-3.8, bridge_y), Vector2(-1.7, bridge_y)], 1.0)
 		_trail([Vector2(1.7, bridge_y), Vector2(3.2, bridge_y + 0.7), Vector2(3.7, 0), Vector2(4.3, gate_y - 1.2), Vector2(6, gate_y), Vector2(9, gate_y + 0.8), Vector2(13, 6.2), Vector2(20, 7), Vector2(30, 4)], 0.95)
 	else:
 		_trail([Vector2(-31, -13), Vector2(-24, -7), Vector2(-18, -2), Vector2(-13, -1), Vector2(-8, bridge_y + 0.7), Vector2(-4, bridge_y + 0.3), Vector2(-1.7, bridge_y)], 1.1)
 		_trail([Vector2(1.7, bridge_y), Vector2(6, gate_y), Vector2(10, gate_y + 0.8), Vector2(14, gate_y + 2), Vector2(19, 4), Vector2(27, 3), Vector2(35, -2)], 1.05)
 
+func _orchard_bank_quad(surface: SurfaceTool, side: float, offset0: float, offset1: float, z0: float, z1: float) -> void:
+	var a := _orchard_bank_point(side, offset0, z0)
+	var b := _orchard_bank_point(side, offset1, z0)
+	var c := _orchard_bank_point(side, offset1, z1)
+	var d := _orchard_bank_point(side, offset0, z1)
+	_ground_triangle(surface, a, b, c, Color.WHITE, true)
+	_ground_triangle(surface, a, c, d, Color.WHITE, true)
+
+func _orchard_bank_point(side: float, offset: float, z: float) -> Vector3:
+	var x := profile.river_center(z) + side * (profile.river_width(z) + offset)
+	return Vector3(x, profile.raw_height(x, z), z)
+
+func _orchard_transition_strip(surface: SurfaceTool, side: float, column: float, inner_z: float, outer_z: float) -> void:
+	# One full inner edge matches the unchanged walking grid. The opposite edge
+	# splits in two to match the finer bank mesh, with no hanging midpoint vertex.
+	var a := _orchard_bank_point(side, column, inner_z)
+	var b := _orchard_bank_point(side, column + 1.0, inner_z)
+	var c := _orchard_bank_point(side, column + 1.0, outer_z)
+	var d := _orchard_bank_point(side, column + 0.5, outer_z)
+	var e := _orchard_bank_point(side, column, outer_z)
+	_ground_triangle(surface, a, b, c, Color.WHITE, true)
+	_ground_triangle(surface, a, c, d, Color.WHITE, true)
+	_ground_triangle(surface, a, d, e, Color.WHITE, true)
+
 func _build_river() -> void:
 	var channel := SurfaceTool.new()
 	channel.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for iz in range(65):
-		var z0 := -20.0 + iz
-		var z1 := z0 + 1.0
+	var water_step := 0.25 if landscape == "orchard" else 1.0
+	var water_start := -36.0 if landscape == "orchard" else -20.0
+	var water_length := 45.0 - water_start
+	for iz in range(int(water_length / water_step)):
+		var z0 := water_start + iz * water_step
+		var z1 := z0 + water_step
 		var w0 := profile.river_width(z0)
 		var w1 := profile.river_width(z1)
-		_triangle(channel, Vector3(-w0, 0, z0), Vector3(w0, 0, z0), Vector3(w1, 0, z1), Color.WHITE)
-		_triangle(channel, Vector3(-w0, 0, z0), Vector3(w1, 0, z1), Vector3(-w1, 0, z1), Color.WHITE)
-	water = mesh(terrain, channel.commit(), Vector3(0, TerrainProfile.WATER_LEVEL, 0), _color("477f88", "638f88"))
+		var center0 := profile.river_center(z0)
+		var center1 := profile.river_center(z1)
+		_triangle(channel, Vector3(center0 - w0, 0, z0), Vector3(center0 + w0, 0, z0), Vector3(center1 + w1, 0, z1), Color.WHITE)
+		_triangle(channel, Vector3(center0 - w0, 0, z0), Vector3(center1 + w1, 0, z1), Vector3(center1 - w1, 0, z1), Color.WHITE)
+	water = mesh(terrain, channel.commit(), Vector3(0, TerrainProfile.WATER_LEVEL, 0), _color("477f88", "638f88", "", "5d908e"))
 	water.name = "RiverSurface"
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for side in [-1, 1]:
 		var bank := SurfaceTool.new()
 		bank.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for iz in range(32):
-			var z0 := -20.0 + iz
-			var z1 := z0 + 1.0
-			var x0: float = side * profile.river_width(z0)
-			var x1: float = side * profile.river_width(z1)
+		var bank_length := water_length if landscape == "orchard" else 32.0
+		for iz in range(int(bank_length / water_step)):
+			var z0 := water_start + iz * water_step
+			var z1 := z0 + water_step
+			var x0: float = profile.river_center(z0) + side * profile.river_width(z0)
+			var x1: float = profile.river_center(z1) + side * profile.river_width(z1)
 			var a := Vector3(x0, profile.sample(x0, z0), z0)
 			var b := Vector3(x1, profile.sample(x1, z1), z1)
 			var c := Vector3(x1 - side * 0.13, -0.82, z1)
@@ -208,7 +272,7 @@ func _build_river() -> void:
 		_finish_surface(bank, "CutRiverbank")
 	for i in range(29):
 		var z := -18.0 + i * 2.05
-		var x := sin(i * 2.6) * profile.river_width(z) * 0.60
+		var x := profile.river_center(z) + sin(i * 2.6) * profile.river_width(z) * 0.60
 		var stripe := box(terrain, Vector3(x, TerrainProfile.WATER_LEVEL + 0.018, z), Vector3(0.35 + fmod(i * 0.33, 0.5), 0.008, 0.025), _color("8fb5b1", "a8bca4"))
 		stripe.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
@@ -219,7 +283,7 @@ func surface_height(x: float, z: float) -> float:
 	return profile.surface_height(x, z)
 
 func surface_normal(x: float, z: float) -> Vector3:
-	if profile.bridge_at(x, z) or absf(x) < profile.river_width(z):
+	if profile.bridge_at(x, z) or absf(x - profile.river_center(z)) < profile.river_width(z):
 		return Vector3.UP
 	var step := 0.06
 	var dx := (surface_height(x + step, z) - surface_height(x - step, z)) / (step * 2.0)
@@ -290,6 +354,8 @@ func _ground_horizon_gap(point: Vector3) -> float:
 		# Only a narrow overlap under the granite foot is needed. Farther heightfield
 		# would pierce the lower saddle and expose an artificial green cut-off slab.
 		limit = _larch_front_depth(across) + 0.12
+	elif landscape == "orchard":
+		limit = 32.0
 	return limit - depth
 
 func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
@@ -299,11 +365,23 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
-		var color := _color("88a46a", "c4a06f", "99a579")
+		var color := _color("88a46a", "c4a06f", "99a579", "a2b079")
 		var flank := smoothstep(0.12, 0.45, 1.0 - normal.y)
-		color = color.lerp(_color("798273", "a67b58", "838777"), flank * 0.78)
+		color = color.lerp(_color("798273", "a67b58", "838777", "8e9971"), flank * 0.78)
 		var high_meadow := smoothstep(1.0, 5.0, point.y)
-		color = color.lerp(_color("71905c", "b58e62", "899a69"), high_meadow * 0.30)
+		color = color.lerp(_color("71905c", "b58e62", "899a69", "8da56e"), high_meadow * 0.30)
+		if landscape == "orchard":
+			var depth: float = -point.x * 0.2063 - point.z * 0.9785
+			var across: float = point.x * 0.9785 - point.z * 0.2063
+			var distance := smoothstep(15.0, 28.0, depth)
+			var fields := 0.5 + 0.5 * sin(point.x * 0.18 + sin(point.z * 0.11) * 1.5)
+			color = color.lerp(Color("b7b786").lerp(Color("a8b69a"), fields), distance * 0.8)
+			# Field color belongs to the ground itself, never a floating overlay that
+			# bridges a hill or spans from grass across the recessed stream.
+			var hay_field := 1.0 - smoothstep(0.65, 1.20, pow((across + 9.0) / 3.8, 2) + pow((depth - 19.0) / 1.4, 2))
+			var high_field := 1.0 - smoothstep(0.65, 1.20, pow((across + 2.0) / 3.4, 2) + pow((depth - 27.0) / 1.4, 2))
+			color = color.lerp(Color("b4b17b"), hay_field * 0.65)
+			color = color.lerp(Color("b6bc93"), high_field * 0.55)
 		color = color.lightened(sin(point.x * 0.12 + point.z * 0.08) * 0.014)
 		surface.set_color(color)
 		surface.set_normal(normal)
@@ -346,6 +424,10 @@ func _trail(points: Array, width: float) -> void:
 func _build_backdrop() -> void:
 	# Connected, asymmetric ridges and gullies follow the reference valleys. A large
 	# crag on one flank faces a lower saddle; there is no row of separate cones.
+	if landscape == "orchard":
+		_build_orchard_distance()
+		_build_orchard_trees()
+		return
 	if landscape == "larch":
 		_ridge_strip(30.0, 37.0, -1.3, 7.1, 1.1, true, true)
 		_ridge_strip(14.8, 24.8, 2.0, 7.8, 0.65, false, false)
@@ -412,6 +494,135 @@ func _build_larch_forests() -> void:
 				_larch(p, scale_value, rng.randf() < 0.37)
 	for p in [Vector3(15, 0, -10), Vector3(17.8, 0, -6), Vector3(18.3, 0, 8.0)]:
 		_larch(p, 0.92, p.z > 0)
+
+func _build_orchard_distance() -> void:
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	# Real rounded hills now live in the heightfield. Only the distant mountain
+	# silhouette is separate, centered within BOTH portrait camera pan extremes.
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rows: Array = []
+	var bands: Array[float] = [0.0, 0.22, 0.48, 0.72, 0.89, 1.0]
+	for i in range(101):
+		var u := -45.0 + i * 0.90
+		var front := across * u + away * (30.1 + sin(u * 0.22) * 0.7)
+		front.y = profile.sample(front.x, front.z)
+		var crest := across * (u + sin(u * 0.70) * 0.12) + away * (35.0 + sin(u * 0.27) * 1.4)
+		crest.y = 2.0 + 6.7 * exp(-pow((u - 1.8) / 5.0, 2))
+		crest.y += 3.8 * exp(-pow((u + 12.0) / 5.3, 2)) + 3.0 * exp(-pow((u - 15.0) / 7.0, 2))
+		crest.y += 0.30 * sin(u * 1.15) + 0.15 * sin(u * 2.1)
+		crest.y = maxf(crest.y, front.y + 0.7)
+		var row: Array[Vector3] = []
+		for fraction in bands:
+			var point := front.lerp(crest, fraction)
+			point.y -= sin(fraction * PI) * pow(absf(sin(u * 0.66)), 8) * 0.65
+			point += away * sin(u * 0.37 + fraction * 3.0) * sin(fraction * PI) * 0.35
+			row.append(point)
+		var back := crest + away * 9.0
+		back.y = -3.0
+		row.append(back)
+		rows.append(row)
+	for i in range(rows.size() - 1):
+		for band in range(bands.size()):
+			var color := Color("91a59a").lerp(Color("a7bbc0"), smoothstep(0.0, 4.0, band))
+			color = color.darkened(pow(absf(sin(i * 0.59)), 5) * 0.07)
+			_triangle(surface, rows[i][band], rows[i + 1][band], rows[i + 1][band + 1], color)
+			_triangle(surface, rows[i][band], rows[i + 1][band + 1], rows[i][band + 1], color.lightened(0.01))
+	_finish_surface(surface, "SunwardDistantMountain")
+	for coordinate in [Vector2(-4, 23), Vector2(-1.5, 22), Vector2(0.6, 24)]:
+		_chalet(across * coordinate.x + away * coordinate.y, 0.43)
+	var road: Array[Vector2] = []
+	for coordinate in [Vector2(-12, 12.5), Vector2(-10, 16), Vector2(-5, 18.5), Vector2(-2, 22), Vector2(-5, 26.5)]:
+		var point: Vector3 = across * coordinate.x + away * coordinate.y
+		road.append(Vector2(point.x, point.z))
+	_trail(road, 0.43)
+
+func _build_orchard_trees() -> void:
+	var trees := [
+		Vector3(-22, 1.04, -11), Vector3(-17.5, 1.12, -9.5),
+		Vector3(-13.0, 0.79, -13.8), Vector3(-8.8, 0.95, -11.2),
+		Vector3(-4.1, 0.68, -15.1), Vector3(-12.4, 0.92, -6.4),
+		Vector3(-18.7, 0.91, -4.5), Vector3(-24, 1.07, -1.5),
+		Vector3(-19.2, 1.08, 8), Vector3(15.4, 0.96, 7.5),
+		Vector3(6, 0.66, -21), Vector3(16, 0.63, -24),
+	]
+	for entry in trees:
+		_apple_tree(Vector3(entry.x, 0, entry.z), entry.y)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 31029
+	for i in range(12):
+		var angle := rng.randf_range(0.0, TAU)
+		var distance := sqrt(rng.randf()) * forage_radius * 0.78
+		var point := forage_center + Vector2(cos(angle), sin(angle)) * distance
+		_apple(terrain, _grounded(Vector3(point.x, 0.12, point.y)), 0.25, i % 3 == 0)
+	# The clearing remains grass, not a colored trigger circle or a collectible pad.
+	for i in range(5):
+		var point := forage_center + Vector2(sin(i * 2.1), cos(i * 2.1)) * forage_radius * 0.83
+		var leaf := ball(terrain, _grounded(Vector3(point.x, 0.025, point.y)), Vector3(0.30, 0.035, 0.12), Color("b6a068"))
+		leaf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+func _apple_tree(pos: Vector3, tree_scale: float) -> void:
+	var tree := Node3D.new()
+	tree.name = "AppleTree"
+	tree.position = _grounded(pos)
+	tree.scale = Vector3.ONE * tree_scale
+	tree.rotation.y = pos.x * 0.14
+	terrain.add_child(tree)
+	cylinder(tree, Vector3(0, 1.35, 0), 0.15, 0.25, 2.7, Color("8c7858"), 9)
+	for side in [-1, 1]:
+		var limb := cylinder(tree, Vector3(side * 0.38, 2.25, 0), 0.10, 0.16, 1.5, Color("8c7858"), 7)
+		limb.rotation.z = side * -0.63
+	_apple_crown(tree, pos.x * 0.71 + pos.z * 0.31)
+	for i in range(4):
+		var angle := i * TAU / 4.0 + 0.4
+		_apple(tree, Vector3(cos(angle) * 1.62, 2.67 + 0.20 * sin(i * 1.8), sin(angle) * 1.17), 0.24, i == 1)
+
+func _apple_crown(parent: Node3D, phase: float) -> void:
+	# One closed, softly lobed crown avoids the intersecting ellipsoid seams and
+	# repeated stacked-hat silhouette of the first Android pass.
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: Array = []
+	for ring in range(9):
+		var latitude := ring * PI / 8.0
+		var row: Array[Vector3] = []
+		for segment in range(15):
+			var angle := segment * TAU / 14.0
+			var lobes := 1.0 + 0.09 * sin(angle * 3.0 + phase) + 0.05 * cos(angle * 2.0 - latitude * 3.0)
+			var radius := sin(latitude) * lobes
+			row.append(Vector3(cos(angle) * radius * 2.05, 3.45 + cos(latitude) * 1.15 + sin(angle * 3.0 + phase) * sin(latitude) * 0.12, sin(angle) * radius * 1.68))
+		rings.append(row)
+	for ring in range(8):
+		for segment in range(14):
+			var color := Color("93aa69").lightened(sin(phase) * 0.035)
+			_crown_triangle(surface, rings[ring][segment], rings[ring + 1][segment], rings[ring + 1][segment + 1], color)
+			_crown_triangle(surface, rings[ring][segment], rings[ring + 1][segment + 1], rings[ring][segment + 1], color)
+	var crown := mesh(parent, surface.commit(), Vector3.ZERO, Color.WHITE)
+	crown.name = "Crown"
+	crown.material_override = vertex_material
+
+func _crown_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	var center := Vector3(0, 3.45, 0)
+	if (c - a).cross(b - a).dot((a + b + c) / 3.0 - center) < 0:
+		var saved_b := b
+		b = c
+		c = saved_b
+	for point in [a, b, c]:
+		var relative: Vector3 = point - center
+		var normal := Vector3(relative.x / 4.2, relative.y / 1.32, relative.z / 2.82).normalized()
+		surface.set_color(color)
+		surface.set_normal(normal)
+		surface.add_vertex(point)
+
+func _apple(parent: Node3D, pos: Vector3, diameter: float, golden: bool) -> void:
+	var shape := SphereMesh.new()
+	shape.radius = diameter * 0.5
+	shape.height = diameter * 0.93
+	shape.radial_segments = 8
+	shape.rings = 4
+	var apple := mesh(parent, shape, pos, Color("c7a059") if golden else Color("b36d50"))
+	apple.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, amplitude: float, phase: float, snow: bool, hazy: bool) -> void:
 	var across := Vector3(0.9785, 0, -0.2063)
@@ -490,6 +701,12 @@ func _build_boundaries() -> void:
 	for p in [Vector3(-18, 0, -8), Vector3(-20, 0, -3), Vector3(-18.5, 0, 8), Vector3(18.7, 0, -7), Vector3(21, 0, 3), Vector3(18, 0, 9.5), Vector3(-12, 0, 12.7), Vector3(13, 0, 13.5)]:
 		_rock(p + Vector3(0, 0.25, 0), Vector3(rng.randf_range(1.4, 2.8), rng.randf_range(0.8, 1.7), rng.randf_range(1.3, 2.4)))
 		_shrub(p + Vector3(rng.randf_range(-1.0, 1.0), 0.05, 0.75), rng.randf_range(0.6, 0.9))
+	if landscape == "orchard":
+		# Low broken outcrops and bramble pockets follow the outer terrace shoulder.
+		# They frame the accessible pasture without becoming a tree or shrub wall.
+		for p in [Vector3(-18, 0.04, 2), Vector3(-18.7, 0.04, 6), Vector3(18.8, 0.04, -3)]:
+			_shrub(p, 1.0)
+		return
 	for p in [Vector3(-25, 0, 17), Vector3(25, 0, 17), Vector3(-15, 0, 20), Vector3(14, 0, 22)]:
 		if landscape == "cactus":
 			_cactus(p, 1.3)
@@ -555,7 +772,9 @@ func _build_details() -> void:
 		if i % 3 == 0:
 			ball(terrain, _grounded(Vector3(x, 0.25, z)), Vector3(0.12, 0.10, 0.12), Color("f5e4ae") if i % 2 else _color("d0aec3", "ce977e"))
 	for p in [Vector3(-14, 0, -8), Vector3(-10, 0, -9.5), Vector3(-15.2, 0, 5.7), Vector3(13, 0, -8.8), Vector3(15.6, 0, -5.8), Vector3(13.8, 0, 8.3)]:
-		if landscape == "cactus":
+		if landscape == "orchard":
+			continue # All twelve orchard crowns are composed around the clear route.
+		elif landscape == "cactus":
 			_cactus(p, rng.randf_range(0.9, 1.25))
 			_agave(p + Vector3(1.1, 0.1, 0.6), 0.8)
 		elif landscape == "larch":
@@ -583,10 +802,17 @@ func _build_details() -> void:
 		for p in [Vector3(-23, 0, -15), Vector3(21, 0, -14), Vector3(-20, 0, 8), Vector3(25, 0, 5), Vector3(9, 0, -17)]:
 			_cactus(p, 1.25)
 			_agave(p + Vector3(1.2, 0, 0.5), 1.0)
-	else:
+	elif landscape == "larch":
 		_chalet(Vector3(25, 0, -9), 0.67)
 		var resting_log := cylinder(terrain, _grounded(Vector3(rest.x - 1.8, 0.24, rest.y + 1.2)), 0.23, 0.26, 1.8, Color("92775b"), 9)
 		resting_log.rotation.z = PI / 2
+	else:
+		var bench := Node3D.new()
+		bench.position = _grounded(Vector3(13.0, 0, 5.3))
+		terrain.add_child(bench)
+		box(bench, Vector3(0, 0.48, 0), Vector3(2.0, 0.15, 0.58), Color("ac9369"))
+		for x in [-0.73, 0.73]:
+			box(bench, Vector3(x, 0.23, 0), Vector3(0.15, 0.46, 0.39), Color("8e7c5c"))
 
 func _tree(pos: Vector3, tree_scale: float) -> void:
 	var tree := Node3D.new()
@@ -725,13 +951,17 @@ func _dog(parent: Node3D, maple: bool) -> void:
 func _sheep(parent: Node3D, identity: String) -> void:
 	var wool := Color("f0e7d2") if identity.hash() % 3 == 0 else Color("fff4df")
 	ball(parent, Vector3(0, 0.60, 0.08), Vector3(0.80, 0.85, 1.0), wool)
+	var head := Node3D.new()
+	head.name = "Head"
+	head.position = Vector3(0, 0.70, -0.35)
+	parent.add_child(head)
 	for side in [-1, 1]:
 		ball(parent, Vector3(side * 0.22, 0.79, 0.22), Vector3(0.5, 0.48, 0.65), wool)
 		for z in [-0.23, 0.38]:
 			box(parent, Vector3(side * 0.24, 0.21, z), Vector3(0.12, 0.36, 0.12), Color("766b58"))
-		ball(parent, Vector3(side * 0.27, 0.78, -0.42), Vector3(0.27, 0.13, 0.18), Color("8d7c65"))
-	ball(parent, Vector3(0, 0.66, -0.51), Vector3(0.42, 0.50, 0.45), Color("786c57"))
-	ball(parent, Vector3(0, 0.91, -0.37), Vector3(0.48, 0.3, 0.4), wool)
+		ball(head, Vector3(side * 0.27, 0.08, -0.07), Vector3(0.27, 0.13, 0.18), Color("8d7c65"))
+	ball(head, Vector3(0, -0.04, -0.16), Vector3(0.42, 0.50, 0.45), Color("786c57"))
+	ball(head, Vector3(0, 0.21, -0.02), Vector3(0.48, 0.3, 0.4), wool)
 	ball(parent, Vector3(0, 0.65, 0.65), Vector3(0.23, 0.25, 0.28), wool)
 
 func _herder(parent: Node3D, second: bool) -> void:
