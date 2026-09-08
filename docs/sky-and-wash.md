@@ -48,3 +48,12 @@ retains the 64-pixel minimum targets and checks all ten map choices, saved Retur
 and the expanded endpoint in the real 720 × 1280 viewport. The audio lifecycle
 and isolated preference checks pass unchanged. This failed attempt published
 no release and did not update the server.
+
+Build 18 then passed those client tests, the older live-network checks and the
+complete terrain/atmosphere suite. It stopped at the Commons network fixture's
+health precondition, which accepted maximum capabilities 6 and 7 but omitted 8.
+That precondition now also accepts 8, while retaining the fresh isolated-server
+requirement and all canonical version-6 geometry, prediction and reconnect
+assertions. The remaining network capability expectations were audited. No
+gameplay logic, collision tolerance or networking timeout was changed, and this
+second failed attempt likewise published nothing.

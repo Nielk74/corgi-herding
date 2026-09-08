@@ -36,7 +36,7 @@ func _run() -> void:
 	var capability := capability_probe._layout_capability(info) if info is Dictionary else -1
 	capability_probe.free()
 	health.queue_free()
-	if not info is Dictionary or info.get("status") != "ok" or info.get("sessions", -1) != 0 or capability not in [6, 7]:
+	if not info is Dictionary or info.get("status") != "ok" or info.get("sessions", -1) != 0 or capability not in [6, 7, 8]:
 		_fail("test server must be healthy, support v6 and have exactly zero existing herds")
 		return
 	herd_digest = _digest("user://herd.cfg")
