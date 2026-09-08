@@ -11,6 +11,11 @@ uniform vec3 ground_tint : source_color = vec3(0.78, 1.0, 0.72);
 uniform vec3 stone_tint : source_color = vec3(0.88, 0.91, 0.93);
 uniform bool snow_enabled = true;
 uniform bool scree_enabled = false;
+// Optional authoring study; defaults preserve the normal game material.
+uniform float ground_detail_contrast : hint_range(0.0, 1.0) = 1.0;
+uniform float ground_saturation : hint_range(0.0, 1.0) = 1.0;
+// Mean sRGB of the licensed aerial_grass_rock albedo, used only by the study.
+uniform vec3 ground_average : source_color = vec3(0.45098039, 0.38039216, 0.13725490);
 varying vec3 world_position;
 varying vec3 world_normal;
 
@@ -38,6 +43,8 @@ void fragment() {
 	vec2 rotated = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8);
 	float macro = soft_noise(p * 0.025);
 	vec3 grass = mix(texture(ground_albedo, p * 0.24).rgb, texture(ground_albedo, rotated * 0.071 + vec2(11.3, 7.8)).rgb, 0.42);
+	grass = mix(ground_average, grass, ground_detail_contrast);
+	grass = mix(vec3(dot(grass, vec3(0.2126, 0.7152, 0.0722))), grass, ground_saturation);
 	grass *= ground_tint * mix(0.83, 1.12, macro);
 	// Broad, rotated strata break the visible grid of one repeated rock tile.
 	// Retain fine detail nearby, fading its normal strength into distant haze.

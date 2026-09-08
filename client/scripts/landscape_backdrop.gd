@@ -30,6 +30,11 @@ func _init(recipe: RefCounted) -> void:
 		surface_material.set_shader_parameter(role + "_albedo", load(base + "_diff_1k.jpg"))
 		surface_material.set_shader_parameter(role + "_normal", load(base + "_nor_gl_1k.png"))
 		surface_material.set_shader_parameter(role + "_roughness", load(base + "_rough_1k.jpg"))
+	if profile.data.biome == "alpine":
+		# Reviewed against the original in the Android studio: retain real surface
+		# detail, but reduce the distracting patch contrast and yellow-green cast.
+		surface_material.set_shader_parameter("ground_detail_contrast", 0.76)
+		surface_material.set_shader_parameter("ground_saturation", 0.72)
 	if profile.data.biome == "cactus":
 		surface_material.set_shader_parameter("ground_tint", Color(1.0, 0.95, 0.84))
 		surface_material.set_shader_parameter("stone_tint", Color(1.0, 0.79, 0.60))

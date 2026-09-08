@@ -8,6 +8,7 @@ const Lighting = preload("res://scripts/valley_lighting.gd")
 const ActorFactory = preload("res://scripts/meadow.gd")
 const ActorBatch = preload("res://scripts/actor_batch.gd")
 const Life = preload("res://scripts/valley_life.gd")
+const PineWind = preload("res://scripts/pine_needles_wind.gd")
 static var recipe_index := 0
 const RECIPE_PATHS := ["res://worlds/long_valley.recipe.json", "res://worlds/dry_wash.recipe.json"]
 var profile: RefCounted
@@ -18,6 +19,12 @@ var elapsed := 0.0
 var caption: Label
 var rendering_caption: Label
 var next_report := 1.0
+var ground_study := false
+var ground_materials: Array[ShaderMaterial] = []
+var ground_originals: Dictionary = {}
+var pine_study := 0
+var pine_drivers: Dictionary = {}
+var pine_surfaces: Array[Dictionary] = []
 
 func _ready() -> void:
 	var path: String = RECIPE_PATHS[recipe_index]
@@ -32,6 +39,36 @@ func _ready() -> void:
 	profile = Recipe.new(data)
 	var terrain := Builder.load_or_build(profile)
 	add_child(terrain)
+	for instance: Node in terrain.find_children("*", "MeshInstance3D", true, false):
+		var material: Material = instance.material_override
+		if material is ShaderMaterial and material.shader == load("res://shaders/landscape_surface.gdshader") and not ground_materials.has(material):
+			ground_materials.append(material)
+			ground_originals[material] = [material.get_shader_parameter("ground_detail_contrast"), material.get_shader_parameter("ground_saturation")]
+			# The comparison starts from the earlier original even when the game's
+			# prepared material now uses the accepted calmer preset.
+			material.set_shader_parameter("ground_detail_contrast", 1.0)
+			material.set_shader_parameter("ground_saturation", 1.0)
+	# Only this isolated studio mutates shared surface references; restore them
+	# on exit so a cached PackedScene cannot retain a previous study on reload.
+	var seen_meshes := {}
+	for instance: Node in terrain.find_children("*", "MultiMeshInstance3D", true, false):
+		if not String(instance.name).begins_with("Tree"):
+			continue
+		var mesh: Mesh = instance.multimesh.mesh
+		if seen_meshes.has(mesh) or mesh.get_surface_count() != 2:
+			continue
+		seen_meshes[mesh] = true
+		var original := mesh.surface_get_material(1) as StandardMaterial3D
+		if original == null:
+			continue
+		if not pine_drivers.has(original):
+			var driver := PineWind.new()
+			if not driver.configure(original):
+				driver.free()
+				continue
+			add_child(driver)
+			pine_drivers[original] = driver
+		pine_surfaces.append({"mesh": mesh, "original": original})
 	var life := Life.new()
 	add_child(life)
 	life.configure(profile, Rect2(Vector2(data.bounds[0], data.bounds[1]), Vector2(data.bounds[2] - data.bounds[0], data.bounds[3] - data.bounds[1])), int(data.seed))
@@ -91,12 +128,46 @@ func _ready() -> void:
 	biome.custom_minimum_size = Vector2(210, 56)
 	biome.pressed.connect(func() -> void: recipe_index = (recipe_index + 1) % RECIPE_PATHS.size(); get_tree().reload_current_scene())
 	panel.add_child(biome)
+	if data.biome == "alpine":
+		var study := Button.new()
+		study.text = "Grass study · original"
+		study.custom_minimum_size = Vector2(210, 56)
+		study.pressed.connect(func() -> void:
+			ground_study = not ground_study
+			study.text = "Grass study · calm" if ground_study else "Grass study · original"
+			for material: ShaderMaterial in ground_materials:
+				material.set_shader_parameter("ground_detail_contrast", 0.76 if ground_study else 1.0)
+				material.set_shader_parameter("ground_saturation", 0.72 if ground_study else 1.0)
+		)
+		panel.add_child(study)
+		var pine := Button.new()
+		pine.text = "Pine study · original"
+		pine.custom_minimum_size = Vector2(210, 56)
+		pine.pressed.connect(func() -> void:
+			pine_study = (pine_study + 1) % 3
+			pine.text = ["Pine study · original", "Pine study · shader, still", "Pine study · gentle wind"][pine_study]
+			for driver: Node in pine_drivers.values():
+				driver.set_enabled(pine_study != 0)
+				driver.set_active(pine_study == 2)
+				if pine_study != 0:
+					driver.selected_material().set_shader_parameter("wind_strength", 1.0 if pine_study == 2 else 0.0)
+			for record: Dictionary in pine_surfaces:
+				record.mesh.surface_set_material(1, pine_drivers[record.original].selected_material())
+		)
+		panel.add_child(pine)
 	rendering_caption = Label.new()
 	rendering_caption.add_theme_color_override("font_color", Color("203c38"))
 	rendering_caption.add_theme_font_size_override("font_size", 14)
 	panel.add_child(rendering_caption)
 	get_viewport().size_changed.connect(_show_view)
 	_show_view()
+
+func _exit_tree() -> void:
+	for material: ShaderMaterial in ground_materials:
+		material.set_shader_parameter("ground_detail_contrast", ground_originals[material][0])
+		material.set_shader_parameter("ground_saturation", ground_originals[material][1])
+	for record: Dictionary in pine_surfaces:
+		record.mesh.surface_set_material(1, record.original)
 
 func _show_view() -> void:
 	var anchor: Vector3 = profile.route[current_view]
