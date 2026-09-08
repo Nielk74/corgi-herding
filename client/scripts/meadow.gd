@@ -16,6 +16,8 @@ const RegionNavigationScript = preload("res://scripts/region_navigation.gd")
 const RegionPresentation = preload("res://scripts/region_presentation.gd")
 const RegionRecipe = preload("res://scripts/landscape_recipe.gd")
 const RegionSceneBuilder = preload("res://scripts/landscape_scene_builder.gd")
+const ValleyLife = preload("res://scripts/valley_life.gd")
+const ActorBatch = preload("res://scripts/actor_batch.gd")
 var camera: Camera3D
 var gate: Node3D
 var bridge: Node3D
@@ -61,6 +63,7 @@ var commons: Dictionary = {}
 var region_profile: RefCounted
 var region_navigation: RefCounted
 var region_presentation: RefCounted
+var valley_life: Node3D
 var _legacy_camera_state: Dictionary = {}
 var _legacy_environment: Dictionary = {}
 var _lighting_rig: Node3D
@@ -226,6 +229,11 @@ func _set_region_landscape(incoming: Dictionary) -> void:
 	terrain.name = "Landscape_alpine_valley"
 	add_child(terrain)
 	region_presentation = RegionPresentation.new(terrain, region_profile, region_navigation)
+	valley_life = ValleyLife.new()
+	add_child(valley_life)
+	var minimum := Vector2(canonical.bounds.min.x, canonical.bounds.min.y)
+	var maximum := Vector2(canonical.bounds.max.x, canonical.bounds.max.y)
+	valley_life.configure(region_presentation, Rect2(minimum, maximum - minimum))
 	# Welcome framing is provisional. The first live idle herder still receives
 	# its own one-time placement, including on reconnect into a fresh scene.
 	region_presentation.follow(Vector3(-48, surface_height(-48, 74), 74), false)
@@ -280,6 +288,10 @@ func _apply_region_environment() -> void:
 	world_environment.fog_light_color = Color("a6bac5")
 
 func _leave_region_landscape() -> void:
+	if is_instance_valid(valley_life):
+		valley_life.set_active(false)
+		valley_life.queue_free()
+	valley_life = null
 	region_presentation = null
 	region_navigation = null
 	region_profile = null
@@ -1664,6 +1676,8 @@ func make_actor(kind: String, identity: String, second_herder := false) -> Node3
 		"dog": _dog(body, identity == "maple")
 		"sheep": _sheep(body, identity)
 		"player": _herder(body, second_herder)
+	if landscape == "alpine_valley":
+		ActorBatch.optimize(actor)
 	return actor
 
 func _dog(parent: Node3D, maple: bool) -> void:
