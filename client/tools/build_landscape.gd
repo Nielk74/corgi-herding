@@ -4,6 +4,7 @@ extends SceneTree
 
 const Recipe = preload("res://scripts/landscape_recipe.gd")
 const Builder = preload("res://scripts/landscape_chunk_builder.gd")
+const FullBuilder = preload("res://scripts/landscape_scene_builder.gd")
 
 func _initialize() -> void:
 	_run.call_deferred()
@@ -11,11 +12,14 @@ func _initialize() -> void:
 func _run() -> void:
 	var source := ""
 	var output := ""
+	var full := false
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--recipe="):
 			source = argument.trim_prefix("--recipe=")
 		elif argument.begins_with("--out="):
 			output = argument.trim_prefix("--out=")
+		elif argument == "--full":
+			full = true
 	if source.is_empty() or not output.ends_with(".scn") or FileAccess.file_exists(output):
 		printerr("Supply --recipe=<json> and --out=<new .scn file>; existing scenes are never overwritten.")
 		quit(1)
@@ -27,8 +31,8 @@ func _run() -> void:
 		quit(1)
 		return
 	var start := Time.get_ticks_msec()
-	var builder := Builder.new(Recipe.new(data), true)
-	var scene := builder.build_scene(true)
+	var profile := Recipe.new(data)
+	var scene: Node3D = FullBuilder.new(profile).build() if full else Builder.new(profile, true).build_scene(true)
 	var packed := PackedScene.new()
 	if packed.pack(scene) != OK or ResourceSaver.save(packed, output, ResourceSaver.FLAG_COMPRESS) != OK:
 		scene.free()

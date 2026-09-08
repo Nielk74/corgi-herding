@@ -117,7 +117,24 @@ func height(x: float, z: float) -> float:
 	var small := noise.get_noise_2d(x, z)
 	var ridged := 1.0 - absf(noise.get_noise_2d(x * 0.40 + 167.0, z * 0.65 - 53.0))
 	var flank := pow(outside, 1.14) * (0.30 + ridged * 0.30)
+	# One flank descends into the valley while the opposite flank rises. A
+	# distance-to-route bowl would hide every distant view behind a grass wall.
+	# This remains presentation-only; zero clearance keeps the authored grade.
+	flank *= lerpf(-0.8, 1.0, smoothstep(-36.0, 18.0, x + sin(z * 0.023) * 15.0))
 	return grade + small * (0.45 + minf(outside * 0.11, 4.0)) + flank
+
+func trail_wear(point: Vector2) -> float:
+	var distance := INF
+	for i in range(route.size() - 1):
+		var a := Vector2(route[i].x, route[i].z)
+		var b := Vector2(route[i + 1].x, route[i + 1].z)
+		var delta := b - a
+		var t := clampf((point - a).dot(delta) / maxf(delta.length_squared(), 0.0001), 0.0, 1.0)
+		distance = minf(distance, point.distance_to(a + delta * t))
+	# A narrow worn line suggests travel; broad grassy clearings remain open to
+	# wandering and herding. This visual mask is never a navigation boundary.
+	var width := 1.65 + sin(point.x * 0.43 + point.y * 0.31) * 0.16
+	return (1.0 - smoothstep(0.45, width, distance)) * (0.80 + sin(point.x * 0.19 - point.y * 0.23) * 0.06)
 
 func normal(x: float, z: float) -> Vector3:
 	# Shading must describe the triangulated one-unit heightfield, not a finer

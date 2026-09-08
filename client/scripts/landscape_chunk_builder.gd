@@ -5,12 +5,14 @@ extends RefCounted
 var recipe: RefCounted
 var terrain_material: StandardMaterial3D
 var textured := false
+var paint_trail := false
 var grass_material: ShaderMaterial
 var grass_mesh: ArrayMesh
 
-func _init(profile: RefCounted, use_textures := false) -> void:
+func _init(profile: RefCounted, use_textures := false, include_trail := false) -> void:
 	recipe = profile
 	textured = use_textures
+	paint_trail = include_trail
 	terrain_material = StandardMaterial3D.new()
 	terrain_material.vertex_color_use_as_albedo = true
 	terrain_material.vertex_color_is_srgb = true
@@ -47,7 +49,12 @@ func build_chunk(key: Vector2i) -> MeshInstance3D:
 			vertices.append(Vector3(wx, recipe.node_height(wx, wz), wz))
 			normals.append(normal)
 			var tint: Color = recipe.color(wx, wz, normal.y)
-			colors.append(Color.WHITE.lerp(tint, 0.12) if textured else tint)
+			var color := Color.WHITE.lerp(tint, 0.12) if textured else tint
+			# Encode the opaque surface's wear mask during initial construction,
+			# not by decoding/re-encoding compressed mesh normals after the fact.
+			if paint_trail:
+				color.a = 1.0 - recipe.trail_wear(Vector2(wx, wz))
+			colors.append(color)
 			uv.append(Vector2(wx, wz) * 0.25)
 			# Unique nonoverlapping atlas per chunk, ready for a later real bake.
 			# A UV2 channel alone is not a lightmap and is never described as GI.
