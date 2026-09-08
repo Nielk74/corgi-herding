@@ -65,7 +65,7 @@ func _run() -> void:
 		var original: Vector3 = actor.position
 		actor.global_position = studio.camera.global_position + studio.camera.global_basis.z * 5
 		air.advance(0.1)
-		check(air.material.get_shader_parameter("blur_enabled") == false, "Clipped actor disables blur safely")
+		check(air.material.get_shader_parameter("blur_enabled") == true and air.material.get_shader_parameter("actor_count") == 13, "Wholly behind-camera actor cannot cover pixels or turn off the whole sky")
 		actor.position = original
 		air.advance(0.1)
 		check(air.material.get_shader_parameter("blur_enabled") == true, "Valid visible actor restores only requested blur")
@@ -83,6 +83,7 @@ func _run() -> void:
 		check(mesh.get_ref() == null and material.get_ref() == null, "World exit releases private screen and material")
 	Studio.recipe_index = 0
 	await _two_worlds()
+	await _runtime_worlds()
 	var source := FileAccess.get_file_as_string("res://shaders/landscape_atmosphere.gdshader")
 	check(not source.contains("TIME") and source.contains("depth_draw_never"), "No global clock or depth mutation")
 	check(source.contains("distance > 110.0") and source.contains("protected_pixel(sample_uv)") and source.contains("CURRENT_RENDERER == RENDERER_COMPATIBILITY"), "Far-only, silhouette-safe, renderer-specific depth reconstruction")
@@ -161,6 +162,44 @@ func _protects_skyline(source: String) -> bool:
 	var compact := source.replace(" ", "").replace("\t", "").replace("\n", "")
 	var guard := "if(textureLod(scene_depth,neighbor,0.0).r>=0.0000001){discard;}"
 	return compact.contains("pixel=1.5/VIEWPORT_SIZE") and compact.contains("for(inty=-1;y<=1;y++)") and compact.contains("for(intx=-1;x<=1;x++)") and compact.contains("if(x==0&&y==0){continue;}") and compact.find(guard) >= 0 and compact.find(guard) < compact.find("textureLod(screen_color,")
+
+func _runtime_worlds() -> void:
+	var meadow := load("res://scripts/meadow.gd").new() as Node3D
+	root.add_child(meadow)
+	await process_frame
+	var old_environment: Environment = meadow.world_environment
+	var old_sky: Sky = old_environment.sky
+	var old_camera: int = meadow.camera.projection
+	for region in ["alpine_valley", "dry_wash", "alpine_valley"]:
+		meadow.set_landscape(region)
+		await process_frame
+		var air: Node = meadow.atmosphere
+		check(is_instance_valid(air) and air.clouds and not air.blur, "Large regions own a cloud pass with optional blur initially off")
+		check(air.actors.size() == 12, "Preview sheep and dogs are protected at creation")
+		var actor: Node3D = meadow.make_actor("dog", "guard-fixture", false)
+		actor.position = meadow.preview.get_child(10).position
+		var guards: Array[Node3D] = [actor]
+		meadow.preview.hide()
+		meadow.protect_actors(guards)
+		check(air.actors == guards and air.actor_meshes.size() == 1, "Authoritative actors replace cached preview meshes")
+		meadow.set_soft_distance(true)
+		check(air.blur and air.material.get_shader_parameter("blur_enabled"), "Menu preference immediately applies distance softening")
+		var too_many: Array[Node3D] = []
+		too_many.resize(15)
+		too_many.fill(actor)
+		check(not air.set_protected_actors(too_many) and not air.material.get_shader_parameter("clouds_enabled") and not air.material.get_shader_parameter("blur_enabled"), "Oversize guard list fails closed before rendering")
+		check(air.set_protected_actors(guards) and air.material.get_shader_parameter("clouds_enabled"), "Valid replacement safely restores requested sky")
+		meadow.set_soft_distance(false)
+		var screen: WeakRef = weakref(air.screen)
+		actor.queue_free()
+		meadow.set_landscape("juniper")
+		await process_frame
+		await process_frame
+		check(meadow.atmosphere == null and screen.get_ref() == null, "Leaving a large region releases its camera screen")
+		check(meadow.camera.projection == old_camera and meadow.world_environment.sky == old_sky, "Legacy camera and sky remain unchanged")
+		meadow.preview.show()
+	meadow.queue_free()
+	await process_frame
 
 func _cloud_activation_clip(studio: Node3D) -> void:
 	var air: Node = studio.atmosphere

@@ -8,6 +8,8 @@ var camera: Camera3D
 var screen: MeshInstance3D
 var material: ShaderMaterial
 var actors: Array[Node3D] = []
+var actor_meshes: Dictionary = {}
+var protection_valid := true
 var clouds := false
 var blur := false
 var passthrough := false
@@ -23,7 +25,6 @@ func configure(view: Camera3D, protected_actors: Array[Node3D], desert := false)
 		return false
 	camera = view
 	process_priority = 100 # After ordinary actor interpolation/camera following.
-	actors.assign(protected_actors)
 	material = ShaderMaterial.new()
 	material.shader = EFFECT
 	# The screen copy contains opaque geometry. Draw BEFORE ordinary transparent
@@ -44,7 +45,31 @@ func configure(view: Camera3D, protected_actors: Array[Node3D], desert := false)
 	screen.extra_cull_margin = 2.0
 	camera.add_child(screen)
 	screen.position.z = -1.0
+	set_protected_actors(protected_actors)
 	_sync()
+	return true
+
+func set_protected_actors(values: Array[Node3D]) -> bool:
+	if values.size() > MAX_ACTORS:
+		protection_valid = false
+		_update_protection()
+		return false
+	for actor in values:
+		if not is_instance_valid(actor):
+			protection_valid = false
+			_update_protection()
+			return false
+	if not protection_valid or actors != values:
+		actors.assign(values)
+		actor_meshes.clear()
+		for actor: Node3D in actors:
+			var meshes: Array[Node] = []
+			for mesh: Node in actor.find_children("*", "MeshInstance3D", true, false):
+				if not mesh.is_queued_for_deletion(): meshes.append(mesh)
+			actor_meshes[actor] = meshes
+	protection_valid = true
+	if material != null:
+		_update_protection()
 	return true
 
 func set_effects(show_clouds: bool, soften_distance: bool, show_passthrough := false) -> void:
@@ -60,6 +85,8 @@ func set_effects(show_clouds: bool, soften_distance: bool, show_passthrough := f
 	_sync()
 
 func set_active(value: bool) -> void:
+	if active == value:
+		return
 	active = value
 	skip_step = true
 	_sync()
@@ -102,33 +129,41 @@ func advance(delta: float) -> void:
 		material.set_shader_parameter("drift_time", elapsed)
 
 func _update_protection() -> void:
+	if material == null or not is_instance_valid(camera):
+		return
 	rects.resize(MAX_ACTORS)
 	rects.fill(Vector4(-2, -2, -1, -1))
 	var count := 0
 	var size := camera.get_viewport().get_visible_rect().size
-	if size.x <= 0 or size.y <= 0:
+	if not protection_valid or size.x <= 0 or size.y <= 0:
 		material.set_shader_parameter("blur_enabled", false)
 		material.set_shader_parameter("clouds_enabled", false)
 		return
-	for actor: Node3D in actors:
+	for actor in actors:
 		if not is_instance_valid(actor) or not actor.is_visible_in_tree():
 			continue
 		var low := Vector2.INF
 		var high := -Vector2.INF
-		for node: Node in actor.find_children("*", "MeshInstance3D", true, false):
-			if not node.is_visible_in_tree() or node.mesh == null:
+		var points := PackedVector3Array()
+		var behind := 0
+		for node in actor_meshes.get(actor, []):
+			if not is_instance_valid(node) or not node.is_visible_in_tree() or node.mesh == null:
 				continue
 			var bounds: AABB = node.get_aabb()
 			for i in 8:
 				var point: Vector3 = node.global_transform * bounds.get_endpoint(i)
-				if camera.is_position_behind(point):
-					# A partly clipped actor is safer with all blur disabled.
-					material.set_shader_parameter("blur_enabled", false)
-					material.set_shader_parameter("clouds_enabled", false)
-					return
-				var pixel := camera.unproject_position(point)
-				low = low.min(pixel)
-				high = high.max(pixel)
+				points.append(point)
+				if camera.is_position_behind(point): behind += 1
+		if behind == points.size():
+			continue # Wholly behind the camera cannot cover any visible pixel.
+		if behind > 0:
+			material.set_shader_parameter("blur_enabled", false)
+			material.set_shader_parameter("clouds_enabled", false)
+			return # A partially clipped silhouette is conservatively fail-closed.
+		for point: Vector3 in points:
+			var pixel := camera.unproject_position(point)
+			low = low.min(pixel)
+			high = high.max(pixel)
 		if low.is_finite():
 			low = (low - Vector2.ONE * 4.0) / size
 			high = (high + Vector2.ONE * 4.0) / size
@@ -146,4 +181,5 @@ func _exit_tree() -> void:
 	screen = null
 	material = null
 	actors.clear()
+	actor_meshes.clear()
 	camera = null

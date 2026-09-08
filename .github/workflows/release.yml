@@ -116,6 +116,10 @@ jobs:
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/valley_life_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_integration_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/dry_wash_integration_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/dry_wash_presentation_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/dry_wash_landforms_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_atmosphere_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_motes_smoke.gd
       - name: Test Commons prediction and reconnect on an isolated server
         run: |
           CORGI_ADDR=127.0.0.1:8794 CORGI_STATE_DIR="$RUNNER_TEMP/commons-test-state" "$RUNNER_TEMP/corgi-test-server" &

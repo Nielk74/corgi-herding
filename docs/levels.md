@@ -6,6 +6,11 @@ around weathered rock instead of using a river crossing. Cloud Pasture follows
 a climbing ridge with broad shelves above an Alpine tarn. Juniper Shore curves
 around a lake through three broad grassy clearings. Bellflower Commons offers
 an optional practice guide; Long Alpine valley adds a much larger walkable region.
+Wide cactus wash is a second large region: fourteen clearings linked by thirteen
+broad dry corridors inside X [-72, 72], Y [-96, 96]. Its immutable version-8
+layout has no gate or river. Weathered terraces and distant mesas are scenery,
+not permission to walk outside the canonical dry union. Both large regions use
+drifting skies and support the optional menu-only distant softening setting.
 
 The original Alpine and Cactus landscapes retain their playable bounds and route.
 Every herd keeps its animals, invite credentials, saved positions, and selected

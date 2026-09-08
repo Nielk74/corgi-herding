@@ -6,7 +6,7 @@ Two herders. Two corgis. Ten sheep and a shared journey.
 
 A portrait-first cooperative Android game about caring for a flock together, set in an Alpine
 valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard, Canyon Oasis,
-Cloud Pasture, Juniper Shore, Bellflower Commons or the larger Long Alpine valley.
+Cloud Pasture, Juniper Shore, Bellflower Commons, Long Alpine valley or Wide cactus wash.
 An optional Practice meadow guide teaches the controls one step at a time.
 Distant mountain ranges and layered
 landscapes make the walkable valley feel part of a much larger world. Steep rock,
@@ -55,6 +55,12 @@ Long Alpine valley connects sixteen broad clearings and return loops inside
 144 × 192 bounds. This is newly walkable ground, not just larger scenery. The
 fixed-perspective portrait camera follows your herder and rests when you stop.
 There is no finish line or requirement to herd the whole flock in one session.
+
+Wide cactus wash adds fourteen connected clearings across another 144 × 192
+region, with branching dry channels, low terraces and distant mesas. Both large
+regions now have slowly drifting clouds. The menu's optional **Soft distance**
+setting gently softens distant scenery; nearby ground, animals and controls stay
+sharp. It starts off and is saved separately from your herd invitation.
 
 In Sunward Orchard, two curious sheep may wander toward fallen apples. Let them
 finish their small snack or guide them back with either dog. They remember that

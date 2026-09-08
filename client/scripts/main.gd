@@ -25,6 +25,7 @@ var practice_guide: PanelContainer
 var restart_guide_button: Button
 var guide_settings_row: HBoxContainer
 var sound_button: Button
+var soft_distance_button: Button
 var actors: Dictionary = {}
 var latest: Dictionary = {}
 var local_id := ""
@@ -292,6 +293,22 @@ func _build_welcome() -> void:
 	sound_button.custom_minimum_size.y = 64
 	sound_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	settings_row.add_child(sound_button)
+	var visual_config := ConfigFile.new()
+	if visual_config.load("user://visuals.cfg") == OK:
+		meadow.set_soft_distance(visual_config.get_value("visuals", "soft_distance", false) == true)
+	soft_distance_button = _button("Soft distance · on" if meadow.soft_distance else "Soft distance · off", func() -> void:
+		meadow.set_soft_distance(not meadow.soft_distance)
+		soft_distance_button.text = "Soft distance · on" if meadow.soft_distance else "Soft distance · off"
+		if network.persist_config:
+			var preferences := ConfigFile.new()
+			preferences.set_value("visuals", "soft_distance", meadow.soft_distance)
+			preferences.save("user://visuals.cfg")
+	)
+	soft_distance_button.flat = true
+	soft_distance_button.add_theme_font_size_override("font_size", 17)
+	soft_distance_button.custom_minimum_size.y = 64
+	soft_distance_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_row.add_child(soft_distance_button)
 	restart_guide_button = _button("Restart guide", _restart_guide)
 	restart_guide_button.flat = true
 	restart_guide_button.add_theme_font_size_override("font_size", 17)
@@ -512,6 +529,7 @@ func _on_herd_joined(code: String) -> void:
 	for id in actors:
 		actors[id].node.queue_free()
 	actors.clear()
+	meadow.protect_actors([])
 	region_display_plans = 0
 	latest = {}
 	had_snapshot = false
@@ -887,6 +905,9 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 		if not present.has(id):
 			actors[id].node.queue_free()
 			actors.erase(id)
+	var protected: Array[Node3D] = []
+	for actor: Dictionary in actors.values(): protected.append(actor.node)
+	meadow.protect_actors(protected)
 	had_snapshot = true
 	invite_label.visible = player_count < 2
 	companion_label.visible = player_count < 2

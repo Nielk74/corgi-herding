@@ -19,6 +19,7 @@ const RegionRecipe = preload("res://scripts/landscape_recipe.gd")
 const RegionSceneBuilder = preload("res://scripts/landscape_scene_builder.gd")
 const ValleyLife = preload("res://scripts/valley_life.gd")
 const ValleyPineBinding = preload("res://scripts/valley_pine_binding.gd")
+const Atmosphere = preload("res://scripts/landscape_atmosphere.gd")
 const ActorBatch = preload("res://scripts/actor_batch.gd")
 var camera: Camera3D
 var gate: Node3D
@@ -67,6 +68,8 @@ var region_navigation: RefCounted
 var region_presentation: RefCounted
 var valley_life: Node3D
 var valley_pines: Node
+var atmosphere: Node
+var soft_distance := false
 var _legacy_camera_state: Dictionary = {}
 var _legacy_environment: Dictionary = {}
 var _lighting_rig: Node3D
@@ -248,6 +251,20 @@ func _set_region_landscape(id: String, incoming: Dictionary) -> void:
 		region_presentation.apply_camera(camera, zoom)
 		camera_focus = region_presentation.camera_focus
 		desired_focus = region_presentation.desired_focus
+		atmosphere = Atmosphere.new()
+		add_child(atmosphere)
+		var figures: Array[Node3D] = []
+		if is_instance_valid(preview):
+			for actor: Node3D in preview.get_children(): figures.append(actor)
+		atmosphere.configure(camera, figures, id == "dry_wash")
+		atmosphere.set_effects(true, soft_distance)
+
+func set_soft_distance(value: bool) -> void:
+	soft_distance = value
+	if is_instance_valid(atmosphere): atmosphere.set_effects(true, value)
+
+func protect_actors(values: Array[Node3D]) -> void:
+	if is_instance_valid(atmosphere): atmosphere.set_protected_actors(values)
 
 func _save_legacy_presentation() -> void:
 	if is_instance_valid(camera):
@@ -287,6 +304,10 @@ func _apply_region_environment() -> void:
 	world_environment.fog_light_color = Color("a6bac5")
 
 func _leave_region_landscape() -> void:
+	if is_instance_valid(atmosphere):
+		atmosphere.set_active(false)
+		atmosphere.queue_free()
+	atmosphere = null
 	if is_instance_valid(valley_pines):
 		valley_pines.detach()
 		valley_pines.queue_free()
