@@ -105,6 +105,18 @@ func TestRegionGeometryRejectsMalformedRecipes(t *testing.T) {
 	}
 }
 
+func TestRegionGeometryRejectsUnderflowedEdgeLength(t *testing.T) {
+	r := Region{RecipeID: "tiny_edge", Bounds: Bounds{Vec2{-1, -1}, Vec2{1, 1}}, Anchors: []Vec2{{0, 0}, {1e-200, 0}}, Corridors: []RegionCorridor{{0, 1, .5}}}
+	if r.ValidateGeometry() == nil {
+		t.Fatal("distinct anchors whose squared distance underflows must reject before division")
+	}
+	// This is an exact representability check, not a widened collision epsilon.
+	r.Anchors[1].X = 1e-150
+	if err := r.ValidateGeometry(); err != nil {
+		t.Fatal("representable nonzero squared length should remain valid", err)
+	}
+}
+
 type regionBits struct {
 	X string `json:"x"`
 	Y string `json:"y"`

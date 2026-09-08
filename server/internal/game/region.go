@@ -123,6 +123,11 @@ func (r Region) ValidateGeometry() error {
 		if e.A < 0 || e.A >= len(r.Anchors) || e.B < 0 || e.B >= len(r.Anchors) || e.A == e.B || math.IsNaN(e.HalfWidth) || e.HalfWidth <= 0 || e.HalfWidth > 64 {
 			return errors.New("invalid region corridor")
 		}
+		delta := r.Anchors[e.B].Sub(r.Anchors[e.A])
+		lengthSquared := regionDot(delta, delta)
+		if lengthSquared == 0 || math.IsNaN(lengthSquared) || math.IsInf(lengthSquared, 0) {
+			return errors.New("region corridor has unrepresentable squared length")
+		}
 		key := [2]int{min(e.A, e.B), max(e.A, e.B)}
 		if edges[key] {
 			return errors.New("duplicate region corridor")
