@@ -8,6 +8,7 @@ const Soundscape = preload("res://scripts/soundscape.gd")
 const ShoreNavigation = preload("res://scripts/shore_navigation.gd")
 const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
 const DogDrag = preload("res://scripts/dog_drag_gesture.gd")
+const PracticeGuide = preload("res://scripts/practice_guide.gd")
 const INK := Color("304d40")
 const MUTED := Color("6c7c66")
 const PAPER := Color("f5f0df")
@@ -18,6 +19,9 @@ var meadow: MeadowDiorama
 var network: HerdConnection
 var soundscape: HerdSoundscape
 var dog_drag: DogDrag
+var practice_guide: PanelContainer
+var restart_guide_button: Button
+var guide_settings_row: HBoxContainer
 var sound_button: Button
 var actors: Dictionary = {}
 var latest: Dictionary = {}
@@ -83,6 +87,7 @@ func _ready() -> void:
 	network.status_changed.connect(_on_status)
 	network.request_failed.connect(_on_error)
 	network.herd_joined.connect(_on_herd_joined)
+	network.message_sent.connect(_on_message_sent)
 	soundscape = Soundscape.new()
 	add_child(soundscape)
 	_build_ui()
@@ -227,7 +232,7 @@ func _build_welcome() -> void:
 	oasis_button = _button("Canyon Oasis", func() -> void: _select_landscape("oasis"))
 	cloud_button = _button("Cloud Pasture", func() -> void: _select_landscape("cloud"))
 	juniper_button = _button("Juniper Shore", func() -> void: _select_landscape("juniper"))
-	bellflower_button = _button("Bellflower Commons", func() -> void: _select_landscape("bellflower"))
+	bellflower_button = _button("Practice meadow", func() -> void: _select_landscape("bellflower"))
 	for button in [alpine_button, cactus_button, larch_button, orchard_button, oasis_button, cloud_button, juniper_button, bellflower_button]:
 		button.custom_minimum_size.y = 64
 		button.add_theme_font_size_override("font_size", 18)
@@ -254,6 +259,7 @@ func _build_welcome() -> void:
 	menu_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(menu_error)
 	var settings_row := _row(column)
+	guide_settings_row = settings_row
 	var server_toggle := _button("Server address", func() -> void: endpoint_input.visible = not endpoint_input.visible)
 	server_toggle.flat = true
 	server_toggle.add_theme_font_size_override("font_size", 17)
@@ -266,6 +272,12 @@ func _build_welcome() -> void:
 	sound_button.custom_minimum_size.y = 64
 	sound_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	settings_row.add_child(sound_button)
+	restart_guide_button = _button("Restart guide", _restart_guide)
+	restart_guide_button.flat = true
+	restart_guide_button.add_theme_font_size_override("font_size", 17)
+	restart_guide_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	restart_guide_button.hide()
+	ui.add_child(restart_guide_button)
 	soundscape.enabled_changed.connect(func(value: bool) -> void: sound_button.text = "Sound · on" if value else "Sound · off")
 	endpoint_input = _field("https://your-server.example", network.endpoint)
 	endpoint_input.add_theme_font_size_override("font_size", 18)
@@ -302,6 +314,10 @@ func _build_hud() -> void:
 	column.add_child(invite_label)
 	companion_label = _label("Share this code with your other herder", 14, MUTED)
 	column.add_child(companion_label)
+	practice_guide = PracticeGuide.new()
+	column.add_child(practice_guide)
+	practice_guide.preference_changed.connect(_refresh_guide_settings)
+	_refresh_guide_settings()
 	var air := Control.new()
 	air.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	air.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -477,6 +493,7 @@ func _on_herd_joined(code: String) -> void:
 	arrival_noticed = false
 	moment_time = 0.0
 	_sync_soundscape_gates()
+	_sync_guide_gates()
 
 func _on_status(text: String, is_connected: bool) -> void:
 	soundscape.set_connected(is_connected)
@@ -491,6 +508,7 @@ func _on_status(text: String, is_connected: bool) -> void:
 		# once after reconnect instead of waiting forever for that lost sequence.
 		# Arrival bookkeeping is separate: reconnect must not repeat its message.
 		awaiting_authoritative_snapshot = true
+	_sync_guide_gates()
 
 func _on_error(message: String) -> void:
 	_set_busy(false)
@@ -511,10 +529,37 @@ func _open_settings() -> void:
 	name_input.text = network.display_name
 	moving = false
 	_sync_soundscape_gates()
+	_sync_guide_gates()
+	_refresh_guide_settings()
 
 func _sync_soundscape_gates() -> void:
 	soundscape.set_gameplay_visible(hud.visible and not welcome.visible and not preview_mode)
 	soundscape.set_connected(network.connected and not network.paused)
+
+func _sync_guide_gates() -> void:
+	if practice_guide != null:
+		practice_guide.set_gameplay_gate(network.connection_epoch, network.connected and not network.paused and hud.visible and not welcome.visible and not preview_mode and not awaiting_authoritative_snapshot)
+
+func _on_message_sent(message: Dictionary, epoch: int) -> void:
+	_sync_guide_gates()
+	practice_guide.record_message(message, epoch)
+
+func _refresh_guide_settings() -> void:
+	if restart_guide_button == null or practice_guide == null:
+		return
+	practice_guide.preferences.persist_config = network.persist_config
+	var available: bool = practice_guide.can_restart(network.endpoint, str(network.credentials.get("code", "")), str(network.credentials.get("player_id", "")))
+	# Non-practice settings retain their original two-button structure, not an
+	# invisible third action. The optional control only joins the row when useful.
+	var parent: Node = guide_settings_row if available else ui
+	if restart_guide_button.get_parent() != parent:
+		restart_guide_button.hide()
+		restart_guide_button.reparent(parent, false)
+	restart_guide_button.visible = available
+
+func _restart_guide() -> void:
+	practice_guide.restart_for(network.endpoint, str(network.credentials.get("code", "")), str(network.credentials.get("player_id", "")))
+	menu_error.text = "The guide will begin when you return to the practice meadow."
 
 func _copy_invite() -> void:
 	DisplayServer.clipboard_set(str(network.credentials.get("code", "MEADOW")))
@@ -523,6 +568,7 @@ func _copy_invite() -> void:
 func _select_dog(id: String) -> void:
 	_close_controls()
 	selected_dog = id
+	practice_guide.select_dog(id)
 	command_title.text = id.capitalize()
 	command_panel.show()
 	_update_context()
@@ -801,6 +847,12 @@ func _on_snapshot(snapshot: Dictionary) -> void:
 	if actors.has(local_id) and not awaiting_authoritative_snapshot:
 		soundscape.set_listener_position(actors[local_id].node.position)
 		soundscape.observe_snapshot()
+		# No optimistic/cached snapshot path reaches the teaching module. It also
+		# checks identity, receipt tick and the exact requested observed result.
+		practice_guide.preferences.persist_config = network.persist_config
+		practice_guide.bind_herd(network.endpoint, str(network.credentials.get("code", "")), local_id, landscape if not preview_mode else "")
+		_sync_guide_gates()
+		practice_guide.observe_snapshot(snapshot, network.connection_epoch)
 
 func _update_context() -> void:
 	# Four stable slots: removing Pet lets Go expand under an already-aimed tap.
@@ -819,6 +871,7 @@ func _can_pet_selected_dog() -> bool:
 
 func _process(delta: float) -> void:
 	_sync_soundscape_gates()
+	_sync_guide_gates()
 	elapsed += delta
 	if moment_time > 0:
 		moment_time = maxf(0.0, moment_time - delta)
