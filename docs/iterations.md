@@ -351,3 +351,91 @@ left unchanged during these acceptance recordings. A further 454 fake-native
 regressions exercise exact PCM writes, two-slot ownership, partial-write/API
 errors, immediate cleanup of both slots, lifecycle interruption and teardown.
 They supplement, not replace, the actual Android output checks.
+
+## Juniper Shore — room to linger
+
+The seventh place is a dry crescent around an Alpine bay, with three broad
+grassy clearings, a stony beach and an open saddle between unequal mountain
+massifs. The lake and steep grassy shoulders explain the limits. There is no
+gate, swimming, fall penalty, destination objective or arrival message. Every
+clearing is a reasonable place to stop. The actual walking mesh has 2.29 units
+of relief; actors and touch picking use that same surface.
+
+Version 5 adds its own canonical shoreline union and new-world spawns. Six
+path anchors and three clearing disks define the complete walking footprint.
+An eight-node graph retains safe routes around the bay across disconnects and
+restarts. Normal dog-command simulations bring all ten sheep outward at tick
+685 and back at 1895; a genuine dog-created split is retrieved at tick 1464.
+No positions, speeds or collision boundaries are changed to make them pass.
+All six older landscape traces remain fixed, including a frozen pre-Juniper
+700-tick Cloud reference. State, layouts and route anchors compare exactly;
+cross-platform actor coordinates retain the existing tightly bounded allowance.
+
+A deeper Linux boundary sweep rejected the first routing implementation. One
+legal capsule-edge point was accepted by nearest-distance membership but could
+see no graph anchor because the rectangle projection differed by a last bit.
+The v5-only correction first proves chords inside the same closed disk or
+capsule by convexity, using exactly the walkability predicate. Other chords
+must pass the existing complete analytical union test in both directions.
+It adds no collision epsilon, coordinate movement or Cloud change. Fourteen
+shared literal regressions include the exact failing Linux point. On Linux
+amd64 and arm64, all generated legal edge points reach anchors, 2,500 actual
+movement routes finish and 20,000 tested pairs are symmetric. Ordinary flock
+journey and split-retrieval tick totals remain unchanged.
+
+The first actual portrait views had an overly flat-looking lake and a regular
+row of similarly shaped trees. The focused art pass introduces 21 junipers in
+six uneven groups with spreading, crooked and wind-shaped silhouettes. Full
+crown triangles stay outside the walking union. One opaque, non-displacing
+water shader supplies slow, restrained tonal and normal changes, without a
+reflection, transparency layer or new geometry. A same-camera Android water
+region changes only a few grayscale levels between inspected frames; this
+establishes rendered change, not the subjective comfort of an animation.
+
+The original ground and clipped water arrays remain byte-identical on the
+verified macOS/arm64 editor. Other platforms pin the unchanged Juniper-only
+geometry source and run all numerical mesh checks; a Mac raw-byte golden is
+not presented as universal libm bit identity. The refined full scene has
+92,088 triangles, below the existing 100,000 limit. Tests cover all 7,050 water
+triangles, 2,016 crown triangles, actual portrait picking, lower-frame coverage
+and animal visibility. Geometry counts are not real-phone FPS measurements.
+
+The signed Android preview was walked from the true right-follow extreme
+through the middle and back to the true left extreme, using ordinary taps.
+Both herders, both corgis and the flock remain readable at the left clearing;
+the paired view has no invite panel or permanent action bar. The actual short
+720×1280 logical portrait also fits seven choices, saved Return, expanded server
+address and the real Sound row. Remaining criticism is explicit: broad rear
+slopes are too smooth, the near-right shoulder is oversized and has a coarse
+crease, and the wide follow deadzone can leave sheep off-screen when returning
+through the middle. There are no observed new mesh holes or tree obstructions.
+The second connected peer is automated; two-human play and phone performance
+feedback are still needed.
+
+The Android play check also exposed a contextual-control bug: a corgi could
+wander out of petting range while its menu was open, causing Pet to disappear
+and Go to expand into the same tap location. The fixed panel always allocates
+four slots and disables Pet out of reach. Activation rechecks the current
+distance too; the entire panel still closes after use. A 107-check GUI regression
+first reproduces the old accidental Go action, then tests actual pointer presses
+and releases on both portrait aspects with near, far and missing actors, a dog
+moving during a held tap, and stale enabled state. Unavailable Pet cannot become
+Go or a ground movement. A valid near tap sends exactly one Pet interaction.
+
+The final signed preview also passed that near/far test on Android. Mochi was
+moved normally out of reach while the panel remained open; tapping the original
+Pet position left the disabled panel unchanged instead of opening Go. Returning
+him nearby and tapping again produced an authoritative petting herder and happy
+dog. The same herd and accepted input sequence survived the APK reinstall and
+Return. The [quiet east-clearing image](images/juniper-shore.png) is an unedited
+capture from that final preview connected to the candidate Go server.
+
+A fresh herd created through Android also completed the full journey on the
+candidate server. An automated second herder used ordinary Go commands to
+position the two dogs; the primary stayed at its spawn for the outward leg.
+All ten original sheep reached the east clearing after 695 live ticks and
+returned west after another 766 ticks of return commands, with a quiet photo
+pause between legs. Both humans stayed at the east end during the return drive.
+After the dogs retreated, all ten resumed grazing at each end. These are test
+observations, not player-facing timers or scores. No actor state was overwritten,
+no sheep were replaced and `settled` remained zero throughout.

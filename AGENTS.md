@@ -5,6 +5,8 @@ Preserve the no-combat, no-timer, soft-failure design. Both players control both
 Android is portrait-first. Keep controls hidden until an animal or interaction is
 tapped; no persistent command bars. Compose broad Alpine and cactus landscapes
 behind readable playable ground, with natural boundaries rather than a board rim.
+Keep contextual command slots stable as animals move. Dim unavailable Pet instead
+of removing it and shifting Go under an intended tap; recheck reach at activation.
 Relief must affect the rendered playable ground, not only distant scenery.
 Place actors and props on the sampled mesh surface and ray-pick that same surface.
 Keep authoritative movement/interaction distances in the existing 2D coordinates.
@@ -44,6 +46,12 @@ On Android, release interrupted static AudioTracks rather than resuming cached
 native queues. Fail silent and release both slots after any backend error. Keep
 the engine's OpenSL players silent on Android; their queued PCM survives pause.
 Reject under-rate recordings and distinguish missing payload from real silence.
+Juniper v5 uses a dry shoreline union and three clearings, not Cloud's ridge.
+Keep its exact capsules/disks, spawns, routes and clipped water mesh canonical.
+Check whole routed segments outward and back; water cannot cover walkable ground.
+Keep foliage outside the walking union and all clearings free of completion UI.
+Lake motion is opaque material shading, not a moving collision surface or a
+ray-traced reflection. Preserve all six earlier terrain and simulation traces.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

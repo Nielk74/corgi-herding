@@ -5,7 +5,8 @@
 Two herders. Two corgis. Ten sheep and a shared journey.
 
 A portrait-first cooperative Android game about caring for a flock together, set in an Alpine
-valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard, Canyon Oasis or Cloud Pasture. Distant mountain ranges and layered
+valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard, Canyon Oasis,
+Cloud Pasture or Juniper Shore. Distant mountain ranges and layered
 landscapes make the walkable valley feel part of a much larger world. Steep rock,
 woods and water mark its natural limits. No combat, score or timer: a wandering
 sheep creates another little story.
@@ -26,6 +27,8 @@ slopes. This is mobile raster lighting, not hardware ray tracing.
 <img src="docs/images/larch-hollow.png" width="300" alt="Portrait Android Larch Hollow with autumn trees, an offset bridge and an open pasture gate"> <img src="docs/images/sunward-orchard.png" width="300" alt="Portrait Android Sunward Orchard, two herders and sheep nibbling fallen apples below a distant hamlet">
 
 <img src="docs/images/canyon-oasis.png" width="300" alt="Portrait Android Canyon Oasis, two herders resting near their flock below a spring and sunlit canyon walls"> <img src="docs/images/cloud-pasture.png" width="300" alt="Portrait Android Cloud Pasture, herders and corgis resting on a grassy ridge above an Alpine tarn">
+
+<img src="docs/images/juniper-shore.png" width="300" alt="Portrait Android Juniper Shore, both herders and corgis beside ten grazing sheep on a dry beach below Alpine peaks">
 
 Captured from the signed Android prototype in an emulator connected to the Go
 server. Command controls appear only when a corgi is tapped.
@@ -51,6 +54,11 @@ Cloud Pasture is a broad climbing ridge with three grassy shelves overlooking
 an Alpine valley. Wander up, back down, or sit halfway with the dogs. There is no
 bridge, gate or arrival prompt. Steep flanks frame the gentle ground without
 falls; a split flock can be patiently reunited on the ridge.
+
+Juniper Shore follows a broad dry crescent around an Alpine bay. Three grassy
+clearings leave room to gather the flock, turn back or sit beside the lake.
+Water and steep shoulders mark the limits; there is no gate or final clearing
+to complete. The lake is scenery, not a swimming area.
 
 Short wind breaths and occasional distant bird phrases leave long gaps of quiet.
 There is no music loop or sound on every command. Sound stops when opening the
@@ -92,7 +100,11 @@ bash tools/run-godot-check.sh godot --headless --path client --script res://test
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/terrain_smoke.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/static_scenery_batch.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/layout_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/context_controls_smoke.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/cloud_navigation_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/shore_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/shore_boundary_smoke.gd
+bash tools/run-godot-check.sh godot --headless --path client --script res://tests/juniper_visual_smoke.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/soundscape_smoke.gd
 bash tools/run-godot-check.sh godot --headless --path client --script res://tests/android_ambience_smoke.gd
 ```
@@ -119,7 +131,7 @@ it prevents Android from installing future releases as updates.
 
 ## Scope
 
-This is milestone 1, not the full journey game. It includes six landscape levels,
+This is milestone 1, not the full journey game. It includes seven landscape levels,
 shared dog commands, sheep steering, invitations, reconnection, and file
 checkpoints, a small persistent orchard distraction, a two-route rock landscape
 and sparse environmental sound. Puppy adoption/training, richer animations and

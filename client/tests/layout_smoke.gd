@@ -111,10 +111,10 @@ func _run() -> void:
 		if game._pick_world_interaction(gate_screen) != "gate":
 			_fail("offset gate cannot be directly tapped")
 			return
-	# Six choices keep large touch targets; no extra controls enter gameplay.
+	# Seven choices keep large touch targets; no extra controls enter gameplay.
 	game._open_settings()
 	await process_frame
-	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button]:
+	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button]:
 		if not root.get_visible_rect().encloses(button.get_global_rect()) or button.size.y < 58 or button.size.x < 230:
 			_fail("portrait landscape choices must fit with usable touch areas")
 			return
@@ -123,6 +123,9 @@ func _run() -> void:
 		return
 	if game.oasis_button.position.y <= game.orchard_button.position.y or game.cloud_button.position.y != game.oasis_button.position.y:
 		_fail("Oasis and Cloud must share the third usable portrait row")
+		return
+	if game.juniper_button.position.y <= game.cloud_button.position.y:
+		_fail("Juniper must retain a separate usable fourth portrait row")
 		return
 	# Canonical nested forage geometry accepts JSON numbers but no silent coercion.
 	var orchard: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("orchard")))
@@ -243,7 +246,7 @@ func _run() -> void:
 		return
 	if not await _test_cloud(game):
 		return
-	print("LAYOUT_SMOKE_OK: six portrait choices, %d legacy two-way routes, Oasis bypasses, Cloud ridge and quiet resting, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
+	print("LAYOUT_SMOKE_OK: seven portrait choices, %d legacy two-way routes, Oasis bypasses, Cloud ridge and quiet resting, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
 	quit(0)
 
 func _test_oasis(game: Node) -> bool:

@@ -69,17 +69,25 @@ and back, including retrieval of a split flock. Sitting halfway should feel as
 complete as arriving: no completion prompt or added HUD. Existing five landscapes,
 their saves and old-client behavior must remain unchanged.
 
-## Next candidate — Juniper Shore (not implemented)
+## Seventh place — Juniper Shore
 
-Try a quiet Alpine lakeside crescent, with a stony beach below grassy clearings
-and a long reflected mountain view. The shore, not a gate, should shape a gentle
+The prototype is a quiet Alpine lakeside crescent, with a stony beach below grassy
+clearings and a long mountain view across the bay. The shore, not a gate, shapes a gentle
 journey around a bay. Leave broad places for the pair to linger side by side;
 the flock need not reach a finish. Keep water boundaries readable without walls,
 falls or deep-water punishment.
 
-Before building another place, carry forward Cloud's visual criticism: break up
-the distant mountain-foot line, vary tree groups and give foreground land a more
-specific character. Add a restrained environmental sound layer as its own tested
-iteration rather than increasing the HUD. Keep existing save geometry immutable,
-and prove any new shoreline route outward and back using normal movement and dog
-commands. Actual portrait play and two-person feedback remain the acceptance gate.
+The canonical version-5 union combines six path anchors and three generous
+clearings. Both herders and corgis retain safe routes around the bay. Normal
+dog-command tests move all ten sheep outward and back and recover a split flock.
+There is no settled-state destination or arrival message. Existing six-landscape
+geometry, saves and full simulation traces remain protected.
+
+Carry forward Cloud's visual criticism: break up the distant mountain-foot
+line, vary tree groups and give foreground land a more specific character.
+The first Android views improved the open saddle and dry-shore readability but
+showed overly regular junipers and flat-looking water. Refine those specifically,
+without moving the shoreline or hiding actors behind more scenery. Lake motion
+can be restrained opaque shading; it is not a ray-traced reflection. Sparse
+environmental sound remains its separately tested system, with no additional HUD.
+Actual portrait play at both ends and two-person feedback remain necessary.

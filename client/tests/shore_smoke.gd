@@ -1,5 +1,5 @@
 extends SceneTree
-## Prototype-only geometry and shared server route checks; real Android still required.
+## Geometry and shared server route checks; real Android inspection is also required.
 
 const Navigation = preload("res://scripts/shore_navigation.gd")
 
@@ -219,8 +219,7 @@ func _menu_with_sound(game: Node) -> bool:
 	game._open_settings()
 	game.resume_button.show()
 	game.endpoint_input.show()
-	# Simulate the separate sound branch's single64px settings row, without
-	# copying sound implementation or changing this branch's production menu.
+	# Inspect the real merged settings row; never fabricate a passing control.
 	var server: Button
 	var sound: Button
 	for node in game.welcome.find_children("*", "Button", true, false):
@@ -228,25 +227,9 @@ func _menu_with_sound(game: Node) -> bool:
 			server = node
 		elif node.text.begins_with("Sound ·"):
 			sound = node
-	if server == null:
-		_fail("server settings button missing")
+	if server == null or sound == null or sound != game.sound_button or server.get_parent() != sound.get_parent():
+		_fail("real Sound/Server settings row missing")
 		return false
-	server.custom_minimum_size.y = 64
-	if sound == null:
-		var column := server.get_parent()
-		var index := server.get_index()
-		var row := HBoxContainer.new()
-		column.add_child(row)
-		column.move_child(row, index)
-		server.reparent(row)
-		server.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sound = Button.new()
-		sound.text = "Sound · on"
-		sound.flat = true
-		sound.add_theme_font_size_override("font_size", 17)
-		sound.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(sound)
-	sound.custom_minimum_size.y = 64
 	await process_frame
 	await process_frame
 	var viewport := Rect2(Vector2.ZERO, Vector2(720, 1280))
@@ -259,12 +242,12 @@ func _menu_with_sound(game: Node) -> bool:
 		return false
 	for control in [game.juniper_button, game.resume_button, game.endpoint_input, server, sound]:
 		if not control.is_visible_in_tree() or not viewport.encloses(control.get_global_rect()):
-			_fail("future merged settings control is clipped")
+			_fail("merged settings control is clipped")
 			return false
 	if minf(server.size.y, sound.size.y) < 64.0:
-		_fail("future merged settings targets are smaller than64px")
+		_fail("merged settings targets are smaller than64px")
 		return false
-	print("JUNIPER_MENU:7choices + saved Return + expanded endpoint + simulated64px Sound/Server row fit actual720x1280; card" + str(card.get_global_rect()))
+	print("JUNIPER_MENU:7choices + saved Return + expanded endpoint + real64px Sound/Server row fit actual720x1280; card" + str(card.get_global_rect()))
 	return true
 
 func _fail(message: String) -> void:
