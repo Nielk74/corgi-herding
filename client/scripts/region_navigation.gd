@@ -83,6 +83,11 @@ static func validate_geometry(value: Variant) -> Array[String]:
 			return ["Region corridor index outside anchor array"]
 		if edge.a != int(edge.a) or edge.b != int(edge.b) or edge.a == edge.b or not _number(edge.half_width) or edge.half_width <= 0 or edge.half_width > 64:
 			return ["Invalid region corridor index or width"]
+		var dx: float = value.anchors[int(edge.b)].x - value.anchors[int(edge.a)].x
+		var dy: float = value.anchors[int(edge.b)].y - value.anchors[int(edge.a)].y
+		var length_squared := _dot(dx, dy, dx, dy)
+		if length_squared == 0.0 or not is_finite(length_squared):
+			return ["Region corridor has unrepresentable squared length"]
 		var key := Vector2i(mini(edge.a, edge.b), maxi(edge.a, edge.b))
 		if edges.has(key):
 			return ["Duplicate or reversed region edge"]

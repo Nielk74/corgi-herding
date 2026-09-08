@@ -174,6 +174,12 @@ func _independent_contains(point: Vector2, data: Dictionary) -> bool:
 	return false
 
 func _validation(data: Dictionary) -> void:
+	var tiny := {"recipe_id": "small_squared_length", "bounds": {"min": {"x": -1.0, "y": -1.0}, "max": {"x": 1.0, "y": 1.0}}, "anchors": [{"x": 0.0, "y": 0.0}, {"x": 1e-200, "y": 0.0}], "corridors": [{"a": 0, "b": 1, "half_width": 0.25}], "clearings": []}
+	_check(tiny.anchors[0].x != tiny.anchors[1].x and Navigation._dot(1e-200, 0, 1e-200, 0) == 0, "Underflow fixture has distinct anchors but exactly zero computed length squared")
+	var rejected := Navigation.new(tiny)
+	_check(not rejected.valid and rejected.debug_state().cache_builds == 0, "Exact-zero squared length is rejected before nearest-point division/cache construction")
+	tiny.anchors[1].x = 1e-150
+	_check(Navigation.validate_geometry(tiny).is_empty(), "Positive representable tiny squared length is accepted; no geometric epsilon")
 	for value in [null, [], {}, {"recipe_id": "broken"}]:
 		_check(not Navigation.validate_geometry(value).is_empty() and not Navigation.new(value).valid, "Incomplete/non-object region rejected without falling back to default geometry")
 	for path in [["bounds"], ["bounds", "min"], ["anchors"], ["anchors", 0], ["anchors", 0, "x"], ["corridors"], ["corridors", 0], ["corridors", 0, "a"], ["corridors", 0, "half_width"], ["clearings"], ["clearings", 0], ["clearings", 0, "center"], ["clearings", 0, "radius"]]:
