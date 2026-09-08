@@ -441,6 +441,7 @@ func _set_busy(value: bool) -> void:
 
 func _on_herd_joined(code: String) -> void:
 	soundscape.invalidate_snapshot()
+	meadow.reset_player_follow()
 	_set_busy(false)
 	menu_error.text = ""
 	local_id = str(network.credentials.get("player_id", ""))
@@ -855,8 +856,10 @@ func _process(delta: float) -> void:
 	if command_panel.visible:
 		_update_context()
 	if actors.has(local_id) and hud.visible:
-		meadow.follow_player(actors[local_id].node.position)
+		meadow.follow_player(actors[local_id].node.position, moving and (network.connected or preview_mode))
 		soundscape.set_listener_position(actors[local_id].node.position)
+	else:
+		meadow.stop_player_follow()
 	if actors.has(selected_dog) and hud.visible and (command_panel.visible or go_pending):
 		meadow.selection.visible = true
 		meadow.place_marker(meadow.selection, actors[selected_dog].node.position)

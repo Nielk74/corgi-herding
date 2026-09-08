@@ -10,11 +10,15 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	# Startup may overwrite the physical size set in _initialize. Camera ray
+	# origins use that physical aspect, while unprojection uses the logical one.
+	root.size = Vector2i(720, 1280)
+	await process_frame
 	var game: Node = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
-	if root.get_visible_rect().size != Vector2(720, 1280):
-		_fail("layout checks must exercise an actual portrait logical viewport")
+	if root.size != Vector2i(720, 1280) or root.get_visible_rect().size != Vector2(720, 1280):
+		_fail("layout checks require matching actual physical and logical portrait viewports")
 		return
 	if game.network == null or game.meadow == null:
 		_fail("main scene dependencies did not initialize")

@@ -31,6 +31,9 @@ var vertex_material: StandardMaterial3D
 var camera_focus := Vector3(-4.0, 1.8, -6.0)
 var desired_focus := Vector3(-4.0, 1.8, -6.0)
 const CAMERA_OFFSET := Vector3(8, 28, 38)
+const FOLLOW_QUIET_HALF_WIDTH := 3.0
+var player_follow_initialized := false
+var following_walk := false
 const TERRAIN_HORIZON_DEPTH := 22.0
 var profile: ValleyTerrainProfile
 var layout: Dictionary = {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
@@ -231,11 +234,35 @@ func fit_camera() -> void:
 	# Preserve animal readability on phones; gentle horizontal following reveals the valley.
 	camera.size = maxf(32.0, 25.5 / aspect) * zoom
 
-func follow_player(pos: Vector3) -> void:
-	# A broad quiet center means petting and short walks never move the camera.
-	var offset := pos.x - desired_focus.x
-	if absf(offset) > 5.8:
-		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
+func reset_player_follow() -> void:
+	# A new herd gets one initial framing, not motion inherited from its predecessor.
+	player_follow_initialized = false
+	stop_player_follow()
+
+func stop_player_follow() -> void:
+	following_walk = false
+	desired_focus = camera_focus
+
+func follow_player(pos: Vector3, walking: bool = true) -> void:
+	if not pos.is_finite():
+		return
+	if not player_follow_initialized:
+		# Place an initially idle herder before displaying the first gameplay frame.
+		# Ordinary idle snapshots/reconciliation must never trigger this again.
+		player_follow_initialized = true
+		camera_focus.x = clampf(pos.x, -6.0, 6.0)
+		desired_focus = camera_focus
+	if not walking:
+		# No slow camera drift while the pair is resting or petting a dog.
+		stop_player_follow()
+		return
+	# Short walks inside the quiet center leave the view alone. Once a longer
+	# walk needs a pan, keep following through its reversal until the herder stops;
+	# otherwise the old wide deadzone strands the camera on the previous side.
+	if absf(pos.x - camera_focus.x) > FOLLOW_QUIET_HALF_WIDTH:
+		following_walk = true
+	if following_walk:
+		desired_focus.x = clampf(pos.x, -6.0, 6.0)
 
 func _build_land() -> void:
 	if landscape == "bellflower":
