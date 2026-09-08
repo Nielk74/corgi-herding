@@ -84,7 +84,7 @@ func newHerd(s savedHerd, log *slog.Logger) *herd {
 	h := &herd{events: make(chan event, 128), done: make(chan struct{}), stop: make(chan struct{}), log: log}
 	for i := range s.World.Players {
 		s.World.Players[i].Connected = false
-		if s.World.Layout.RockPass == nil && s.World.Layout.Ridge == nil && s.World.Layout.Shore == nil && s.World.Layout.Commons == nil {
+		if s.World.Layout.RockPass == nil && s.World.Layout.Ridge == nil && s.World.Layout.Shore == nil && s.World.Layout.Commons == nil && s.World.Layout.Region == nil {
 			s.World.Players[i].Target = s.World.Players[i].Position
 			if s.World.Players[i].State == "walking" {
 				s.World.Players[i].State = "idle"
@@ -199,7 +199,7 @@ func (h *herd) run(s savedHerd) {
 					delete(peers, e.id)
 					if p := s.World.Player(e.id); p != nil {
 						p.Connected = false
-						if s.World.Layout.RockPass == nil && s.World.Layout.Ridge == nil && s.World.Layout.Shore == nil && s.World.Layout.Commons == nil {
+						if s.World.Layout.RockPass == nil && s.World.Layout.Ridge == nil && s.World.Layout.Shore == nil && s.World.Layout.Commons == nil && s.World.Layout.Region == nil {
 							p.Target = p.Position
 							if p.State == "walking" {
 								p.State = "idle"
@@ -307,7 +307,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		status = "persistence_error"
 		code = http.StatusServiceUnavailable
 	}
-	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2, 3, 4, 5, 6}, "sessions": n})
+	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2, 3, 4, 5, 6, 7}, "sessions": n})
 }
 
 func (s *Server) allow(remote string) bool {
@@ -767,17 +767,17 @@ func (s *Server) load() error {
 			return err
 		}
 		for _, p := range saved.World.Players {
-			if len(saved.Secrets[p.ID]) != 64 || !p.Position.Valid() || !p.Target.Valid() {
+			if len(saved.Secrets[p.ID]) != 64 || !saved.World.ValidPoint(p.Position) || !saved.World.ValidPoint(p.Target) {
 				return errors.New("invalid saved herder")
 			}
 		}
 		for _, d := range saved.World.Dogs {
-			if !d.Position.Valid() || !d.Target.Valid() {
+			if !saved.World.ValidPoint(d.Position) || !saved.World.ValidPoint(d.Target) {
 				return errors.New("invalid saved corgi")
 			}
 		}
 		for _, a := range saved.World.Sheep {
-			if !a.Position.Valid() {
+			if !saved.World.ValidPoint(a.Position) {
 				return errors.New("invalid saved sheep")
 			}
 		}

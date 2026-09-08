@@ -10,18 +10,19 @@ import (
 const TickRate = 20
 
 const (
-	LandscapeAlpine     = "alpine"
-	LandscapeCactus     = "cactus"
-	LandscapeLarch      = "larch"
-	LandscapeOrchard    = "orchard"
-	LandscapeOasis      = "oasis"
-	LandscapeCloud      = "cloud"
-	LandscapeJuniper    = "juniper"
-	LandscapeBellflower = "bellflower"
+	LandscapeAlpine       = "alpine"
+	LandscapeCactus       = "cactus"
+	LandscapeLarch        = "larch"
+	LandscapeOrchard      = "orchard"
+	LandscapeOasis        = "oasis"
+	LandscapeCloud        = "cloud"
+	LandscapeJuniper      = "juniper"
+	LandscapeBellflower   = "bellflower"
+	LandscapeAlpineValley = "alpine_valley"
 )
 
 func ValidLandscape(landscape string) bool {
-	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch || landscape == LandscapeOrchard || landscape == LandscapeOasis || landscape == LandscapeCloud || landscape == LandscapeJuniper || landscape == LandscapeBellflower
+	return landscape == LandscapeAlpine || landscape == LandscapeCactus || landscape == LandscapeLarch || landscape == LandscapeOrchard || landscape == LandscapeOasis || landscape == LandscapeCloud || landscape == LandscapeJuniper || landscape == LandscapeBellflower || landscape == LandscapeAlpineValley
 }
 
 // Layout is immutable herd geometry. Version 1 retains the original bounds,
@@ -35,6 +36,7 @@ type Layout struct {
 	Ridge    *Ridge      `json:"ridge,omitempty"`
 	Shore    *Shore      `json:"shore,omitempty"`
 	Commons  *Commons    `json:"commons,omitempty"`
+	Region   *Region     `json:"region,omitempty"`
 }
 
 type RockPass struct {
@@ -69,7 +71,7 @@ func (l *Layout) Equal(other *Layout) bool {
 	} else if *l.RockPass != *other.RockPass {
 		return false
 	}
-	return l.Ridge.equal(other.Ridge) && l.Shore.equal(other.Shore) && l.Commons.equal(other.Commons)
+	return l.Ridge.equal(other.Ridge) && l.Shore.equal(other.Shore) && l.Commons.equal(other.Commons) && l.Region.equal(other.Region)
 }
 
 func LayoutForLandscape(landscape string) *Layout {
@@ -88,22 +90,32 @@ func LayoutForLandscape(landscape string) *Layout {
 		layout.Version, layout.Shore = 5, canonicalShore()
 	} else if landscape == LandscapeBellflower {
 		layout.Version, layout.Commons = 6, canonicalCommons()
+	} else if landscape == LandscapeAlpineValley {
+		layout.Version, layout.Region = 7, canonicalRegion()
 	}
 	return layout
 }
 
 func (w *World) ValidateLayout() error {
-	if w.Layout == nil || w.Layout.Version < 1 || w.Layout.Version > 6 {
+	if w.Layout == nil || w.Layout.Version < 1 || w.Layout.Version > 7 {
 		return errors.New("unsupported saved layout version")
 	}
 	if !ValidLandscape(w.Landscape) || !w.Layout.Equal(LayoutForLandscape(w.Landscape)) {
 		return errors.New("saved layout does not match its landscape version")
 	}
+	if w.Layout.Region != nil {
+		if err := w.Layout.Region.ValidateGeometry(); err != nil {
+			return err
+		}
+		if w.Layout.Region.graph == nil {
+			w.Layout.Region.graph = compileRegionGraph(*w.Layout.Region)
+		}
+	}
 	return nil
 }
 
 func (w *World) SupportsLayout(version int) bool {
-	return (version >= 1 && version <= 6 && w.Layout.Version <= version) || (version == 0 && w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
+	return (version >= 1 && version <= 7 && w.Layout.Version <= version) || (version == 0 && w.Layout.Version == 1 && w.Layout.BridgeY == 0 && w.Layout.GateY == 0)
 }
 
 type Vec2 struct {
@@ -204,7 +216,15 @@ func New(code string) *World {
 func NewForLandscape(code, landscape string) *World {
 	w := New(code)
 	w.Landscape, w.Layout = landscape, LayoutForLandscape(landscape)
-	if landscape == LandscapeJuniper {
+	if landscape == LandscapeAlpineValley {
+		w.Layout.Region.graph = compileRegionGraph(*w.Layout.Region)
+		for i, p := range []Vec2{{-47, 71.8}, {-44, 71.8}} {
+			w.Dogs[i].Position, w.Dogs[i].Target = p, p
+		}
+		for i := range w.Sheep {
+			w.Sheep[i].Position = Vec2{-44.7 + float64(i%3), 62.4 + float64(i/3)*1.05}
+		}
+	} else if landscape == LandscapeJuniper {
 		for i, p := range []Vec2{{-12.2, -1}, {-12.2, 2}} {
 			w.Dogs[i].Position, w.Dogs[i].Target = p, p
 		}
@@ -256,6 +276,9 @@ func (w *World) Clone() *World {
 			commons.Clearings = append([]Shelf(nil), commons.Clearings...)
 			layout.Commons = &commons
 		}
+		if w.Layout.Region != nil {
+			layout.Region = w.Layout.Region.clone()
+		}
 		n.Layout = &layout
 	}
 	n.Players = append([]Player{}, w.Players...)
@@ -281,7 +304,9 @@ func (w *World) AddPlayer(id, name string) error {
 		return errors.New("this herd already has two herders")
 	}
 	p := Vec2{-13, -1.5 + float64(len(w.Players))*3}
-	if w.Landscape == LandscapeJuniper {
+	if w.Landscape == LandscapeAlpineValley {
+		p = Vec2{-48 + float64(len(w.Players))*3, 74}
+	} else if w.Landscape == LandscapeJuniper {
 		p = Vec2{-14, float64(len(w.Players)) * 3}
 	} else if w.Landscape == LandscapeBellflower {
 		p = Vec2{-10, -1 + float64(len(w.Players))*3}
@@ -306,7 +331,7 @@ func (w *World) Apply(playerID string, in Input) error {
 	}
 	switch in.Type {
 	case "move":
-		if in.Seq == 0 || in.Target == nil || !in.Target.Valid() {
+		if in.Seq == 0 || in.Target == nil || !w.ValidPoint(*in.Target) {
 			return errors.New("move needs a positive sequence and a target inside the meadow")
 		}
 		if in.Seq <= p.Seq {
@@ -315,7 +340,7 @@ func (w *World) Apply(playerID string, in Input) error {
 		if !w.Walkable(*in.Target) {
 			return errors.New("choose somewhere on dry land")
 		}
-		if (w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil) && p.Target != *in.Target {
+		if (w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil || w.Layout.Region != nil) && p.Target != *in.Target {
 			p.Route = w.planRoute(p.Position, *in.Target)
 		}
 		p.Seq, p.Target, p.State = in.Seq, *in.Target, "walking"
@@ -337,7 +362,7 @@ func (w *World) Apply(playerID string, in Input) error {
 		case "stay":
 			d.Target = d.Position
 		case "go":
-			if in.Target == nil || !in.Target.Valid() || !w.Walkable(*in.Target) {
+			if in.Target == nil || !w.ValidPoint(*in.Target) || !w.Walkable(*in.Target) {
 				return errors.New("choose a dry-land destination for the corgi")
 			}
 			d.Target = *in.Target
@@ -345,7 +370,7 @@ func (w *World) Apply(playerID string, in Input) error {
 			return errors.New("unknown dog command")
 		}
 		d.Command, d.Caller, d.State = in.Command, playerID, in.Command
-		if w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil {
+		if w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil || w.Layout.Region != nil {
 			if in.Command == "stay" {
 				d.Route = nil
 			} else if oldTarget != d.Target {
@@ -355,7 +380,7 @@ func (w *World) Apply(playerID string, in Input) error {
 	case "interact":
 		switch in.Action {
 		case "gate":
-			if w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil {
+			if w.Layout.RockPass != nil || w.Layout.Ridge != nil || w.Layout.Shore != nil || w.Layout.Commons != nil || w.Layout.Region != nil {
 				return errors.New("there is no gate in this open pasture")
 			}
 			if p.Position.Sub(Vec2{6, w.Layout.GateY}).Len() > 3 {
@@ -394,6 +419,9 @@ func Walkable(p Vec2, gateOpen bool) bool {
 func (w *World) Walkable(p Vec2) bool { return walkable(p, w.GateOpen, *w.Layout) }
 
 func walkable(p Vec2, gateOpen bool, layout Layout) bool {
+	if layout.Region != nil {
+		return RegionWalkable(p, *layout.Region)
+	}
 	if !p.Valid() {
 		return false
 	}
@@ -441,6 +469,9 @@ func terrainStep(p, delta Vec2, gateOpen bool, layout Layout) Vec2 {
 }
 
 func terrainSegment(p, n Vec2, gateOpen bool, layout Layout) bool {
+	if layout.Region != nil {
+		return RegionVisible(p, n, *layout.Region)
+	}
 	if layout.Commons != nil {
 		return CommonsVisible(p, n, *layout.Commons)
 	}
@@ -617,7 +648,9 @@ func (w *World) stepSheep() {
 		} else if fear > 0.08 || velocity.Len() > 0.35 {
 			s.State = "walking"
 		}
-		if w.Layout.Commons != nil {
+		if w.Layout.Region != nil {
+			velocity = regionSheepSteering(p, velocity, fear, *w.Layout.Region)
+		} else if w.Layout.Commons != nil {
 			velocity = cloudSheepSteering(p, velocity, fear, w.Layout.Commons.shore().corridor())
 		} else if w.Layout.Shore != nil {
 			velocity = cloudSheepSteering(p, velocity, fear, w.Layout.Shore.corridor())
@@ -643,7 +676,12 @@ func (w *World) stepSheep() {
 				velocity.Y += (w.Layout.BridgeY - p.Y) * 0.8
 			}
 		}
-		if w.Layout.Commons != nil {
+		if w.Layout.Region != nil {
+			if fear == 0 && regionClearing(p, *w.Layout.Region) {
+				velocity = velocity.Mul(.28)
+				s.State = "grazing"
+			}
+		} else if w.Layout.Commons != nil {
 			if fear == 0 && ridgeShelf(p, w.Layout.Commons.shore().corridor()) {
 				velocity = velocity.Mul(.28)
 				s.State = "grazing"
@@ -688,7 +726,7 @@ func (w *World) stepSheep() {
 			if inShelf(s.Position, w.Layout.Ridge.Rest) {
 				w.Settled++
 			}
-		} else if w.Layout.Shore == nil && w.Layout.Commons == nil && s.Position.X > 8 {
+		} else if w.Layout.Shore == nil && w.Layout.Commons == nil && w.Layout.Region == nil && s.Position.X > 8 {
 			w.Settled++
 		}
 	}

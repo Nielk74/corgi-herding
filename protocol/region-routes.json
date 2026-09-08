@@ -1,0 +1,884 @@
+[
+  {
+    "name": "camp-to-anchor-1",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -25,
+      "y": 43
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-1-to-camp",
+    "from": {
+      "x": -25,
+      "y": 43
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-2",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -32,
+      "y": 16
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-2-to-camp",
+    "from": {
+      "x": -32,
+      "y": 16
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-3",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -8,
+      "y": -10
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-3-to-camp",
+    "from": {
+      "x": -8,
+      "y": -10
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-4",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 10,
+      "y": -40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-4-to-camp",
+    "from": {
+      "x": 10,
+      "y": -40
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-5",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 30,
+      "y": -63
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "anchor-5-to-camp",
+    "from": {
+      "x": 30,
+      "y": -63
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": false,
+    "route": [
+      1
+    ]
+  },
+  {
+    "name": "camp-to-anchor-6",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 44,
+      "y": -78
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-6-to-camp",
+    "from": {
+      "x": 44,
+      "y": -78
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-7",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -7,
+      "y": 60
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-7-to-camp",
+    "from": {
+      "x": -7,
+      "y": 60
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-8",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -50,
+      "y": 40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-8-to-camp",
+    "from": {
+      "x": -50,
+      "y": 40
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-9",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 4,
+      "y": 24
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-9-to-camp",
+    "from": {
+      "x": 4,
+      "y": 24
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-10",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -51,
+      "y": -10
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "anchor-10-to-camp",
+    "from": {
+      "x": -51,
+      "y": -10
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": false,
+    "route": [
+      0
+    ]
+  },
+  {
+    "name": "camp-to-anchor-11",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 19,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-11-to-camp",
+    "from": {
+      "x": 19,
+      "y": -6
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-12",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": -24,
+      "y": -40
+    },
+    "visible": false,
+    "route": [
+      8
+    ]
+  },
+  {
+    "name": "anchor-12-to-camp",
+    "from": {
+      "x": -24,
+      "y": -40
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": false,
+    "route": [
+      8
+    ]
+  },
+  {
+    "name": "camp-to-anchor-13",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 44,
+      "y": -36
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "anchor-13-to-camp",
+    "from": {
+      "x": 44,
+      "y": -36
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "camp-to-anchor-14",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 3,
+      "y": -68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-14-to-camp",
+    "from": {
+      "x": 3,
+      "y": -68
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "camp-to-anchor-15",
+    "from": {
+      "x": -48,
+      "y": 74
+    },
+    "target": {
+      "x": 34,
+      "y": 8
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-15-to-camp",
+    "from": {
+      "x": 34,
+      "y": 8
+    },
+    "target": {
+      "x": -48,
+      "y": 74
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-7-to-8",
+    "from": {
+      "x": -7,
+      "y": 60
+    },
+    "target": {
+      "x": -50,
+      "y": 40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-8-to-7",
+    "from": {
+      "x": -50,
+      "y": 40
+    },
+    "target": {
+      "x": -7,
+      "y": 60
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-9-to-10",
+    "from": {
+      "x": 4,
+      "y": 24
+    },
+    "target": {
+      "x": -51,
+      "y": -10
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "anchor-10-to-9",
+    "from": {
+      "x": -51,
+      "y": -10
+    },
+    "target": {
+      "x": 4,
+      "y": 24
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "anchor-11-to-12",
+    "from": {
+      "x": 19,
+      "y": -6
+    },
+    "target": {
+      "x": -24,
+      "y": -40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-12-to-11",
+    "from": {
+      "x": -24,
+      "y": -40
+    },
+    "target": {
+      "x": 19,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-13-to-14",
+    "from": {
+      "x": 44,
+      "y": -36
+    },
+    "target": {
+      "x": 3,
+      "y": -68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-14-to-13",
+    "from": {
+      "x": 3,
+      "y": -68
+    },
+    "target": {
+      "x": 44,
+      "y": -36
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-15-to-6",
+    "from": {
+      "x": 34,
+      "y": 8
+    },
+    "target": {
+      "x": 44,
+      "y": -78
+    },
+    "visible": false,
+    "route": [
+      11,
+      5
+    ]
+  },
+  {
+    "name": "anchor-6-to-15",
+    "from": {
+      "x": 44,
+      "y": -78
+    },
+    "target": {
+      "x": 34,
+      "y": 8
+    },
+    "visible": false,
+    "route": [
+      5,
+      11
+    ]
+  },
+  {
+    "name": "anchor-8-to-13",
+    "from": {
+      "x": -50,
+      "y": 40
+    },
+    "target": {
+      "x": 44,
+      "y": -36
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "anchor-13-to-8",
+    "from": {
+      "x": 44,
+      "y": -36
+    },
+    "target": {
+      "x": -50,
+      "y": 40
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "anchor-12-to-15",
+    "from": {
+      "x": -24,
+      "y": -40
+    },
+    "target": {
+      "x": 34,
+      "y": 8
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-15-to-12",
+    "from": {
+      "x": 34,
+      "y": 8
+    },
+    "target": {
+      "x": -24,
+      "y": -40
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-7-to-14",
+    "from": {
+      "x": -7,
+      "y": 60
+    },
+    "target": {
+      "x": 3,
+      "y": -68
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor-14-to-7",
+    "from": {
+      "x": 3,
+      "y": -68
+    },
+    "target": {
+      "x": -7,
+      "y": 60
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-0-out",
+    "from": {
+      "x": 44,
+      "y": -96
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "boundary-0-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": 44,
+      "y": -96
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "boundary-1-out",
+    "from": {
+      "x": 44,
+      "y": -95.999999
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "boundary-1-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": 44,
+      "y": -95.999999
+    },
+    "visible": false,
+    "route": [
+      4
+    ]
+  },
+  {
+    "name": "boundary-2-out",
+    "from": {
+      "x": -69,
+      "y": -10
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": [
+      10
+    ]
+  },
+  {
+    "name": "boundary-2-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": -69,
+      "y": -10
+    },
+    "visible": false,
+    "route": [
+      10
+    ]
+  },
+  {
+    "name": "boundary-3-out",
+    "from": {
+      "x": -68.999999,
+      "y": -10
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": [
+      10
+    ]
+  },
+  {
+    "name": "boundary-3-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": -68.999999,
+      "y": -10
+    },
+    "visible": false,
+    "route": [
+      10
+    ]
+  },
+  {
+    "name": "boundary-4-out",
+    "from": {
+      "x": -25,
+      "y": 61
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-4-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": -25,
+      "y": 61
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-5-out",
+    "from": {
+      "x": 1,
+      "y": 43
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-5-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": 1,
+      "y": 43
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-6-out",
+    "from": {
+      "x": -8,
+      "y": -32
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-6-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": -8,
+      "y": -32
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "boundary-7-out",
+    "from": {
+      "x": 34,
+      "y": 26
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": [
+      15
+    ]
+  },
+  {
+    "name": "boundary-7-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": 34,
+      "y": 26
+    },
+    "visible": false,
+    "route": [
+      15
+    ]
+  },
+  {
+    "name": "boundary-8-out",
+    "from": {
+      "x": 72,
+      "y": 96
+    },
+    "target": {
+      "x": -42,
+      "y": 64
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "boundary-8-back",
+    "from": {
+      "x": -42,
+      "y": 64
+    },
+    "target": {
+      "x": 72,
+      "y": 96
+    },
+    "visible": false,
+    "route": []
+  }
+]
