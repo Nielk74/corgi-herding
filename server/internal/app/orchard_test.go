@@ -20,7 +20,7 @@ func TestOrchardCapabilityRejectionPreservesCompatibleConnection(t *testing.T) {
 	if err := json.Unmarshal(post(t, h.URL+"/api/herds", `{"name":"Ada","landscape":"orchard"}`, http.StatusCreated), &a); err != nil {
 		t.Fatal(err)
 	}
-	for _, version := range []int{0, 1, 5, -1, 99} {
+	for _, version := range []int{0, 1, 6, -1, 99} {
 		expectUpdateRequired(t, connectVersion(t, h.URL, a, &version))
 		if s.find(a.Code).state.Load().World.Player(a.PlayerID).Connected {
 			t.Fatal("unsupported client entered Orchard")

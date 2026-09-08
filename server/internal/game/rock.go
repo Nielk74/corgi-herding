@@ -84,6 +84,9 @@ func RockRoute(from, target Vec2, rock RockPass) []Vec2 {
 }
 
 func (w *World) moveWithRoute(p, target Vec2, speed float64, route *[]Vec2) Vec2 {
+	if w.Layout.Shore != nil {
+		return w.moveOnShore(p, target, speed, route)
+	}
 	if w.Layout.Ridge != nil {
 		return w.moveOnRidge(p, target, speed, route)
 	}
@@ -142,6 +145,9 @@ func rockSheepSteering(p, velocity Vec2, fear float64, rock RockPass) Vec2 {
 // ValidateNavigation runs before actors start. Version1/2 saves must not acquire
 // route fields; v3 queues contain only unique canonical anchors and safe segments.
 func (w *World) ValidateNavigation() error {
+	if w.Layout.Shore != nil {
+		return w.validateShoreNavigation()
+	}
 	if w.Layout.Ridge != nil {
 		return w.validateCloudNavigation()
 	}

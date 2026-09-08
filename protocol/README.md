@@ -3,7 +3,7 @@
 The Go server owns a 20 Hz simulation on an X/Y plane; Godot maps Y to Z.
 HTTP base is user configurable (default http://127.0.0.1:8790).
 
-`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4],sessions}`.
+`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3,4,5],sessions}`.
 The singular capability deliberately remains 1 so existing clients can still
 visit their version 1 herds. New clients choose the highest known advertised
 `layout_versions` entry, falling back to the singular field on older servers.
@@ -11,7 +11,7 @@ Clients can probe this before authentication: older servers omit `layout_version
 and strictly reject unknown auth fields, so omit the capability when connecting
 to those servers. Never discard saved credentials merely because a server has
 not yet upgraded to support layout negotiation.
-`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"}` creates a two-person herd and returns
+`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"|"cloud"|"juniper"}` creates a two-person herd and returns
 `{code,player_id,token}`. `POST /api/herds/{code}/join` with `{name:string}`
 returns the same fields for the second player. Save these credentials locally.
 No third member is accepted. Names are limited to 24 characters.
@@ -30,6 +30,7 @@ herd has an immutable layout included in every snapshot:
 | `orchard` | 2 | 3 | 2 |
 | `oasis` | 3 | unused (0) | unused (0) |
 | `cloud` | 4 | unused (0) | unused (0) |
+| `juniper` | 5 | unused (0) | unused (0) |
 
 Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 
@@ -57,15 +58,26 @@ shelves. It has no playable river, fence, gate, rock obstacle or forage zone:
 Only Cloud includes `ridge`. Its ordered spine, shelf disks and rest disk are
 immutable canonical data, not editable navigation hints.
 
+Juniper Shore is a gentle dry crescent around a lake, with three quiet clearings.
+It has no gate, bridge, fence, rock obstacle, forage or rest/finish region:
+
+```json
+{"version":5,"bridge_y":0,"gate_y":0,"shore":{"path":[{"x":-11,"y":2},{"x":-8,"y":-3},{"x":-3,"y":-6},{"x":4,"y":-6},{"x":9,"y":-2},{"x":11,"y":4}],"half_width":3.6,"clearings":[{"center":{"x":-11,"y":2},"radius":5.2},{"center":{"x":-1,"y":-6},"radius":4.5},{"center":{"x":11,"y":4},"radius":4.8}],"lake_side":"left"}}
+```
+
+Only Juniper includes `shore`. `lake_side` describes presentation to the left of
+the ordered path, not additional collision. `settled` always remains 0 here.
+
 Connect `GET /api/herds/{code}/ws` (WebSocket, no credentials in URL), then send
-`{type:"auth",player_id,token,layout_version:4}` within 5 seconds when the server
-advertises version 4. Server replies with snapshots.
+`{type:"auth",player_id,token,layout_version:5}` within 5 seconds when the server
+advertises version 5 and the client implements it. Server replies with snapshots.
 Reconnection uses the same credentials; players remain in the herd. A replacement
 connection supersedes the old connection. Never expose tokens in snapshots/logs.
 Omitted/zero `layout_version` is legacy support for centered Alpine/Cactus
 layouts only. Capability 1 accepts all version 1 layouts; capability 2 accepts
 versions 1 and 2; capability 3 accepts versions 1, 2 and 3; capability 4 accepts
-versions 1 through 4. Authenticated clients lacking support for their herd's layout
+versions 1 through 4; capability 5 accepts versions 1 through 5.
+Authenticated clients lacking support for their herd's layout
 or sending an unknown capability receive `{type:"error",code:"update_required",message:...}`
 followed by WebSocket close 4002, before they receive a snapshot or replace an
 existing connection. Clients must preserve credentials and offer an update;
@@ -188,6 +200,43 @@ not follow the graph or automatically travel uphill. Without fear they slow to
 grazing on any shelf. The separate `rest` disk only defines the internal `settled`
 count, not an attraction force or visible score. Ordinary dog positioning can
 bring the same ten sheep uphill, downhill, or reunite a separated flock.
+
+### Juniper Shore navigation
+
+Version 5 uses the same analytic closed capsule/disk union math as Cloud:
+capsules join adjacent `shore.path` anchors, with radius `half_width`, and union
+with `clearings`; intersect this union with the unchanged world bounds. Every
+full actor segment must remain inside dry ground. In particular both end clearings
+are reachable, but their direct chord crosses the lake and is forbidden. Do not
+turn the unused bridge/gate fields into obstacles or relax a shoreline boundary.
+
+The graph has eight nodes: six path anchors in their exact order, start index 6,
+target index 7. Dijkstra retains the existing double-scalar `1e-9` tie rules.
+Queues contain at most six unique canonical anchors, never the final target.
+Use the same `0.08` arrival, direct-visibility clearing, repeated-target retention,
+changed-command replanning, and moving-Come-caller rules as Cloud. All six anchors
+may be retained if their segments are safe, though shortest routes often need fewer.
+[32 shared fixtures](shore-routes.json) include both directions, duplicate anchor
+ties, longer lake detours, near-boundary cases, and invalid lake endpoints.
+
+New Juniper herders start at `(-14,0)` and `(-14,3)`, Mochi/Maple at
+`(-12.2,-1)` and `(-12.2,2)`. Sheep index `i=0..9`, preserving IDs `s1..s10`,
+starts at `(-10.7+i%3, -0.4+floor(i/3)*1.05)`. These spawns are only for new
+Juniper worlds; loading a checkpoint never resets actors. The two humans and
+both dogs retain speeds 4 and 4.6 units/s; sheep remain capped at 2.6 units/s.
+
+Sheep use local edge avoidance and pressure-driven tangent steering, not graph
+routes or destination attraction. Without dog fear, all three clearings permit
+quiet grazing. Ordinary dog positioning can guide the same flock outward and
+back, or retrieve stragglers after a genuine split. There is no settling objective.
+
+Disconnect/restart pauses and preserves herder targets, sequences, and routes.
+Snapshots/checkpoints deep-clone canonical path and clearing arrays. Missing or
+changed v5 geometry, actors in water/outside bounds, unsafe/noncanonical/duplicate
+or overlong queues, phantom gates, and nonzero `settled` reject the complete
+checkpoint before actors start or files are overwritten. Old layout migrations
+and v1–4 simulation behavior remain unchanged. Old clients may keep using their
+existing worlds; only clients with advertised/implemented capability 5 enter Juniper.
 
 Older checkpoints without a landscape field load as `alpine`; existing Alpine
 and Cactus saves without a layout migrate to centered version 1 without changing

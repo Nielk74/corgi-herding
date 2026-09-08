@@ -232,6 +232,9 @@ func CloudRoute(from, target Vec2, ridge Ridge) []Vec2 {
 }
 
 func (w *World) planRoute(from, target Vec2) []Vec2 {
+	if w.Layout.Shore != nil {
+		return ShoreRoute(from, target, *w.Layout.Shore)
+	}
 	if w.Layout.Ridge != nil {
 		return CloudRoute(from, target, *w.Layout.Ridge)
 	}

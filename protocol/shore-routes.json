@@ -1,0 +1,448 @@
+[
+  {
+    "name": "clearing_centers_0",
+    "from": {
+      "x": -11,
+      "y": 2
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "clearing_centers_1",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -11,
+      "y": 2
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "normal_herder_to_east_0",
+    "from": {
+      "x": -14,
+      "y": 0
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "normal_herder_to_east_1",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -14,
+      "y": 0
+    },
+    "visible": false,
+    "route": [
+      3
+    ]
+  },
+  {
+    "name": "outer_clearing_edges_0",
+    "from": {
+      "x": -16.1,
+      "y": 2
+    },
+    "target": {
+      "x": 15.7,
+      "y": 4
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "outer_clearing_edges_1",
+    "from": {
+      "x": 15.7,
+      "y": 4
+    },
+    "target": {
+      "x": -16.1,
+      "y": 2
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "north_lake_detour_0",
+    "from": {
+      "x": -11,
+      "y": 7.1
+    },
+    "target": {
+      "x": 11,
+      "y": 8.7
+    },
+    "visible": false,
+    "route": [
+      0,
+      3
+    ]
+  },
+  {
+    "name": "north_lake_detour_1",
+    "from": {
+      "x": 11,
+      "y": 8.7
+    },
+    "target": {
+      "x": -11,
+      "y": 7.1
+    },
+    "visible": false,
+    "route": [
+      3,
+      0
+    ]
+  },
+  {
+    "name": "west_to_middle_0",
+    "from": {
+      "x": -11,
+      "y": 2
+    },
+    "target": {
+      "x": -1,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "west_to_middle_1",
+    "from": {
+      "x": -1,
+      "y": -6
+    },
+    "target": {
+      "x": -11,
+      "y": 2
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "middle_to_east_0",
+    "from": {
+      "x": -1,
+      "y": -6
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "middle_to_east_1",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": -1,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor_tie_west_east_0",
+    "from": {
+      "x": -8,
+      "y": -3
+    },
+    "target": {
+      "x": 9,
+      "y": -2
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "anchor_tie_west_east_1",
+    "from": {
+      "x": 9,
+      "y": -2
+    },
+    "target": {
+      "x": -8,
+      "y": -3
+    },
+    "visible": false,
+    "route": [
+      2
+    ]
+  },
+  {
+    "name": "anchor_tie_inner_0",
+    "from": {
+      "x": -3,
+      "y": -6
+    },
+    "target": {
+      "x": 4,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "anchor_tie_inner_1",
+    "from": {
+      "x": 4,
+      "y": -6
+    },
+    "target": {
+      "x": -3,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_capsule_inner_0",
+    "from": {
+      "x": -3,
+      "y": -2.400001
+    },
+    "target": {
+      "x": 4,
+      "y": -2.400001
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_capsule_inner_1",
+    "from": {
+      "x": 4,
+      "y": -2.400001
+    },
+    "target": {
+      "x": -3,
+      "y": -2.400001
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_capsule_outer_0",
+    "from": {
+      "x": -3,
+      "y": -9.599999
+    },
+    "target": {
+      "x": 4,
+      "y": -9.599999
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_capsule_outer_1",
+    "from": {
+      "x": 4,
+      "y": -9.599999
+    },
+    "target": {
+      "x": -3,
+      "y": -9.599999
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_start_circle_0",
+    "from": {
+      "x": -16.199999,
+      "y": 2
+    },
+    "target": {
+      "x": -8,
+      "y": -3
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_start_circle_1",
+    "from": {
+      "x": -8,
+      "y": -3
+    },
+    "target": {
+      "x": -16.199999,
+      "y": 2
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_end_circle_0",
+    "from": {
+      "x": 15.799999,
+      "y": 4
+    },
+    "target": {
+      "x": 4,
+      "y": -6
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "near_end_circle_1",
+    "from": {
+      "x": 4,
+      "y": -6
+    },
+    "target": {
+      "x": 15.799999,
+      "y": 4
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "lake_endpoints_0",
+    "from": {
+      "x": -7.5,
+      "y": 5
+    },
+    "target": {
+      "x": 7.5,
+      "y": 7
+    },
+    "visible": false,
+    "route": [
+      1,
+      2,
+      4
+    ]
+  },
+  {
+    "name": "lake_endpoints_1",
+    "from": {
+      "x": 7.5,
+      "y": 7
+    },
+    "target": {
+      "x": -7.5,
+      "y": 5
+    },
+    "visible": false,
+    "route": [
+      4,
+      2,
+      1
+    ]
+  },
+  {
+    "name": "opposite_lower_edges_0",
+    "from": {
+      "x": -6,
+      "y": -8
+    },
+    "target": {
+      "x": 7,
+      "y": -7
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "opposite_lower_edges_1",
+    "from": {
+      "x": 7,
+      "y": -7
+    },
+    "target": {
+      "x": -6,
+      "y": -8
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "same_anchor_0",
+    "from": {
+      "x": -8,
+      "y": -3
+    },
+    "target": {
+      "x": -8,
+      "y": -3
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "same_anchor_1",
+    "from": {
+      "x": -8,
+      "y": -3
+    },
+    "target": {
+      "x": -8,
+      "y": -3
+    },
+    "visible": true,
+    "route": []
+  },
+  {
+    "name": "invalid_lake_0",
+    "from": {
+      "x": 0,
+      "y": 2
+    },
+    "target": {
+      "x": 11,
+      "y": 4
+    },
+    "visible": false,
+    "route": []
+  },
+  {
+    "name": "invalid_lake_1",
+    "from": {
+      "x": 11,
+      "y": 4
+    },
+    "target": {
+      "x": 0,
+      "y": 2
+    },
+    "visible": false,
+    "route": []
+  }
+]

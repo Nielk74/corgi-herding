@@ -74,3 +74,37 @@ No rounding or quantization is used. The same narrowly scoped 1e-12 coordinate
 comparator and negative controls as Orchard apply; route anchor coordinates
 remain exact, with additional negative controls rejecting tiny anchor changes,
 removed queues or an unexpected ridge field. Tests never regenerate references.
+
+# Pre-Juniper Cloud compatibility reference
+
+`pre-juniper-cloud.jsonl.gz.b64` holds all 700 unrounded snapshots from
+`applyCloudTraceTick`, captured before the Juniper implementation from commit
+`9bf12b0`. It exercises both herders/dogs, outward/return destinations, moving
+Come callers, Go/Stay/Sit, and a disconnected herder whose retained route pauses.
+The exact pre-change source blobs were:
+
+- `world.go`: `cf860db0572a08bc53f33f456cd73dceb1ca2db5`
+- `cloud.go`: `bce04f383e51d5d9119f1e824b3e0c55881344e8`
+- `rock.go`: `70f1100b0a03c2611b3ef9af00cb8febf1b65788`
+- `forage.go`: `ccb9fe25591a3c8409f5b11a9feb2764594f6bca`
+
+With Go 1.26.7, the unchanged source was compiled/captured before editing the
+simulation. The Juniper implementation subsequently produced byte-identical
+complete JSONL independently on darwin/arm64 and linux/amd64. Linux test binaries
+were cross-compiled with CGO disabled and executed in existing Docker amd64
+emulation with GOMAXPROCS=1, GOGC=off, GODEBUG=asyncpreemptoff=1.
+
+Uncompressed linux/amd64 reference SHA-256 (pinned by the test):
+
+`b0f11dbe927632631266a844ba27de4bcedef88104fd49e4a37c35301cb82fb4`
+
+The darwin/arm64 equivalent was
+`ce769897b7c6738d8f0c6f2708b3f4eac37ebb2d3d7d2e10a1cab95e985e4bb9`.
+Maximum cross-architecture coordinate difference was `2.4868995751603507e-13`
+at tick 448, sheep s4 velocity.x. All discrete fields and structure matched.
+The existing comparator permits only actor coordinates an absolute error of
+1e-12; route anchors, geometry (including the old rest disk), state, sequence,
+ticks, and field presence remain exact. No rounding or signed-zero hash workaround
+is used. Twelve additional negative controls demonstrate rejection of altered
+routes/geometry/behavior and coordinates outside the bound. Tests only read this
+compressed reference; capture helpers are not part of the source or test suite.
