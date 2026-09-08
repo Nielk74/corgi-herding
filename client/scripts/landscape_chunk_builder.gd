@@ -6,6 +6,7 @@ var recipe: RefCounted
 var terrain_material: StandardMaterial3D
 var textured := false
 var paint_trail := false
+var scree: RefCounted
 var grass_material: ShaderMaterial
 var grass_mesh: ArrayMesh
 
@@ -54,6 +55,8 @@ func build_chunk(key: Vector2i) -> MeshInstance3D:
 			# not by decoding/re-encoding compressed mesh normals after the fact.
 			if paint_trail:
 				color.a = 1.0 - recipe.trail_wear(Vector2(wx, wz))
+			if scree != null:
+				color = scree.encode(color, scree.mask(Vector2(wx, wz)))
 			colors.append(color)
 			uv.append(Vector2(wx, wz) * 0.25)
 			# Unique nonoverlapping atlas per chunk, ready for a later real bake.

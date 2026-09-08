@@ -67,6 +67,7 @@ jobs:
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/practice_guide_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_nav_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_recipe_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_scree_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_render_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_backdrop_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_props_smoke.gd
@@ -104,6 +105,7 @@ jobs:
           node tools/build-landscapes.mjs --check
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/prepared_landscape_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_trail_smoke.gd
+          bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/landscape_scree_render_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_presentation_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/region_actor_smoke.gd
           bash tools/run-godot-check.sh "$RUNNER_TEMP/godot/godot" --headless --path client --script res://tests/valley_life_smoke.gd

@@ -168,7 +168,7 @@ Guide UI has passed its focused checks. Nonconflicting herder walking/sitting
 and other-dog commands no longer discard a pending selected-dog lesson. A
 replacement command to that dog, selection change or closed connection epoch
 still invalidates the pending observation. New large-world gameplay is still
-being integrated and tested on Android.
+being tested on Android; it is not yet a verified public release.
 
 The first integrated signed Android candidate has now created a real v7 herd
 on an isolated Go server. An ordinary second peer appears in the same world.
@@ -183,6 +183,28 @@ The native Practice guide independently advanced through walking, dog selection
 and Come. Its initial instruction and contextual menu both fit the portrait
 frame. A wording gap after Come was found during that test: the controls close,
 so the next Stay instruction now explicitly says to tap the dog again.
+
+The same Android herd subsequently completed Stay, valid Go placement, observed
+sheep pressure, withdrawal with Come, and sitting. No Skip was used. The guide
+disappeared after the server reported sitting and stayed hidden after reinstall
+and Return. One failed drag revealed an important boundary problem: the finger
+landed about 0.19 units outside the legal clearing, on apparently ordinary grass.
+Collision correctly rejected it, but the silent result was confusing. A focused
+follow-up adds a two-second explanation only after an intentional invalid-ground
+drag; ordinary taps and UI/lifecycle cancellations stay silent. Neither this
+message nor scenic material changes enlarge the walking area.
+
+The follow-up private APK displayed that explanation during a recorded native
+drag. Moving the release point to nearby legal grass instead sent an ordinary
+Go; Mochi arrived while the herder retained its sitting state, position and
+accepted movement sequence. A separate Alpine view uses six sparse, broken
+scree patches outside selected clearing edges. They are material hints, not a
+complete boundary fence. Their inverse-red vertex mask preserves terrain,
+normals, trail alpha, vegetation, draw batches and saved mesh channels. A clean
+gap prevents interpolated paint leaking onto legal ground. Cactus and distant
+default-white meshes do not acquire the mask. Broad rotated stone sampling
+reduces the most conspicuous distant tiling, but the current grass remains too
+mottled and the pines too rigid; neither change establishes finished realism.
 
 The new camera uses the actual prepared triangles for grounding and picking,
 including a binary64 ray/triangle predicate to avoid a float32 miss at an exact

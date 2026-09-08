@@ -44,6 +44,7 @@ const sources = [
   'client/scripts/landscape_recipe.gd', 'client/scripts/strict_region_validator.gd',
   'client/scripts/landscape_chunk_builder.gd', 'client/scripts/landscape_backdrop.gd',
   'client/scripts/landscape_props.gd', 'client/scripts/landscape_scene_builder.gd',
+  'client/scripts/landscape_scree.gd', 'client/scripts/region_navigation.gd',
   'client/shaders/meadow_grass.gdshader', 'client/shaders/landscape_surface.gdshader',
   'client/tools/build_landscape.gd', 'tools/build-landscapes.mjs',
   'client/assets/materials/manifest.json',

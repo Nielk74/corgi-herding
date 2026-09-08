@@ -10,6 +10,7 @@ uniform sampler2D rock_roughness : filter_linear_mipmap, repeat_enable;
 uniform vec3 ground_tint : source_color = vec3(0.78, 1.0, 0.72);
 uniform vec3 stone_tint : source_color = vec3(0.88, 0.91, 0.93);
 uniform bool snow_enabled = true;
+uniform bool scree_enabled = false;
 varying vec3 world_position;
 varying vec3 world_normal;
 
@@ -38,12 +39,20 @@ void fragment() {
 	float macro = soft_noise(p * 0.025);
 	vec3 grass = mix(texture(ground_albedo, p * 0.24).rgb, texture(ground_albedo, rotated * 0.071 + vec2(11.3, 7.8)).rgb, 0.42);
 	grass *= ground_tint * mix(0.83, 1.12, macro);
-	vec3 stone = triplanar_color(rock_albedo, world_position * 0.15, weights) * stone_tint;
+	// Broad, rotated strata break the visible grid of one repeated rock tile.
+	// Retain fine detail nearby, fading its normal strength into distant haze.
+	vec3 broad_position = vec3(rotated.x, world_position.y, rotated.y);
+	float view_distance = distance(world_position, INV_VIEW_MATRIX[3].xyz);
+	float distant = smoothstep(70.0, 230.0, view_distance);
+	vec3 fine_stone = triplanar_color(rock_albedo, world_position * 0.15, weights);
+	vec3 broad_stone = triplanar_color(rock_albedo, broad_position * 0.043 + vec3(7.1, 3.6, 11.4), weights);
+	vec3 stone = mix(broad_stone, fine_stone, mix(0.65, 0.25, distant)) * stone_tint;
 	float rock = smoothstep(0.15, 0.42, 1.0 - n.y + (macro - 0.5) * 0.08);
 	// The alpine vegetation line follows elevation and broken local exposure,
 	// rather than leaving bright grass on every upward-facing summit triangle.
 	float alpine_rock = snow_enabled ? smoothstep(42.0, 66.0, world_position.y + macro * 12.0) : 0.0;
 	rock = max(rock, alpine_rock);
+	rock = max(rock, scree_enabled ? clamp(1.0 - COLOR.r, 0.0, 1.0) : 0.0);
 	ALBEDO = mix(grass, stone, rock);
 	float wear = clamp(1.0 - COLOR.a, 0.0, 1.0);
 	vec3 tread = mix(vec3(0.28, 0.23, 0.16), stone * vec3(0.75, 0.68, 0.55), 0.55);
@@ -58,7 +67,7 @@ void fragment() {
 	vec2 by = texture(rock_normal, world_position.xz * 0.15).rg * 2.0 - 1.0;
 	vec2 bz = texture(rock_normal, world_position.xy * 0.15).rg * 2.0 - 1.0;
 	vec3 rock_bump = vec3(0.0, bx.y, bx.x) * weights.x + vec3(by.x, 0.0, by.y) * weights.y + vec3(bz.x, bz.y, 0.0) * weights.z;
-	vec3 bump = mix(vec3(grass_bump.x, 0.0, grass_bump.y), rock_bump, rock) * 0.22;
+	vec3 bump = mix(vec3(grass_bump.x, 0.0, grass_bump.y), rock_bump, rock) * 0.22 * (1.0 - rock * distant * 0.7);
 	bump -= n * dot(bump, n);
 	float snow_breakup = soft_noise(p * 0.095 + vec2(21.7, 4.3));
 	float snow = snow_enabled ? smoothstep(63.0, 85.0, world_position.y + macro * 12.0 + snow_breakup * 5.0) * smoothstep(0.26, 0.66, n.y) : 0.0;

@@ -4,6 +4,8 @@ extends RefCounted
 const Chunks = preload("res://scripts/landscape_chunk_builder.gd")
 const Backdrop = preload("res://scripts/landscape_backdrop.gd")
 const Props = preload("res://scripts/landscape_props.gd")
+const Scree = preload("res://scripts/landscape_scree.gd")
+const Navigation = preload("res://scripts/region_navigation.gd")
 var profile: RefCounted
 
 func _init(recipe: RefCounted) -> void:
@@ -11,10 +13,16 @@ func _init(recipe: RefCounted) -> void:
 
 func build() -> Node3D:
 	var chunks := Chunks.new(profile, true, true)
+	if profile.data.biome == "alpine" and profile.data.has("region_file"):
+		var region: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(profile.data.region_file))
+		var navigation := Navigation.new(region)
+		if navigation.valid:
+			chunks.scree = Scree.new(navigation)
 	var world := chunks.build_scene(true)
 	world.set_meta("full_visual_scene", true)
 	world.set_meta("source_recipe", profile.data.duplicate(true))
 	var backdrop := Backdrop.new(profile)
+	backdrop.surface_material.set_shader_parameter("scree_enabled", chunks.scree != null)
 	var props := Props.new(profile, true)
 	var keys: Array[Vector2i] = profile.chunk_keys()
 	var prop_triangles := 0
