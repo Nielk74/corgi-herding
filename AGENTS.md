@@ -19,6 +19,11 @@ Keep partial/completed feeding in checkpoints; neither interruption nor reconnec
 may reset it. Waiting is a valid solution. Communicate with animal posture, not
 snack meters, chores or extra permanent controls. Inspect real portrait captures
 at both camera-follow extremes before accepting a new landscape composition.
+Oasis v3 has a solid rock footprint and two dry paths, with no phantom river,
+gate or fence. Keep retained navigation in snapshots/checkpoints, and rebase
+lost predicted inputs on the first snapshot after reconnect without repeating
+arrival messages. Graph math uses double scalars and shared Go/Godot fixtures.
+Any float32 boundary correction is presentation-only; never relax collision.
 
 The Go server is authoritative at 20 Hz. The Godot client owns presentation,
 interpolation and immediate movement feedback. Keep protocol/README.md in sync.

@@ -3,7 +3,7 @@
 The Go server owns a 20 Hz simulation on an X/Y plane; Godot maps Y to Z.
 HTTP base is user configurable (default http://127.0.0.1:8790).
 
-`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2],sessions}`.
+`GET /healthz` returns `{status,version,protocol:1,layout_version:1,layout_versions:[1,2,3],sessions}`.
 The singular capability deliberately remains 1 so existing clients can still
 visit their version 1 herds. New clients choose the highest known advertised
 `layout_versions` entry, falling back to the singular field on older servers.
@@ -11,7 +11,7 @@ Clients can probe this before authentication: older servers omit `layout_version
 and strictly reject unknown auth fields, so omit the capability when connecting
 to those servers. Never discard saved credentials merely because a server has
 not yet upgraded to support layout negotiation.
-`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"}` creates a two-person herd and returns
+`POST /api/herds` with `{name:string,landscape?:"alpine"|"cactus"|"larch"|"orchard"|"oasis"}` creates a two-person herd and returns
 `{code,player_id,token}`. `POST /api/herds/{code}/join` with `{name:string}`
 returns the same fields for the second player. Save these credentials locally.
 No third member is accepted. Names are limited to 24 characters.
@@ -28,6 +28,7 @@ herd has an immutable layout included in every snapshot:
 | `cactus` | 1 | 0 | 0 |
 | `larch` | 1 | -4 | 4 |
 | `orchard` | 2 | 3 | 2 |
+| `oasis` | 3 | unused (0) | unused (0) |
 
 Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 
@@ -35,14 +36,24 @@ Sunward Orchard adds an immutable forage zone; other layouts omit `forage`:
 {"version":2,"bridge_y":3,"gate_y":2,"forage":{"id":"windfall","center":{"x":-7,"y":-5},"radius":2.2}}
 ```
 
+Canyon Oasis replaces the playable river and fence with one impassable rock.
+Its legacy zero-valued bridge/gate fields are unused, not hidden obstacles:
+
+```json
+{"version":3,"bridge_y":0,"gate_y":0,"rock_pass":{"center":{"x":0,"y":0},"radius":3.4}}
+```
+
+Only Oasis includes `rock_pass`. It has no gate or forage zone. `interact/gate`
+returns a recoverable no-gate error and must not appear in its contextual UI.
+
 Connect `GET /api/herds/{code}/ws` (WebSocket, no credentials in URL), then send
-`{type:"auth",player_id,token,layout_version:2}` within 5 seconds when the server
-advertises version 2. Server replies with snapshots.
+`{type:"auth",player_id,token,layout_version:3}` within 5 seconds when the server
+advertises version 3. Server replies with snapshots.
 Reconnection uses the same credentials; players remain in the herd. A replacement
 connection supersedes the old connection. Never expose tokens in snapshots/logs.
 Omitted/zero `layout_version` is legacy support for centered Alpine/Cactus
 layouts only. Capability 1 accepts all version 1 layouts; capability 2 accepts
-versions 1 and 2. Authenticated clients lacking support for their herd's layout
+versions 1 and 2; capability 3 accepts versions 1, 2 and 3. Authenticated clients lacking support for their herd's layout
 or sending an unknown capability receive `{type:"error",code:"update_required",message:...}`
 followed by WebSocket close 4002, before they receive a snapshot or replace an
 existing connection. Clients must preserve credentials and offer an update;
@@ -88,7 +99,7 @@ also prevents calm feeding. Progress pauses rather than resetting. Once finished
 Assignment, partial progress and satiation survive reconnects and checkpoints.
 Sheep may always be guided away by either shared dog; waiting is optional.
 
-World bounds: X [-17,17], Y [-11,11]. River occupies X [-1.5,1.5],
+World bounds: X [-17,17], Y [-11,11]. In versions 1 and 2 the river occupies X [-1.5,1.5],
 crossable only where `abs(y-layout.bridge_y) <= 1.85`. Fence collision occupies
 `abs(x-6) < 0.18`; its opening is passable only when `gate_open` and
 `abs(y-layout.gate_y) <= 1.8`. Gate interaction requires a player within
@@ -97,10 +108,46 @@ Player speed 4 units/s. Two dogs and ten sheep. Shared dog control.
 Player and dog paths visit the bridge then gate when travelling east; returning
 from the pasture visits the gate before the bridge. Both clients must use the
 snapshot layout for prediction, interaction picking, and terrain presentation.
+
+### Oasis navigation
+
+Version 3 is walkable outside the rock's radius 3.4 and inside the unchanged
+bounds. Every movement substep, at most 0.08 units, checks the entire segment
+against the circle as well as its destination. Line of sight uses squared
+nearest-point distance `>= radius * radius`, without a collision-relaxing epsilon.
+The same rules apply to all actors. Sheep locally redirect inward movement around
+the rock under pressure; there is no autonomous attraction to the east pasture.
+
+Herders and dogs retain an optional `route:[{x,y},...]` of remaining anchors,
+omitted when empty and always omitted on version-1/2 worlds. The final destination
+remains in `target`, not in the queue. Eight version-defined anchors have order
+E, NE, N, NW, W, SW, S, SE. Axis coordinates are `5.2` and `-5.2`; diagonal
+coordinates are `3.676955262170047` and its negative. They are centered on the rock.
+
+Planning uses those eight anchors plus start node 8 and target node 9, with
+visible segments weighted by Euclidean distance. Dijkstra visits the lowest-index
+node on ties within `1e-9`; it relaxes an edge only when the candidate is less
+than the existing distance minus `1e-9`. [Shared planner fixtures](rock-routes.json)
+list expected anchor indices for normal, tied and near-boundary cases.
+
+Before each movement step, consume anchors within `0.08` units. Direct visibility
+to the target clears the queue. Otherwise keep it unless empty, the first segment
+is blocked, or the last anchor no longer sees the target (a moving `come` caller).
+New destinations plan a new queue; repeated identical targets retain the chosen
+bypass. Movement retains the existing speeds and collision substeps.
+
+Oasis disconnections pause herders without discarding their target, sequence or
+route; reconnects and restarts can resume that walk. Version-1/2 herders retain
+their original stop-on-disconnect behavior. All worlds pause when nobody is
+connected. Saved queues must contain at most eight unique canonical anchors,
+with safe initial, intermediate and final segments; unsafe state is rejected
+before any actor starts. Routes are never client-authoritative input.
+
 Older checkpoints without a landscape field load as `alpine`; existing Alpine
 and Cactus saves without a layout migrate to centered version 1 without changing
 animal/player identities, credentials, positions, gate state, or simulation tick.
-Unknown saved layout versions, noncanonical layouts and impossible forage state
-fail startup without overwriting the save. Existing version 1 simulation and
-snapshot fields are unchanged. There is no account service or puppy progression
+Unknown saved layout versions, noncanonical layouts, impossible forage state,
+unsafe rock routes and actors inside rock fail startup without overwriting the
+save. Existing version-1/2 simulation and snapshot fields are unchanged.
+There is no account service or puppy progression
 system yet.

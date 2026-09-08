@@ -102,7 +102,7 @@ for the [Compatibility renderer](https://docs.godotengine.org/en/4.6/tutorials/r
 The effect count is kept small, but frame time still needs measuring on target
 phones before making a performance claim.
 
-Four selectable landscapes offer quiet cooperative herding: an Alpine
+Five selectable landscapes offer quiet cooperative herding: an Alpine
 valley with snowy peaks, a cactus canyon with warm mesas and saguaro cacti,
 and sheltered Larch Hollow with gold/rust foliage, a sloping rest shelf and
 an offset bridge and gate, plus Sunward Orchard with shallow terraces and broad
@@ -110,7 +110,11 @@ apple trees. Larch's gentle S-shaped route changes where the pair coordinates.
 The orchard offers a quieter decision: let two sheep finish their fallen apples
 or use a dog to bring them back. A lowered head communicates feeding; completed
 snacks persist so this small detour never becomes a repeating chore. Neither
-place adds a timer, score or loss condition.
+place adds a timer, score or loss condition. Canyon Oasis changes the geography
+itself: two dry paths around broken stone open toward green pasture. There is
+no gate or river to cross, and sheep remain responsive to the dogs rather than
+automatically choosing a route. The pair can stay together or retrieve a split
+flock from either side. Low rock keeps the animals visible in portrait.
 The creator chooses the location; the server persists it for both players.
 Large vistas are part of the presentation. Continuous free travel between
 regions belongs to a later journey milestone.

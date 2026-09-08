@@ -5,20 +5,30 @@ extends RefCounted
 
 const GRID_STEP := 1.0
 const WATER_LEVEL := -0.34
+const OASIS_POOL_LEVEL := 0.72
 const BRIDGE_HEIGHT := 0.23
 const PLAY_BOUNDS := Rect2(-17, -11, 34, 22)
 var landscape := "alpine"
 var samples: Dictionary = {}
 var bridge_y := 0.0
 var gate_y := 0.0
+var rock_center := Vector2.ZERO
+var rock_radius := 3.4
 
 func _init(kind := "alpine", layout: Dictionary = {}) -> void:
 	landscape = kind
 	bridge_y = float(layout.get("bridge_y", 3.0 if kind == "orchard" else (-4.0 if kind == "larch" else 0.0)))
 	gate_y = float(layout.get("gate_y", 2.0 if kind == "orchard" else (4.0 if kind == "larch" else 0.0)))
+	if kind == "oasis":
+		var rock: Dictionary = layout.get("rock_pass", {})
+		var center: Dictionary = rock.get("center", {})
+		rock_center = Vector2(float(center.get("x", 0.0)), float(center.get("y", 0.0)))
+		rock_radius = float(rock.get("radius", 3.4))
 
 func river_width(z: float) -> float:
 	# Beyond the playable meadow the stream opens into a small lake / desert wash.
+	if landscape == "oasis":
+		return 0.0
 	if landscape == "orchard":
 		return 1.5 + smoothstep(12.0, 33.0, z) * 1.7
 	return 1.5 + smoothstep(12.0, 28.0, z) * (2.8 if landscape == "cactus" else (3.9 if landscape == "larch" else 5.3))
@@ -33,9 +43,13 @@ func river_center(z: float) -> float:
 	return 0.0
 
 func bridge_at(x: float, z: float) -> bool:
+	if landscape == "oasis":
+		return false
 	return absf(x) <= 1.93 and absf(z - bridge_y) <= 1.95
 
 func surface_height(x: float, z: float) -> float:
+	if landscape == "oasis":
+		return sample(x, z)
 	if bridge_at(x, z):
 		return BRIDGE_HEIGHT
 	if absf(x - river_center(z)) < river_width(z):
@@ -43,6 +57,19 @@ func surface_height(x: float, z: float) -> float:
 	return sample(x, z)
 
 func sample(x: float, z: float) -> float:
+	if landscape == "oasis":
+		# A full dry grid crosses X=0; do not inherit either river-bank origin.
+		var x0 := floorf(x)
+		var z0 := floorf(z)
+		var fx := x - x0
+		var fz := z - z0
+		var a := node_height(x0, z0)
+		var b := node_height(x0 + 1.0, z0)
+		var c := node_height(x0 + 1.0, z0 + 1.0)
+		var d := node_height(x0, z0 + 1.0)
+		if fx >= fz:
+			return a + (b - a) * fx + (c - b) * fz
+		return a + (c - d) * fx + (d - a) * fz
 	if landscape == "orchard" and absf(z) > 12.0:
 		return raw_height(x, z) # The non-playable shoreline uses a finer visual mesh.
 	if absf(x) < 1.5:
@@ -70,6 +97,10 @@ func node_height(x: float, z: float) -> float:
 
 func normal_at(x: float, z: float) -> Vector3:
 	var step := 0.35
+	if landscape == "oasis":
+		var dx := (raw_height(x + step, z) - raw_height(x - step, z)) / (2.0 * step)
+		var dz := (raw_height(x, z + step) - raw_height(x, z - step)) / (2.0 * step)
+		return Vector3(-dx, 1.0, -dz).normalized()
 	var width := river_width(z)
 	var center := river_center(z)
 	var bank_distance := absf(x - center) - width
@@ -93,6 +124,8 @@ func normal_at(x: float, z: float) -> Vector3:
 	return Vector3(-dx, 1.0, -dz).normalized()
 
 func raw_height(x: float, z: float) -> float:
+	if landscape == "oasis":
+		return _oasis_height(x, z)
 	var width := river_width(z)
 	var bank_distance := absf(x - river_center(z)) - width
 	if bank_distance < (-0.00001 if landscape == "orchard" else 0.0):
@@ -172,6 +205,42 @@ func raw_height(x: float, z: float) -> float:
 	height = lerpf(height, 0.30, gate_flat)
 	var bridge_flat := (1.0 - smoothstep(1.93, 3.4, absf(x))) * (1.0 - smoothstep(1.95, 3.1, absf(z - bridge_y)))
 	height = lerpf(height, BRIDGE_HEIGHT, bridge_flat)
+	return height
+
+func _oasis_height(x: float, z: float) -> float:
+	# A sheltered saddle with two dry contour paths. The eastern grazing shelf is
+	# broad and soft; rockier shoulders rise toward the outer bounds, not a board rim.
+	var height := 0.42
+	height += 1.35 * _hill(x, z, -13, -6, 7, 5)
+	height += 0.80 * _hill(x, z, -14, 7, 8, 6)
+	height += 0.88 * _hill(x, z, 0, -6.5, 7, 3.5)
+	height += 1.10 * _hill(x, z, 14, -7, 7, 5)
+	height += 0.66 * _hill(x, z, 14, 7, 8, 6)
+	height += 0.12 * pow(sin(x * 0.18 + z * 0.16), 2)
+	var east_shelf := smoothstep(6.0, 11.0, x) * (1.0 - smoothstep(3.5, 8.5, absf(z)))
+	height = lerpf(height, 0.78, east_shelf * 0.65)
+	var flank := maxf(absf(x) - 15.0, 0.0)
+	height += minf(pow(flank, 1.18) * (0.40 if x < 0 else 0.32), 11.0)
+	var back := maxf(-z - 10.5, 0.0)
+	height += minf(back * 0.32, 5.0) * (0.45 + 0.55 * pow(sin(x * 0.15 + 0.4), 2))
+	height += minf(maxf(z - 11.0, 0.0) * 0.10, 1.8)
+	# The distant spring sits wholly before the canyon foot, with ground around
+	# its entire shore. Both changes below are outside the fixed walking bounds.
+	var pool := pow((x - 2.0) / 4.5, 2) + pow((z + 15.1) / 2.05, 2)
+	# A shallow spring shelf, not a deep hole cut to the other landscapes' river
+	# elevation. The smooth bowl climbs gently through the waterline, then joins
+	# the original flank without a separate bank wall or an undercut water lip.
+	var basin := OASIS_POOL_LEVEL - 0.22 + pool * 0.18
+	height = lerpf(height, basin, (1.0 - smoothstep(0.70, 2.40, pool)) * smoothstep(11.5, 12.8, -z))
+	var foreground := smoothstep(11.0, 17.0, z)
+	height += foreground * (1.65 * _hill(x, z, -10, 24, 10, 7) + 1.20 * _hill(x, z, 11, 21, 8, 6))
+	# Broken near shoulders frame the valley below the walking limit. Their
+	# taper is exactly zero on playable ground and leaves the central view open.
+	height += smoothstep(11.0, 14.0, z) * (2.40 * _hill(x, z, -13, 16, 5, 4) + 1.90 * _hill(x, z, 15, 17, 5, 4))
+	# The tall side flanks must recede before the near orthographic plane. In a
+	# tall phone view, otherwise its bottom corner begins *inside* a distant
+	# foreground hill and exposes a beige clipping wedge despite a complete mesh.
+	height = lerpf(height, 1.20 + 0.15 * sin(x * 0.14), smoothstep(22.0, 36.0, z))
 	return height
 
 func _hill(x: float, z: float, cx: float, cz: float, sx: float, sz: float) -> float:

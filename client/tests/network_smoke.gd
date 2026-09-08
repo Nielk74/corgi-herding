@@ -82,6 +82,53 @@ func _run() -> void:
 		if not await _until(func() -> bool: return _own_position().distance_to(Vector2(-10, 0)) < 0.3):
 			_fail("return journey navigates the offset gate before the bridge")
 			return
+	if landscape == "oasis":
+		if game.network.advertised_layout_version != 3 or game.meadow.gate != null or game.meadow.bridge != null:
+			_fail("Oasis negotiates v3 and removes the old river/gate fixtures")
+			return
+		# Exercise both open sides outward and back through actual network inputs.
+		# Crossing at Y=0 would need a bypass; explicit north/south approach taps
+		# make it the player's choice, without introducing another control.
+		for side in [-1.0, 1.0]:
+			for destination in [Vector2(-9, side * 5.2), Vector2(10, side * 2), Vector2(-10, side * 2)]:
+				var screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(destination))
+				game._world_tap(screen)
+				if not await _until(func() -> bool: return _own_position().distance_to(destination) < 0.3):
+					_fail("ground taps complete both Oasis bypasses outward and back")
+					return
+		# Disconnect during a bypass, not only after reaching its destination.
+		game.network.move_to(Vector2(10, -2))
+		if not await _until(func() -> bool: return not _own_route().is_empty()):
+			_fail("a blocked direct path creates an authoritative bypass")
+			return
+		var accepted_seq := _own_seq()
+		# Simulate the narrow loss window: a tap is predicted while the transport
+		# has closed but before its next poll reports disconnection. No snapshot
+		# or movement flags are reset by the test; production recovery owns that.
+		game.network.socket.close()
+		var lost_target := Vector2(-14, 8)
+		game._world_tap(game.meadow.camera.unproject_position(game._surface_position(lost_target)))
+		if game.movement_seq <= accepted_seq:
+			_fail("dropped-input fixture must include an unacknowledged predicted tap")
+			return
+		if not await _until(func() -> bool: return not game.network.connected):
+			_fail("closed transport triggers normal reconnect")
+			return
+		if not await _until(func() -> bool: return game.network.connected and _own_position().distance_to(Vector2(10, -2)) < 0.3):
+			_fail("reconnection retains and completes the chosen Oasis route")
+			return
+		if _own_seq() != accepted_seq or game.movement_seq != accepted_seq or game.movement_target.distance_to(Vector2(10, -2)) > 0.001 or game.awaiting_authoritative_snapshot:
+			_fail("reconnect rebases the lost input to the acknowledged route without test-side resets")
+			return
+		for dog_id in ["mochi", "maple"]:
+			other.command(dog_id, "go", Vector2(10, 3))
+			if not await _until(func() -> bool: return _dog_position(dog_id).distance_to(Vector2(10, 3)) < 0.35):
+				_fail("second herder can send either shared dog around the rock")
+				return
+			game.network.command(dog_id, "go", Vector2(-10, -3))
+			if not await _until(func() -> bool: return _dog_position(dog_id).distance_to(Vector2(-10, -3)) < 0.35):
+				_fail("first herder can return either shared dog around the rock")
+				return
 	var acknowledged_before_reconnect: int = _own_seq()
 	game.network.disconnect_herd()
 	await create_timer(0.15).timeout
@@ -126,6 +173,18 @@ func _dog_command(id: String) -> String:
 		if str(dog.id) == id:
 			return str(dog.command)
 	return ""
+
+func _own_route() -> Array:
+	for player: Dictionary in game.latest.get("players", []):
+		if str(player.id) == game.local_id:
+			return player.get("route", [])
+	return []
+
+func _dog_position(id: String) -> Vector2:
+	for dog: Dictionary in other_snapshot.get("dogs", []):
+		if str(dog.id) == id:
+			return Vector2(float(dog.position.x), float(dog.position.y))
+	return Vector2.INF
 
 func _fail(context: String) -> void:
 	push_error("CLIENT_NETWORK_SMOKE_FAILED: " + context + (" (" + error_message + ")" if not error_message.is_empty() else ""))

@@ -33,6 +33,8 @@ var bridge_y := 0.0
 var gate_y := 0.0
 var forage_center := Vector2(-7, -5)
 var forage_radius := 2.2
+var rock_center := Vector2.ZERO
+var rock_radius := 3.4
 
 func _ready() -> void:
 	_build_light()
@@ -45,8 +47,8 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	var next := id if id in ["alpine", "cactus", "larch", "orchard"] else "alpine"
-	var expected_version := 2 if next == "orchard" else 1
+	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis"] else "alpine"
+	var expected_version := 3 if next == "oasis" else (2 if next == "orchard" else 1)
 	var next_layout := {"version": int(incoming_layout.get("version", expected_version)),
 		"bridge_y": float(incoming_layout.get("bridge_y", 3.0 if next == "orchard" else (-4.0 if next == "larch" else 0.0))),
 		"gate_y": float(incoming_layout.get("gate_y", 2.0 if next == "orchard" else (4.0 if next == "larch" else 0.0)))}
@@ -59,6 +61,11 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		next_layout["forage"] = {"id": String(forage.get("id", "windfall")),
 			"center": {"x": float(center.get("x", -7.0)), "y": float(center.get("y", -5.0))},
 			"radius": float(forage.get("radius", 2.2))}
+	elif next == "oasis":
+		var rock: Dictionary = incoming_layout.get("rock_pass", {})
+		var center: Dictionary = rock.get("center", {})
+		next_layout["rock_pass"] = {"center": {"x": float(center.get("x", 0.0)), "y": float(center.get("y", 0.0))},
+			"radius": float(rock.get("radius", 3.4))}
 	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	landscape = next
@@ -68,20 +75,27 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	if next == "orchard":
 		forage_center = Vector2(next_layout.forage.center.x, next_layout.forage.center.y)
 		forage_radius = next_layout.forage.radius
+	elif next == "oasis":
+		rock_center = Vector2(next_layout.rock_pass.center.x, next_layout.rock_pass.center.y)
+		rock_radius = next_layout.rock_pass.radius
 	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
 		terrain.queue_free()
+	gate = null
+	bridge = null
+	water = null
 	terrain = Node3D.new()
 	terrain.name = "Landscape_" + landscape
 	add_child(terrain)
 	if world_environment != null:
-		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1")
+		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1", "d8c7ac")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
-	_build_bridge()
-	_build_fence()
+	if landscape != "oasis":
+		_build_bridge()
+		_build_fence()
 	_build_details()
 	# Scenery is immutable after construction; the animated gate stays separate.
 	SceneryBatch.merge(terrain, [gate])
@@ -89,7 +103,9 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		for actor in preview.get_children():
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
 
-func _color(alpine: String, cactus: String, larch := "", orchard := "") -> Color:
+func _color(alpine: String, cactus: String, larch := "", orchard := "", oasis := "") -> Color:
+	if landscape == "oasis":
+		return Color(oasis if not oasis.is_empty() else cactus)
 	if landscape == "orchard" and not orchard.is_empty():
 		return Color(orchard)
 	return Color(cactus if landscape == "cactus" else (larch if landscape == "larch" and not larch.is_empty() else alpine))
@@ -167,6 +183,9 @@ func follow_player(pos: Vector3) -> void:
 		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
 
 func _build_land() -> void:
+	if landscape == "oasis":
+		_build_oasis_land()
+		return
 	# One continuous sampled heightfield: hills are places the herders walk over.
 	for side in [-1, 1]:
 		var surface := SurfaceTool.new()
@@ -211,6 +230,238 @@ func _build_land() -> void:
 	else:
 		_trail([Vector2(-31, -13), Vector2(-24, -7), Vector2(-18, -2), Vector2(-13, -1), Vector2(-8, bridge_y + 0.7), Vector2(-4, bridge_y + 0.3), Vector2(-1.7, bridge_y)], 1.1)
 		_trail([Vector2(1.7, bridge_y), Vector2(6, gate_y), Vector2(10, gate_y + 0.8), Vector2(14, gate_y + 2), Vector2(19, 4), Vector2(27, 3), Vector2(35, -2)], 1.05)
+
+func _build_oasis_land() -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ix in range(120):
+		for iz in range(105):
+			var x := -60.0 + ix
+			var z := -40.0 + iz
+			var a := Vector3(x, profile.node_height(x, z), z)
+			var b := Vector3(x + 1.0, profile.node_height(x + 1.0, z), z)
+			var c := Vector3(x + 1.0, profile.node_height(x + 1.0, z + 1.0), z + 1.0)
+			var d := Vector3(x, profile.node_height(x, z + 1.0), z + 1.0)
+			_ground_triangle(surface, a, b, c, Color.WHITE, true)
+			_ground_triangle(surface, a, c, d, Color.WHITE, true)
+	_finish_surface(surface, "ValleyGroundOasis", true)
+	_build_oasis_rock()
+
+func _build_oasis_rock() -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# Keep the collision envelope fully grounded, but never draw it as a disc:
+	# a dense low surface follows the soil, with a broken inner stone shoulder
+	# fading to the surrounding ground's exact palette and normals at its edge.
+	for ring in range(16):
+		for segment in range(64):
+			var angle0 := segment * TAU / 64.0
+			var angle1 := (segment + 1) * TAU / 64.0
+			var r0 := rock_radius * ring / 16.0
+			var r1 := rock_radius * (ring + 1) / 16.0
+			var a := Vector2(cos(angle0), sin(angle0)) * r0 + rock_center
+			var b := Vector2(cos(angle0), sin(angle0)) * r1 + rock_center
+			var c := Vector2(cos(angle1), sin(angle1)) * r1 + rock_center
+			var d := Vector2(cos(angle1), sin(angle1)) * r0 + rock_center
+			_oasis_apron_triangle(surface, a, b, c)
+			if ring > 0:
+				_oasis_apron_triangle(surface, a, c, d)
+	_oasis_rock_lobe(surface,
+		[Vector2(-2.7, -0.7), Vector2(-2.1, -1.9), Vector2(-0.8, -2.35), Vector2(0.5, -1.4), Vector2(1.45, -0.1), Vector2(0.6, 0.72), Vector2(-1.05, 0.45)],
+		[0.75, 1.03, 1.30, 1.10, 1.40, 1.57, 1.35], Color("af8a62"))
+	_oasis_rock_lobe(surface,
+		[Vector2(-0.30, 1.02), Vector2(1.20, 0.93), Vector2(2.50, 0.65), Vector2(2.43, 1.65), Vector2(1.30, 2.79), Vector2(0.15, 2.65), Vector2(-0.60, 1.80)],
+		[0.86, 1.15, 0.80, 1.06, 0.78, 1.05, 0.75], Color("c1a077"))
+	_oasis_rock_lobe(surface,
+		[Vector2(-2.85, 0.62), Vector2(-1.85, 0.53), Vector2(-1.08, 1.23), Vector2(-1.20, 2.52), Vector2(-2.12, 2.34), Vector2(-2.85, 1.48)],
+		[0.47, 0.75, 0.90, 0.75, 0.95, 0.55], Color("a17a55"))
+	_finish_surface(surface, "RockPassOutcrop", true)
+
+func _oasis_apron_triangle(surface: SurfaceTool, a: Vector2, b: Vector2, c: Vector2) -> void:
+	# Positive X/Z area already gives Godot's upward clockwise front face:
+	# (c3-a3).cross(b3-a3).y > 0. Keep it aligned with the stored ground normals.
+	if (b - a).cross(c - a) < 0:
+		var previous_b := b
+		b = c
+		c = previous_b
+	for point in [a, b, c]:
+		var local: Vector2 = point - rock_center
+		var angle := atan2(local.y, local.x)
+		var broken_edge := 2.16 + sin(angle * 3.0 + 0.4) * 0.30 + sin(angle * 5.0 - 1.0) * 0.22
+		var stone := 1.0 - smoothstep(broken_edge - 0.55, broken_edge + 0.60, local.length())
+		var ground := Vector3(point.x, profile.sample(point.x, point.y), point.y)
+		var normal := profile.normal_at(point.x, point.y)
+		var color := _oasis_ground_color(ground, normal)
+		# The low connecting stone is visible between the three main lobes, so
+		# those breaks read as crevices in one outcrop rather than walkable gaps.
+		var exposed := Color("a78962").darkened(0.055 * pow(sin(local.x * 2.0 - local.y), 2))
+		color = color.lerp(exposed, stone * 0.92)
+		ground.y += 0.004 + stone * (0.19 + 0.07 * sin(local.x * 1.3 + local.y * 1.8))
+		surface.set_color(color)
+		surface.set_normal(normal)
+		surface.add_vertex(ground)
+
+func _oasis_rock_lobe(surface: SurfaceTool, outline: Array, heights: Array, color: Color) -> void:
+	var centroid := Vector2.ZERO
+	for point: Vector2 in outline:
+		centroid += point
+	centroid /= outline.size()
+	var top: Array[Vector3] = []
+	var foot: Array[Vector3] = []
+	var average_height := 0.0
+	for i in range(outline.size()):
+		var point: Vector2 = outline[i]
+		var upper := point.lerp(centroid, 0.15 + 0.05 * sin(i * 2.3))
+		foot.append(_grounded(Vector3(point.x + rock_center.x, 0.06, point.y + rock_center.y)))
+		top.append(_grounded(Vector3(upper.x + rock_center.x, heights[i], upper.y + rock_center.y)))
+		average_height += heights[i]
+	var peak := _grounded(Vector3(centroid.x + rock_center.x - 0.18, average_height / outline.size() + 0.20, centroid.y + rock_center.y + 0.12))
+	for i in range(outline.size()):
+		var next := (i + 1) % outline.size()
+		var side_color := color.darkened(0.12 if i % 3 else 0.28)
+		_triangle(surface, foot[i], foot[next], top[next], side_color)
+		_triangle(surface, foot[i], top[next], top[i], side_color)
+		_triangle(surface, top[i], top[next], peak, color.lightened(0.035 * sin(i * 1.7)))
+
+func _oasis_front_depth(across: float) -> float:
+	return 15.1 + sin(across * 0.21) * 0.35 + 3.4 * exp(-pow((across - 3.0) / 6.0, 2))
+
+func _build_oasis_backdrop() -> void:
+	var across := Vector3(0.9785, 0, -0.2063)
+	var away := Vector3(-0.2063, 0, -0.9785)
+	for layer in range(2):
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var rows: Array = []
+		var bands: Array[float] = [0.0, 0.19, 0.42, 0.65, 0.83, 1.0]
+		for i in range(101):
+			var u := -45.0 + i * 0.90
+			var near := layer == 0
+			var front := across * u + away * (_oasis_front_depth(u) if near else 29.5)
+			front.y = profile.sample(front.x, front.z) if near else 0.5
+			var crest := across * (u + sin(u * 0.57) * 0.20) + away * ((24.5 if near else 35.0) + sin(u * 0.19) * 2.0)
+			if near:
+				crest.y = 1.7 + 8.1 * exp(-pow((u + 11.0) / 7.1, 2)) + 6.5 * exp(-pow((u - 16.0) / 8.8, 2))
+			else:
+				crest.y = 2.0 + 4.7 * exp(-pow((u - 3.0) / 6.0, 2)) + 3.0 * exp(-pow((u + 17.0) / 9.0, 2))
+			crest.y += 0.45 * smoothstep(-0.25, 0.45, sin(u * 0.57)) + 0.16 * sin(u * 1.8)
+			if not near:
+				crest.y += 0.62 * sin(u * 0.67) + 0.38 * sin(u * 0.29 + 1.0)
+			crest.y = maxf(crest.y, front.y + 0.9)
+			var row: Array[Vector3] = []
+			for fraction in bands:
+				var point := front.lerp(crest, fraction)
+				var groove := pow(absf(sin(u * 0.55 + fraction * 0.4)), 8)
+				point.y -= groove * sin(fraction * PI) * (1.25 if near else 0.35)
+				point += away * sin(u * 0.44 + fraction * 3.4) * sin(fraction * PI) * 0.55
+				if near and fraction > 0.0 and fraction <= 0.42:
+					point.y = maxf(point.y, profile.sample(point.x, point.z) + 0.10)
+				row.append(point)
+			var back := crest + away * 8.0
+			back.y = -2.0
+			row.append(back)
+			rows.append(row)
+		for i in range(rows.size() - 1):
+			for band in range(bands.size()):
+				var color := Color("ae805c").lerp(Color("cfaf80"), bands[band] * 0.85)
+				color = color.darkened(pow(absf(sin(i * 0.47)), 5) * 0.12)
+				if layer == 1:
+					color = Color("bea88d").lerp(Color("d1bea2"), bands[band] * 0.65)
+				_triangle(surface, rows[i][band], rows[i + 1][band], rows[i + 1][band + 1], color)
+				_triangle(surface, rows[i][band], rows[i + 1][band + 1], rows[i][band + 1], color.lightened(0.015))
+		_finish_surface(surface, "WeatheredCanyonShoulders" if layer == 0 else "DistantDesertButtes")
+	# This whole water ellipse is surrounded by the continuous ground in front
+	# of the canyon foot, so the cliff cannot slice it into an exposed blue wedge.
+	var pool := SurfaceTool.new()
+	pool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var center := Vector3(2.0, TerrainProfile.OASIS_POOL_LEVEL, -15.1)
+	for i in range(64):
+		var angle0 := i * TAU / 64.0
+		var angle1 := (i + 1) * TAU / 64.0
+		var a := center + Vector3(cos(angle0) * 5.8, 0, sin(angle0) * 2.8)
+		var b := center + Vector3(cos(angle1) * 5.8, 0, sin(angle1) * 2.8)
+		_triangle(pool, center, a, b, Color("5f9590"))
+	_finish_surface(pool, "DistantSpringPool")
+
+func _build_oasis_details() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 51624
+	for p in [Vector3(-15.5, 0, -8), Vector3(-19, 0, -3), Vector3(-17.5, 0, 7.5), Vector3(-9.5, 0, -11.7), Vector3(12.5, 0, -10), Vector3(18, 0, -4.5), Vector3(18, 0, 8), Vector3(-11, 0, 13), Vector3(12, 0, 13.5)]:
+		_rock(p + Vector3(0, 0.22, 0), Vector3(rng.randf_range(1.3, 2.3), rng.randf_range(0.7, 1.2), rng.randf_range(1.2, 1.8)))
+		if p.x < 0 or p.z < 0:
+			_cactus(p + Vector3(1.7, 0, 0.35), rng.randf_range(0.65, 0.98))
+		_agave(p + Vector3(-0.9, 0, 0.55), rng.randf_range(0.5, 0.8))
+	for p in [Vector3(-4.5, 0, -15), Vector3(8.7, 0, -16), Vector3(12, 0, -12.5), Vector3(14.8, 0, 7.0)]:
+		_oasis_palm(p, rng.randf_range(0.80, 1.0))
+		_shrub(p + Vector3(-0.9, 0.03, 0.7), 0.75)
+	# Sparse foreground pockets sit on the rising non-playable shoulders, not
+	# across either dog route. Unequal spacing avoids a perimeter fence of props.
+	for p in [Vector3(-13.6, 0, 13.1), Vector3(-10.8, 0, 14.8), Vector3(15.7, 0, 13.8), Vector3(13.9, 0, 16.4)]:
+		_rock(p + Vector3(0, 0.27, 0), Vector3(1.9, 0.95, 1.35))
+		_agave(p + Vector3(0.9, 0, 0.35), 0.85)
+	for i in range(75):
+		var p := Vector3(rng.randf_range(-16, 16), 0, rng.randf_range(-10.3, 10.3))
+		if Vector2(p.x, p.z).distance_to(rock_center) < rock_radius + 1.0:
+			continue
+		if p.x < 6 and absf(p.z) < 6.5:
+			continue # Both dog routes stay visually open.
+		var color := Color("889761") if p.x > 5 else Color("b59e6c")
+		var grass := cylinder(terrain, _grounded(p + Vector3(0, 0.13, 0)), 0.0, 0.10, rng.randf_range(0.13, 0.28), color, 4)
+		grass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var rest := Vector2(11.8, 4.5)
+	_draped_patch(rest, Vector2(2.7, 1.7), Color("c09573"), 0.035)
+	for x in [rest.x - 0.8, rest.x + 0.8]:
+		_draped_patch(Vector2(x, rest.y), Vector2(0.10, 1.7), Color("ead5ab"), 0.05)
+	var basket := cylinder(terrain, _grounded(Vector3(13.0, 0.26, 4.0)), 0.26, 0.23, 0.52, Color("a48155"), 9)
+	basket.rotation.z = 0.08
+
+func _oasis_palm(pos: Vector3, palm_scale: float) -> void:
+	var palm := Node3D.new()
+	palm.position = _grounded(pos)
+	palm.scale = Vector3.ONE * palm_scale
+	terrain.add_child(palm)
+	for i in range(4):
+		var from := Vector3(sin(i * 0.4) * 0.28, i * 0.85, 0)
+		var to := Vector3(sin((i + 1) * 0.4) * 0.28, (i + 1) * 0.85, 0)
+		var trunk := cylinder(palm, (from + to) * 0.5, 0.12, 0.15, from.distance_to(to) + 0.025, Color("a58a60"), 8)
+		trunk.quaternion = Quaternion(Vector3.UP, (to - from).normalized())
+	var leaves := SurfaceTool.new()
+	leaves.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var crown := Vector3(0.28, 3.4, 0)
+	for i in range(8):
+		var angle := i * TAU / 8.0 + pos.x * 0.16
+		var direction := Vector3(cos(angle), 0, sin(angle))
+		var crosswise := Vector3(-sin(angle), 0, cos(angle)) * 0.25
+		var middle := crown + direction * 1.1 + Vector3.UP * 0.28
+		var tip := crown + direction * (1.8 + sin(i * 2.3) * 0.2) - Vector3.UP * 0.65
+		var color := Color("758c5c") if i % 2 else Color("94a16c")
+		_triangle(leaves, crown, middle - crosswise, middle + crosswise, color)
+		_triangle(leaves, middle - crosswise, tip, middle + crosswise, color)
+	var fronds := mesh(palm, leaves.commit(), Vector3.ZERO, Color.WHITE)
+	fronds.material_override = vertex_material
+
+func _oasis_track_wear(point: Vector3) -> float:
+	var x := point.x - rock_center.x
+	var z := point.z - rock_center.y
+	var span := 1.0 - smoothstep(7.2, 9.4, absf(x))
+	var north := -5.2 * sqrt(maxf(0.0, 1.0 - pow(x / 8.6, 2)))
+	var south := 5.7 * sqrt(maxf(0.0, 1.0 - pow(x / 9.2, 2))) + sin(x * 0.45) * 0.22
+	var north_wear := exp(-pow((z - north) / 1.05, 2)) * (0.23 + 0.12 * sin(x * 0.60 + 0.8))
+	var south_wear := exp(-pow((z - south) / 1.25, 2)) * (0.19 + 0.10 * cos(x * 0.77))
+	var entry := exp(-pow((z - 0.8 - sin((x + 17.0) * 0.24) * 0.45) / 1.2, 2)) * (1.0 - smoothstep(-9.0, -6.5, x))
+	var exit_path := exp(-pow((z - sin((x - 9.0) * 0.19) * 1.1) / 1.3, 2)) * smoothstep(7.0, 10.0, x)
+	return maxf(maxf(north_wear, south_wear) * span, maxf(entry, exit_path) * 0.27)
+
+func _oasis_ground_color(point: Vector3, normal: Vector3) -> Color:
+	var color := Color("c4a377")
+	color = color.lerp(Color("a77c5b"), smoothstep(0.12, 0.45, 1.0 - normal.y) * 0.78)
+	color = color.lerp(Color("b18c63"), smoothstep(1.0, 5.0, point.y) * 0.30)
+	var pasture := smoothstep(4.0, 11.0, point.x) * (1.0 - smoothstep(8.0, 17.0, absf(point.z)))
+	var spring_green := exp(-pow((point.x - 5.0) / 10.0, 2) - pow((point.z + 12.5) / 7.5, 2))
+	color = color.lerp(Color("829b67"), maxf(pasture * 0.94, spring_green * 0.83))
+	color = color.lerp(Color("d0b383"), _oasis_track_wear(point))
+	color = color.lightened(sin(point.x * 0.22 + point.z * 0.15 + sin(point.z * 0.35) * 0.8) * 0.025)
+	return color.lightened(sin(point.x * 0.12 + point.z * 0.08) * 0.014)
 
 func _orchard_bank_quad(surface: SurfaceTool, side: float, offset0: float, offset1: float, z0: float, z1: float) -> void:
 	var a := _orchard_bank_point(side, offset0, z0)
@@ -356,6 +607,9 @@ func _ground_horizon_gap(point: Vector3) -> float:
 		limit = _larch_front_depth(across) + 0.12
 	elif landscape == "orchard":
 		limit = 32.0
+	elif landscape == "oasis":
+		var across := point.x * 0.9785 - point.z * 0.2063
+		limit = _oasis_front_depth(across) + 0.10
 	return limit - depth
 
 func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
@@ -365,11 +619,16 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
-		var color := _color("88a46a", "c4a06f", "99a579", "a2b079")
+		if landscape == "oasis":
+			surface.set_color(_oasis_ground_color(point, normal))
+			surface.set_normal(normal)
+			surface.add_vertex(point)
+			continue
+		var color := _color("88a46a", "c4a06f", "99a579", "a2b079", "c4a377")
 		var flank := smoothstep(0.12, 0.45, 1.0 - normal.y)
-		color = color.lerp(_color("798273", "a67b58", "838777", "8e9971"), flank * 0.78)
+		color = color.lerp(_color("798273", "a67b58", "838777", "8e9971", "a77c5b"), flank * 0.78)
 		var high_meadow := smoothstep(1.0, 5.0, point.y)
-		color = color.lerp(_color("71905c", "b58e62", "899a69", "8da56e"), high_meadow * 0.30)
+		color = color.lerp(_color("71905c", "b58e62", "899a69", "8da56e", "b18c63"), high_meadow * 0.30)
 		if landscape == "orchard":
 			var depth: float = -point.x * 0.2063 - point.z * 0.9785
 			var across: float = point.x * 0.9785 - point.z * 0.2063
@@ -424,6 +683,9 @@ func _trail(points: Array, width: float) -> void:
 func _build_backdrop() -> void:
 	# Connected, asymmetric ridges and gullies follow the reference valleys. A large
 	# crag on one flank faces a lower saddle; there is no row of separate cones.
+	if landscape == "oasis":
+		_build_oasis_backdrop()
+		return
 	if landscape == "orchard":
 		_build_orchard_distance()
 		_build_orchard_trees()
@@ -695,6 +957,8 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	_finish_surface(surface, "DistantRidgeline" if hazy else ("GraniteFlank" if landscape == "larch" else ("AlpineCrags" if snow else "ErodedCanyon")))
 
 func _build_boundaries() -> void:
+	if landscape == "oasis":
+		return # The canyon shoulders and planted outcrops are composed separately.
 	# Scattered outcrops follow the rising slopes. No rectangular necklace of shrubs.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9401
@@ -760,6 +1024,9 @@ func _build_fence() -> void:
 	diagonal.rotation.x = -0.16
 
 func _build_details() -> void:
+	if landscape == "oasis":
+		_build_oasis_details()
+		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42079
 	for i in range(105):
@@ -1030,6 +1297,8 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 			var result := origin + direction * ((low + high) * 0.5)
 			if absf(result.x) > 17 or absf(result.z) > 11:
 				return Vector3.INF
+			if landscape == "oasis" and Vector2(result.x, result.z).distance_to(rock_center) < rock_radius:
+				return Vector3.INF
 			result.y = surface_height(result.x, result.z)
 			return result
 		previous_t = t
@@ -1044,4 +1313,5 @@ func _process(delta: float) -> void:
 	marker_age += delta
 	destination.visible = marker_age < 2.0
 	destination.scale = Vector3.ONE * (1.0 + sin(marker_age * 5) * 0.1)
-	gate.rotation.y = lerp_angle(gate.rotation.y, -1.45 if gate_open else 0.0, minf(delta * 4, 1.0))
+	if is_instance_valid(gate):
+		gate.rotation.y = lerp_angle(gate.rotation.y, -1.45 if gate_open else 0.0, minf(delta * 4, 1.0))

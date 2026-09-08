@@ -84,9 +84,11 @@ func newHerd(s savedHerd, log *slog.Logger) *herd {
 	h := &herd{events: make(chan event, 128), done: make(chan struct{}), stop: make(chan struct{}), log: log}
 	for i := range s.World.Players {
 		s.World.Players[i].Connected = false
-		s.World.Players[i].Target = s.World.Players[i].Position
-		if s.World.Players[i].State == "walking" {
-			s.World.Players[i].State = "idle"
+		if s.World.Layout.RockPass == nil {
+			s.World.Players[i].Target = s.World.Players[i].Position
+			if s.World.Players[i].State == "walking" {
+				s.World.Players[i].State = "idle"
+			}
 		}
 	}
 	secrets := make(map[string]string, len(s.Secrets))
@@ -197,9 +199,11 @@ func (h *herd) run(s savedHerd) {
 					delete(peers, e.id)
 					if p := s.World.Player(e.id); p != nil {
 						p.Connected = false
-						p.Target = p.Position
-						if p.State == "walking" {
-							p.State = "idle"
+						if s.World.Layout.RockPass == nil {
+							p.Target = p.Position
+							if p.State == "walking" {
+								p.State = "idle"
+							}
 						}
 					}
 					store()
@@ -303,7 +307,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		status = "persistence_error"
 		code = http.StatusServiceUnavailable
 	}
-	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2}, "sessions": n})
+	respond(w, code, map[string]any{"status": status, "version": s.cfg.Version, "protocol": 1, "layout_version": 1, "layout_versions": []int{1, 2, 3}, "sessions": n})
 }
 
 func (s *Server) allow(remote string) bool {
@@ -380,12 +384,12 @@ func decodeCreation(w http.ResponseWriter, r *http.Request) (string, string, err
 	if len(body.Landscape) > 0 {
 		var selected string
 		if err := json.Unmarshal(body.Landscape, &selected); err != nil {
-			return "", "", errors.New("landscape must be alpine, cactus, larch or orchard")
+			return "", "", errors.New("landscape must be alpine, cactus, larch, orchard or oasis")
 		}
 		landscape = selected
 	}
 	if !game.ValidLandscape(landscape) {
-		return "", "", errors.New("landscape must be alpine, cactus, larch or orchard")
+		return "", "", errors.New("landscape must be alpine, cactus, larch, orchard or oasis")
 	}
 	name, err := cleanName(body.Name)
 	return name, landscape, err
@@ -750,7 +754,7 @@ func (s *Server) load() error {
 			return errors.New("invalid saved landscape")
 		}
 		if saved.World.Layout == nil {
-			if saved.World.Landscape == game.LandscapeLarch || saved.World.Landscape == game.LandscapeOrchard {
+			if saved.World.Landscape != game.LandscapeAlpine && saved.World.Landscape != game.LandscapeCactus {
 				return errors.New("missing saved landscape layout")
 			}
 			saved.World.Layout = game.LayoutForLandscape(saved.World.Landscape)
@@ -759,6 +763,9 @@ func (s *Server) load() error {
 			return err
 		}
 		if err := saved.World.ValidateForage(); err != nil {
+			return err
+		}
+		if err := saved.World.ValidateNavigation(); err != nil {
 			return err
 		}
 		for _, p := range saved.World.Players {

@@ -83,15 +83,18 @@ func _run() -> void:
 		if game._pick_world_interaction(gate_screen) != "gate":
 			_fail("offset gate cannot be directly tapped")
 			return
-	# Four choices use two rows, keeping large portrait touch targets.
+	# Five choices keep large touch targets; no extra controls enter gameplay.
 	game._open_settings()
 	await process_frame
-	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button]:
+	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button]:
 		if not root.get_visible_rect().encloses(button.get_global_rect()) or button.size.y < 58 or button.size.x < 230:
 			_fail("portrait landscape choices must fit with usable touch areas")
 			return
 	if game.alpine_button.position.y != game.cactus_button.position.y or game.larch_button.position.y != game.orchard_button.position.y or game.larch_button.position.y <= game.alpine_button.position.y:
-		_fail("landscape choices must be a two by two portrait grid")
+		_fail("the original landscape choices must retain their two portrait rows")
+		return
+	if game.oasis_button.position.y <= game.orchard_button.position.y:
+		_fail("Oasis must have its own usable portrait row")
 		return
 	# Canonical nested forage geometry accepts JSON numbers but no silent coercion.
 	var orchard: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("orchard")))
@@ -148,6 +151,7 @@ func _run() -> void:
 		return
 	var capabilities := [
 		[{}, 0], [{"layout_version": 1}, 1], [{"layout_version": 2.0}, 2],
+		[{"layout_version": 3.0}, 3], [{"layout_version": 1, "layout_versions": [1, 2, 3]}, 3],
 		[{"layout_version": 1, "layout_versions": [1.0, 2.0]}, 2],
 		[{"layout_version": 1, "layout_versions": [99, 1]}, 1],
 		[{"layout_versions": [99]}, -1], [{"layout_versions": []}, -1],
@@ -184,7 +188,7 @@ func _run() -> void:
 		_fail("unknown layout must not render or replace the supported snapshot")
 		return
 	# Missing offset layouts are not permission to guess openings or forage zones.
-	for kind in ["larch", "orchard"]:
+	for kind in ["larch", "orchard", "oasis"]:
 		unknown = prior_snapshot.duplicate(true)
 		unknown.landscape = kind
 		unknown.erase("layout")
@@ -204,8 +208,128 @@ func _run() -> void:
 	if not game.network.update_required or not game.network.paused or game.network.socket != null or game.network.credentials != credentials:
 		_fail("unknown server protocol must not send credentials or erase the saved herd")
 		return
-	print("LAYOUT_SMOKE_OK: four portrait choices, %d two-way routes, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
+	if not await _test_oasis(game):
+		return
+	print("LAYOUT_SMOKE_OK: five portrait choices, %d legacy two-way routes, Oasis bypasses, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
 	quit(0)
+
+func _test_oasis(game: Node) -> bool:
+	# Valid double-precision server position rounds slightly inside in Vector2.
+	# Keep the collision radius strict and project only presentation outward.
+	var rounded_boundary := Vector2(3.3979288218588337, 0.11865828913749826)
+	if game.RockNavigation.visible(rounded_boundary, rounded_boundary):
+		_fail("boundary rounding regression fixture no longer exercises the issue")
+		return false
+	var safe_boundary: Vector2 = game.RockNavigation.presentation_point(rounded_boundary)
+	if not game.RockNavigation.visible(safe_boundary, safe_boundary) or safe_boundary.distance_to(rounded_boundary) > 0.00002:
+		_fail("presentation projection must fix float rounding without changing collision")
+		return false
+	var fixture_path := ProjectSettings.globalize_path("res://").path_join("../protocol/rock-routes.json")
+	var fixtures: Variant = JSON.parse_string(FileAccess.get_file_as_string(fixture_path))
+	if not fixtures is Array or fixtures.size() != 32:
+		_fail("shared Go/Godot rock planner fixtures are missing")
+		return false
+	for fixture: Dictionary in fixtures:
+		var from := Vector2(fixture.from.x, fixture.from.y)
+		var target := Vector2(fixture.target.x, fixture.target.y)
+		var route: Array[Vector2] = game.RockNavigation.plan(from, target)
+		if route.size() != fixture.route.size():
+			_fail("Go/Godot planner route length differs: " + str(fixture.name))
+			return false
+		for index in route.size():
+			if route[index].distance_to(game.RockNavigation.ANCHORS[int(fixture.route[index])]) > 0.00001:
+				_fail("Go/Godot chosen bypass differs: " + str(fixture.name))
+				return false
+	game.preview_mode = true
+	game._select_landscape("oasis")
+	game._show_preview()
+	await process_frame
+	game.set_process(false)
+	if game.meadow.bridge != null or game.meadow.gate != null or game._walkable(Vector2.ZERO):
+		_fail("Oasis must have a solid rock and no river/gate fixtures")
+		return false
+	for point in [Vector2(0, -5.2), Vector2(0, 5.2), Vector2(6, -8), Vector2(6, 0), Vector2(6, 8)]:
+		if not game._walkable(point):
+			_fail("Oasis dry bypasses must not inherit river or fence collision")
+			return false
+	var canonical: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("oasis")))
+	if not game._supported_layout("oasis", canonical):
+		_fail("canonical Oasis JSON did not decode")
+		return false
+	for mutation in ["radius", "center", "extra", "missing", "version", "forage"]:
+		var bad: Dictionary = canonical.duplicate(true)
+		match mutation:
+			"radius": bad.rock_pass.radius = "3.4"
+			"center": bad.rock_pass.center.y = 0.1
+			"extra": bad.rock_pass["secret_path"] = true
+			"missing": bad.erase("rock_pass")
+			"version": bad.version = 2
+			"forage": bad["forage"] = {"id": "windfall"}
+		if game._supported_layout("oasis", bad):
+			_fail("unsafe Oasis layout accepted: " + mutation)
+			return false
+	var routes := [
+		[Vector2(-13, -1.5), Vector2(12, -3)],
+		[Vector2(12, -3), Vector2(-13, -1.5)],
+		[Vector2(-13, 1.5), Vector2(12, 3)],
+		[Vector2(12, 3), Vector2(-13, 1.5)],
+		[Vector2(-12, 0), Vector2(12, 0)],
+		[Vector2(12, 0), Vector2(-12, 0)],
+		[Vector2(0, -7), Vector2(0, 7)],
+		[Vector2(0, 7), Vector2(0, -7)],
+		[Vector2(-3.5, 0), Vector2(3.5, 0)],
+		[Vector2(3.5, 0), Vector2(-3.5, 0)]
+	]
+	for route in routes:
+		for frequency in [20.0, 60.0, 4.0]:
+			var point: Vector2 = route[0]
+			game.movement_route.clear()
+			game.route_target = Vector2.INF
+			for step in range(1400):
+				var next: Vector2 = game._predict_step(point, route[1], 1.0 / frequency)
+				if not game._walkable(next) or not game.RockNavigation.visible(point, next) or point.distance_to(next) > 4.0 / frequency + 0.0001:
+					_fail("Oasis prediction crossed rock or exceeded walking speed")
+					return false
+				point = next
+				if point.distance_to(route[1]) < 0.04:
+					break
+			if point.distance_to(route[1]) > 0.08:
+				_fail("Oasis route stuck: %s -> %s at %s" % [route[0], route[1], point])
+				return false
+	# An ordinary tap on rock does not advance input sequence, and the former
+	# gate position cannot leave a phantom contextual interaction behind.
+	for id in game.actors:
+		game.actors[id].node.position = game._surface_position(Vector2(-12, 8))
+	var gate_screen: Vector2 = game.meadow.camera.unproject_position(game._surface_position(Vector2(6, 0)) + Vector3(0, 0.7, 0))
+	if game._pick_world_interaction(gate_screen) == "gate":
+		_fail("Oasis retains a phantom gate tap")
+		return false
+	var old_seq: int = game.network.seq
+	game._world_tap(game.meadow.camera.unproject_position(game._surface_position(Vector2.ZERO)))
+	if game.network.seq != old_seq:
+		_fail("tapping the rock must not send invalid predicted movement")
+		return false
+	# Delayed snapshots may straddle the rock; interpolation must remain outside.
+	var sheep: Node3D = game.actors.s0.node
+	sheep.position = game._surface_position(Vector2(-3.5, 0))
+	game.actors.s0.target = game._surface_position(Vector2(3.5, 0))
+	for frame in range(240):
+		var before := Vector2(sheep.position.x, sheep.position.z)
+		game._process(1.0 / 60.0)
+		if not game.RockNavigation.visible(before, Vector2(sheep.position.x, sheep.position.z)):
+			_fail("delayed animal interpolation cut through the rock")
+			return false
+	if Vector2(sheep.position.x, sheep.position.z).distance_to(Vector2(3.5, 0)) > 0.15:
+		_fail("safe interpolation failed to catch up around the rock")
+		return false
+	sheep.position = game._surface_position(rounded_boundary)
+	game.actors.s0.target = game._surface_position(Vector2(-8, 0))
+	for frame in range(240):
+		game._process(1.0 / 60.0)
+	if Vector2(sheep.position.x, sheep.position.z).distance_to(Vector2(-8, 0)) > 0.15:
+		_fail("a boundary-rounding snapshot must not freeze a remote animal")
+		return false
+	return true
 
 func _fail(message: String) -> void:
 	push_error("LAYOUT_SMOKE_FAILED: " + message)

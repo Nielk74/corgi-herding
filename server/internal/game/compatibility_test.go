@@ -12,9 +12,10 @@ import (
 // platform math last-bit differences while preserving all gameplay state/events.
 func TestExistingLandscapeSimulationTraces(t *testing.T) {
 	expected := map[string]string{
-		LandscapeAlpine: "2cbbeb2aef2c339f869b0baac0b9adbabf7c381c714b0d06863c4dd131b9b5aa",
-		LandscapeCactus: "675c3e86d62ebb91c42432ad91e329699982d1655586a73605fbdd223f2fefb6",
-		LandscapeLarch:  "83a545051ca6e0e2518274a70efce2316ea50f8702c9b673f1ceaafb55d67821",
+		LandscapeAlpine:  "2cbbeb2aef2c339f869b0baac0b9adbabf7c381c714b0d06863c4dd131b9b5aa",
+		LandscapeCactus:  "675c3e86d62ebb91c42432ad91e329699982d1655586a73605fbdd223f2fefb6",
+		LandscapeLarch:   "83a545051ca6e0e2518274a70efce2316ea50f8702c9b673f1ceaafb55d67821",
+		LandscapeOrchard: "5f1dbe8e7a57443d0882a82ee31fe8739398ae1242397ff18a7516dd051a422c",
 	}
 	for landscape, want := range expected {
 		t.Run(landscape, func(t *testing.T) {

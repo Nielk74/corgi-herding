@@ -1,8 +1,12 @@
-An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with four quiet landscapes.
+An early playable prototype of Corgi Herding: two herders, two shared corgis and ten sheep, with five quiet landscapes.
 
-New place: Sunward Orchard. Wander shallow grazing terraces beneath broad apple trees, with a view toward rolling farmland. Two curious sheep may stop for fallen apples. Let them finish, or call on either corgi to help them rejoin the flock. Their small snack is remembered across reconnects and server restarts, so it never becomes a repeating chore. A lowered head communicates feeding; there is no snack meter, quest or timer.
+New place: Canyon Oasis. Wander a sheltered dry saddle beneath warm sandstone walls, with cactus outcrops, a distant spring and green grazing ground. Two paths pass around low broken rock; there is no river, fence or gate here. Take the flock together or regroup sheep from either side. Both herders still command both corgis, with no new button or objective.
 
-Choose among Alpine valley, Cactus canyon, Larch Hollow and Sunward Orchard on a two-row portrait selector. Each place keeps its authoritative bridge/gate layout, animals and progression. Previous APKs retain access to their supported landscapes; Orchard needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
+Choose among Alpine valley, Cactus canyon, Larch Hollow, Sunward Orchard and Canyon Oasis on the portrait start screen. Each herd keeps its immutable layout, animals and progression. Previous APKs retain access to their supported landscapes; Oasis needs this update. Version negotiation and one bounded rollback retry preserve the saved invitation.
+
+Oasis herders and dogs retain their chosen route around the rock. A disconnected herder pauses and resumes that walk after returning, including a server restart. Reconnection now also recovers correctly when the last tap was predicted locally but lost before the server received it. Sheep remain guided by dog pressure rather than automatically solving the route to pasture.
+
+Sunward Orchard remains a place for a gentler detour: two curious sheep can stop for fallen apples. Let them finish or call either corgi. Their finite snack is remembered, so it never becomes a repeating chore. A lowered head supplies the feedback; no snack meter, quest or timer.
 
 The quiet arrival acknowledgement now disappears automatically. It does not repeat when a sheep wanders back or appear when resuming an already settled herd.
 

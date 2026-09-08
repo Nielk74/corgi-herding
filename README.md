@@ -2,10 +2,10 @@
 
 [![Verify and release](https://github.com/Nielk74/corgi-herding/actions/workflows/release.yml/badge.svg)](https://github.com/Nielk74/corgi-herding/actions/workflows/release.yml)
 
-Two herders. Two corgis. Ten sheep and a gate.
+Two herders. Two corgis. Ten sheep and a shared journey.
 
 A portrait-first cooperative Android game about caring for a flock together, set in an Alpine
-valley, a cactus canyon, sheltered Larch Hollow or Sunward Orchard. Distant mountain ranges and layered
+valley, a cactus canyon, sheltered Larch Hollow, Sunward Orchard or Canyon Oasis. Distant mountain ranges and layered
 landscapes make the walkable valley feel part of a much larger world. Steep rock,
 woods and water mark its natural limits. No combat, score or timer: a wandering
 sheep creates another little story.
@@ -25,6 +25,8 @@ slopes. This is mobile raster lighting, not hardware ray tracing.
 
 <img src="docs/images/larch-hollow.png" width="300" alt="Portrait Android Larch Hollow with autumn trees, an offset bridge and an open pasture gate"> <img src="docs/images/sunward-orchard.png" width="300" alt="Portrait Android Sunward Orchard, two herders and sheep nibbling fallen apples below a distant hamlet">
 
+<img src="docs/images/canyon-oasis.png" width="300" alt="Portrait Android Canyon Oasis, two herders resting near their flock below a spring and sunlit canyon walls">
+
 Captured from the signed Android prototype in an emulator connected to the Go
 server. Command controls appear only when a corgi is tapped.
 See the [temporary corgi command panel](docs/images/contextual-controls.png).
@@ -34,12 +36,16 @@ See the [temporary corgi command panel](docs/images/contextual-controls.png).
 1. Install the APK on two Android phones with access to the same game server.
 2. One player chooses a landscape, creates a herd and shares its invite code. The other joins the same landscape.
 3. Hold the phone upright. Tap the ground to walk; tap either corgi to reveal Come, Stay or Go. The small menu closes after a command.
-4. Wander the valley and guide the flock over the bridge. Tap the gate when nearby to open it, then bring the sheep into the pasture.
+4. Wander together and guide the flock toward open pasture. In the river valleys, use the bridge and tap the nearby gate to open it. In Canyon Oasis, either dry path around the rock is a way through.
 5. Tap your herder to sit, or approach and tap a corgi to pet it. There is no deadline.
 
 In Sunward Orchard, two curious sheep may wander toward fallen apples. Let them
 finish their small snack or guide them back with either dog. They remember that
 they have eaten, including after reconnecting; no repeated chore or snack meter.
+
+Canyon Oasis opens two dry routes around low weathered stone. There is no gate:
+take the flock together, split around the rock, or linger in the green pasture.
+Dogs follow the route you choose, and a disconnected herder resumes the same walk.
 
 The initial server runs on the developer's Mac over LAN. The server address is
 editable on the start screen, so self-hosting does not require rebuilding the APK.
@@ -94,9 +100,9 @@ it prevents Android from installing future releases as updates.
 
 ## Scope
 
-This is milestone 1, not the full journey game. It includes four landscape levels,
+This is milestone 1, not the full journey game. It includes five landscape levels,
 shared dog commands, sheep steering, invitations, reconnection, and file
-checkpoints, plus a small persistent orchard distraction. Puppy adoption/training, richer animations and sound, PostgreSQL,
+checkpoints, a small persistent orchard distraction and a two-route rock landscape. Puppy adoption/training, richer animations and sound, PostgreSQL,
 camp customization and travel between connected regions are subsequent milestones. Two-phone
 playtesting is necessary before judging the quality of the animal behavior.
 

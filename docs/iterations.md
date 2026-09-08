@@ -131,3 +131,55 @@ place's story. These are explicit prototype limitations, not final art. The
 [next landscape experiment](next-landscape.md) tests a rock spur with two dry
 routes so the level structure itself can change, rather than repeating another
 river and gate in different colors.
+
+## Fifth place — Canyon Oasis
+
+The first topology change is a sheltered dry saddle around a low rock spur.
+Either broad path leads toward green pasture; no gate or river imposes a single
+crossing. Sheep remain guided by dog pressure and local steering. Actual normal-
+spawn tests bring all ten through either pass, and retrieve a genuinely split
+flock, without changing positions, movement speed or the collision radius.
+
+The first signed Android view was rejected. The concentric rock looked like a
+button, hard path overlays formed a race circuit, and the distant water ended
+in a sharp triangle against the canyon. Broken stone lobes replaced the tiers,
+ground color replaced path overlays, and the spring moved into a complete
+depression. The second capture still showed a circular plate under the stones
+and overly abrupt pool banks. Those shortcomings prompted another visual pass;
+the terrain tests alone were not enough to accept the scene.
+
+The spring is now shallow and the outcrop base blends into the soil. A far-right
+Android view exposed an additional terrain edge: the 20:9 phone sees more ground
+than the 16:9 test window. Seventy-two actual-mesh ray checks now cover both
+aspect ratios, both follow extremes and all supported zooms. They caught not
+only a small mesh but also high distant terrain clipping the orthographic near
+plane. An Oasis-only foreground taper fixes that without changing walking
+heights or the other landscapes. A subsequent black rock-base artifact was a
+triangle-winding mistake, not the intended lighting; front-face/normal checks
+now guard the low apron as well.
+
+The parallel reconnect review found a real bug: a lost predicted tap could
+leave the client waiting indefinitely for an input sequence the server never
+received. A separate first-snapshot-after-disconnect flag now restores accepted
+movement without resetting arrival-message history. The network test closes
+the socket just before a ground tap and uses normal recovery, with no test-only
+reset of game state. Two precision regressions were also addressed: double-
+scalar graph math agrees on 32 shared Go/Godot routes, and a tiny outward
+presentation projection prevents float32 rounding from freezing animals on the
+rock edge. Authoritative geometry and collision remain strict and unchanged.
+
+The corrected signed Android build was then inspected at both camera-follow
+extremes: no black stone base, cut-off foreground or exposed spring underside.
+An Android-created herd and a second WebSocket client using ordinary dog
+commands brought all ten sheep from normal spawns to pasture at tick 676. The
+phone then walked around the rock, sat beside the second herder, called a corgi
+and used the nearby Pet action. Controls disappear after each action; resuming
+the already settled herd is quiet. The [new portrait capture](images/canyon-oasis.png)
+shows the two herders, both dogs and flock, not a concept illustration.
+
+Keep improving: distant cliff faces repeat, the spring is still a flat color
+patch, and the foreground has limited detail. Animal animation and ambient
+sound are still sparse. Emulator checks establish rendering and interaction,
+not real-phone frame rates or the feel of two humans herding together. The next
+candidate is an open Alpine ridge pasture with valley depth, described in the
+[landscape experiments](next-landscape.md); it is not implemented in this build.

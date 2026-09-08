@@ -76,8 +76,277 @@ func _run() -> void:
 		if game.command_panel.visible or game.sit_button.visible or game.go_cancel.visible:
 			_fail("terrain and movement must not reveal permanent controls")
 			return
-	print("TERRAIN_SMOKE_OK: four sculpted landscapes, river banks and offset bridge/gate, Orchard forage clearing and terraces, %d portrait ray roundtrips, grounded prediction/interpolation/biome changes, geometry budgets" % checked_roundtrips)
+	if not await _oasis_smoke(game, dog):
+		return
+	print("TERRAIN_SMOKE_OK: five sculpted landscapes, existing river/gate and Orchard regressions, dry Oasis rock routes and visibility, %d portrait ray roundtrips, grounded prediction/interpolation/biome changes, geometry budgets" % checked_roundtrips)
 	quit(0)
+
+func _oasis_ring() -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	for index in range(8):
+		points.append(Vector2.RIGHT.rotated(index * TAU / 8.0) * 5.2)
+	return points
+
+func _oasis_smoke(game: Node, retained_dog: Node3D) -> bool:
+	game._select_landscape("oasis")
+	await process_frame
+	game._process(1.0 / 60.0)
+	var meadow: Node = game.meadow
+	var layout: Dictionary = meadow.layout
+	var rock: Variant = layout.get("rock_pass")
+	if meadow.landscape != "oasis" or layout.get("version") != 3 or layout.size() != 4 or layout.get("bridge_y") != 0 or layout.get("gate_y") != 0:
+		return _fail("Oasis must use its own canonical version-three dry layout")
+	if not rock is Dictionary or rock.size() != 2 or rock.get("radius") != 3.4 or not rock.get("center") is Dictionary:
+		return _fail("Oasis must retain the canonical rock footprint")
+	if rock.center.size() != 2 or rock.center.get("x") != 0 or rock.center.get("y") != 0 or meadow.rock_center != Vector2.ZERO or not is_equal_approx(meadow.rock_radius, 3.4):
+		return _fail("Oasis rendered rock center/radius must agree with the authoritative layout")
+	if is_instance_valid(meadow.bridge) or is_instance_valid(meadow.gate) or not meadow.terrain.find_children("Footbridge*", "", true, false).is_empty():
+		return _fail("Oasis must not retain an invisible bridge or gate")
+	if not meadow.terrain.find_children("RiverSurface*", "", true, false).is_empty():
+		return _fail("Oasis must not retain the previous playable river")
+	if not _oasis_ground_mesh(meadow) or not _geometry_budget(game, "oasis"):
+		return false
+	if not await _oasis_frame_ground_coverage(meadow):
+		return false
+	if not _oasis_apron_orientation(meadow):
+		return false
+	if not _picking_roundtrips(meadow, "oasis") or not _oasis_rock_visibility(meadow):
+		return false
+	if not _grounded_actors(game, "Oasis landscape switch") or not _moving_actors(game, "oasis"):
+		return false
+	for preview_actor in meadow.preview.get_children():
+		var expected: float = meadow.surface_height(preview_actor.position.x, preview_actor.position.z) + FEET_CLEARANCE
+		if absf(preview_actor.position.y - expected) > 0.015:
+			return _fail("Oasis welcome animals must follow the dry terrain")
+	var local: Node3D = game.actors[game.local_id].node
+	var dog: Node3D = game.actors["mochi"].node
+	game.moving = false
+	for point in _oasis_ring():
+		local.position = game._surface_position(point)
+		dog.position = game._surface_position(point * 1.1)
+		game.actors["mochi"].target = game._surface_position(point)
+		for frame in range(20):
+			game._process(1.0 / 60.0)
+			if not _grounded_actors(game, "Oasis bypass %s frame %d" % [point, frame]):
+				return false
+		if Vector2(dog.position.x, dog.position.z).distance_to(point) > 0.1:
+			return _fail("Oasis route grounding must exercise corgi interpolation")
+	if game.actors["mochi"].node != retained_dog or game.actors.size() != 14:
+		return _fail("Oasis switch must retain the existing two herders and twelve animals")
+	if game.command_panel.visible or game.sit_button.visible or game.go_cancel.visible:
+		return _fail("Oasis must not add permanent controls")
+	return true
+
+func _oasis_ground_mesh(meadow: Node) -> bool:
+	var meshes: Array[Node] = meadow.terrain.find_children("ValleyGround*", "MeshInstance3D", true, false)
+	var checked_vertices := 0
+	var former_channel_vertices := 0
+	var minimum := INF
+	var maximum := -INF
+	for node in meshes:
+		var ground := node as MeshInstance3D
+		var faces: PackedVector3Array = ground.mesh.get_faces()
+		for vertex in faces:
+			var point: Vector3 = ground.global_transform * vertex
+			if absf(point.x) > 17 or absf(point.z) > 11:
+				continue
+			var height: float = meadow.surface_height(point.x, point.z)
+			if not point.is_finite() or not is_finite(height) or absf(point.y - height) > 0.035:
+				return _fail("Oasis rendered ground and feet height disagree at %s" % point)
+			minimum = minf(minimum, height)
+			maximum = maxf(maximum, height)
+			checked_vertices += 1
+			if absf(point.x) < 1.5 and absf(point.z) > 4:
+				former_channel_vertices += 1
+		for index in range(0, faces.size(), 9):
+			var center: Vector3 = ground.global_transform * ((faces[index] + faces[index + 1] + faces[index + 2]) / 3.0)
+			if absf(center.x) <= 17 and absf(center.z) <= 11:
+				if absf(float(meadow.surface_height(center.x, center.z)) - center.y) > 0.035:
+					return _fail("Oasis height misses a rendered triangle interior at %s" % center)
+	if checked_vertices < 100 or former_channel_vertices < 20 or maximum - minimum <= 1.0:
+		return _fail("Oasis needs a genuinely sculpted, continuous dry mesh across the former river")
+	print("OASIS_GROUND: %d rendered vertices, %d across the former channel, height span %.2f" % [checked_vertices, former_channel_vertices, maximum - minimum])
+	return true
+
+func _oasis_frame_ground_coverage(meadow: Node) -> bool:
+	# The analytic heightfield extends beyond its finite rendered mesh. Picking
+	# roundtrips cannot detect a visible mesh cutoff at the portrait frame edge.
+	# Cast only against the actual Oasis ground, not scenery or profile samples.
+	var meshes: Array[Node] = meadow.terrain.find_children("ValleyGroundOasis", "MeshInstance3D", true, false)
+	if meshes.size() != 1:
+		return _fail("Oasis frame coverage needs its actual continuous ground mesh")
+	var ground := meshes[0] as MeshInstance3D
+	var faces: PackedVector3Array = ground.mesh.get_faces()
+	if faces.is_empty() or faces.size() % 3 != 0:
+		return _fail("Oasis frame coverage needs complete rendered ground triangles")
+	for index in faces.size():
+		faces[index] = ground.global_transform * faces[index]
+	var original_size: Vector2i = root.size
+	var checked := 0
+	# The actual Android cutoff appeared on a 1080x2400 phone. Its 20:9 frame
+	# sees farther down the ground than the standard 720x1280 test viewport.
+	for portrait_size in [Vector2i(720, 1280), Vector2i(720, 1600)]:
+		root.size = portrait_size
+		await process_frame
+		var viewport: Rect2 = root.get_visible_rect()
+		if viewport.size.y <= 0 or absf(viewport.size.x / viewport.size.y - float(portrait_size.x) / portrait_size.y) > 0.0001:
+			return _fail("Oasis frame coverage did not exercise the requested portrait aspect: %s vs %s" % [viewport.size, portrait_size])
+		for pan in [-6.0, 6.0]:
+			for zoom in [0.8, 1.0, 1.18]:
+				meadow.zoom = zoom
+				meadow.fit_camera()
+				meadow.camera_focus = Vector3(pan, 1.8, -6)
+				meadow.desired_focus = meadow.camera_focus
+				meadow._process(0.0)
+				for row in [0.88, 0.98]:
+					for column in [0.02, 0.5, 0.98]:
+						var screen := viewport.position + viewport.size * Vector2(column, row)
+						var origin: Vector3 = meadow.camera.project_ray_origin(screen)
+						var direction: Vector3 = meadow.camera.project_ray_normal(screen)
+						var endpoint := origin + direction * float(meadow.camera.far)
+						var covered := false
+						for index in range(0, faces.size(), 3):
+							var hit: Variant = Geometry3D.segment_intersects_triangle(origin, endpoint, faces[index], faces[index + 1], faces[index + 2])
+							if hit is Vector3 and hit.is_finite():
+								covered = true
+								break
+						if not covered:
+							return _fail("Oasis rendered ground ends inside the lower portrait frame (size %s, pan %.1f, zoom %.2f, column %.2f, row %.2f, ray origin %s, direction %s)" % [portrait_size, pan, zoom, column, row, origin, direction])
+						checked += 1
+	root.size = original_size
+	await process_frame
+	meadow.fit_camera()
+	if checked != 72:
+		return _fail("Oasis lower-frame coverage must exercise both follow extremes and all zooms")
+	print("OASIS_FRAME_GROUND: %d lower-portrait rays hit actual ground triangles at both follow extremes, all zooms, and 16:9/20:9 phone aspects" % checked)
+	return true
+
+func _oasis_apron_orientation(meadow: Node) -> bool:
+	# Two-sided raster materials still flip lighting on a backwards front face.
+	# Visibility rays can hit either side, so inspect real vertex order and stored
+	# normals separately. Low clearance selects the apron, not the lobe walls.
+	var rocks: Array[Node] = meadow.terrain.find_children("RockPassOutcrop*", "MeshInstance3D", true, false)
+	var checked := 0
+	var minimum_alignment := 1.0
+	for node in rocks:
+		var rock := node as MeshInstance3D
+		var normal_basis := rock.global_transform.basis.inverse().transposed()
+		for surface in range(rock.mesh.get_surface_count()):
+			var arrays: Array = rock.mesh.surface_get_arrays(surface)
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+			var indices := PackedInt32Array()
+			if arrays[Mesh.ARRAY_INDEX] != null:
+				indices = arrays[Mesh.ARRAY_INDEX]
+			if normals.size() != vertices.size():
+				return _fail("Oasis apron must retain a stored normal for each rendered vertex")
+			var count := vertices.size() if indices.is_empty() else indices.size()
+			if count == 0 or count % 3 != 0:
+				return _fail("Oasis apron orientation needs complete rendered triangles")
+			for index in range(0, count, 3):
+				var points: Array[Vector3] = []
+				var stored: Array[Vector3] = []
+				var low_apron := true
+				for corner in range(3):
+					var vertex_index := index + corner if indices.is_empty() else indices[index + corner]
+					if vertex_index < 0 or vertex_index >= vertices.size():
+						return _fail("Oasis outcrop contains an invalid triangle index")
+					var point: Vector3 = rock.global_transform * vertices[vertex_index]
+					var normal: Vector3 = normal_basis * normals[vertex_index]
+					if not point.is_finite() or not normal.is_finite() or normal.length_squared() < 0.5:
+						return _fail("Oasis outcrop contains invalid geometry or stored normals")
+					points.append(point)
+					stored.append(normal.normalized())
+					var clearance: float = point.y - meadow.surface_height(point.x, point.z)
+					if clearance < -0.02 or clearance > 0.35:
+						low_apron = false
+				if not low_apron:
+					continue
+				var alignment := _apron_front_alignment(points[0], points[1], points[2], stored)
+				if alignment < 0.5:
+					return _fail("Oasis low apron front-face winding opposes its upward stored normals at %s (alignment %.3f)" % [points[0], alignment])
+				# Reversing an actual apron triangle reproduces the exported black-disc
+				# mistake and must fail this same predicate, not merely a count check.
+				if _apron_front_alignment(points[0], points[2], points[1], stored) >= 0.5:
+					return _fail("Oasis winding regression failed to reject a reversed actual apron triangle")
+				minimum_alignment = minf(minimum_alignment, alignment)
+				checked += 1
+	if checked < 100:
+		return _fail("Oasis winding regression did not exercise enough low apron triangles")
+	print("OASIS_APRON_NORMALS: %d actual low triangles face upward and agree with stored normals, minimum alignment %.3f; reversed winding rejected" % [checked, minimum_alignment])
+	return true
+
+func _apron_front_alignment(a: Vector3, b: Vector3, c: Vector3, normals: Array[Vector3]) -> float:
+	# Godot's clockwise front face is (c-a) cross (b-a), not the reverse.
+	var front := (c - a).cross(b - a)
+	if front.length_squared() < 0.0000000001 or front.y <= 0.0:
+		return -1.0
+	front = front.normalized()
+	var alignment := 1.0
+	for normal in normals:
+		alignment = minf(alignment, front.dot(normal))
+	return alignment
+
+func _oasis_rock_visibility(meadow: Node) -> bool:
+	var rocks: Array[Node] = meadow.terrain.find_children("RockPassOutcrop*", "MeshInstance3D", true, false)
+	if rocks.is_empty():
+		return _fail("Oasis collision rock must have actual visible geometry")
+	var faces := PackedVector3Array()
+	var sectors: Dictionary = {}
+	var maximum_radius := 0.0
+	var maximum_height := 0.0
+	for node in rocks:
+		var rock := node as MeshInstance3D
+		for vertex in rock.mesh.get_faces():
+			var point: Vector3 = rock.global_transform * vertex
+			if not point.is_finite():
+				return _fail("Oasis outcrop contains non-finite geometry")
+			faces.append(point)
+			var plan := Vector2(point.x, point.z)
+			var radius := plan.length()
+			maximum_radius = maxf(maximum_radius, radius)
+			maximum_height = maxf(maximum_height, point.y - float(meadow.surface_height(point.x, point.z)))
+			var sector := posmod(int(roundf(plan.angle() / (TAU / 8.0))), 8)
+			sectors[sector] = maxf(float(sectors.get(sector, 0.0)), radius)
+	if maximum_radius > 3.43 or maximum_height > 2.15:
+		return _fail("Oasis outcrop extends beyond its collision footprint or obscures the route: radius %.3f, added height %.3f" % [maximum_radius, maximum_height])
+	for sector in range(8):
+		if float(sectors.get(sector, 0.0)) < 3.25:
+			return _fail("Oasis rock silhouette must explain the blocked footprint in every direction")
+	var viewport: Rect2 = root.get_visible_rect().grow(-4)
+	var coverage: Dictionary = {}
+	var checked := 0
+	for pan in [-6.0, 6.0]:
+		for zoom in [0.8, 1.0, 1.18]:
+			meadow.zoom = zoom
+			meadow.fit_camera()
+			meadow.camera_focus = Vector3(pan, 1.8, -6)
+			meadow.desired_focus = meadow.camera_focus
+			meadow._process(0.0)
+			for point in _oasis_ring():
+				# A small animal's upper body must remain visible on either bypass.
+				var probe := Vector3(point.x, float(meadow.surface_height(point.x, point.y)) + 0.6, point.y)
+				var screen: Vector2 = meadow.camera.unproject_position(probe)
+				if not viewport.has_point(screen):
+					continue
+				var origin: Vector3 = meadow.camera.project_ray_origin(screen)
+				for index in range(0, faces.size(), 3):
+					var hit: Variant = Geometry3D.segment_intersects_triangle(origin, probe, faces[index], faces[index + 1], faces[index + 2])
+					if hit is Vector3 and hit.distance_to(probe) > 0.02:
+						return _fail("Oasis rock hides a bypass animal at %s (pan %.1f, zoom %.2f)" % [point, pan, zoom])
+				coverage[str(pan) + "/" + str(point)] = true
+				checked += 1
+		for point in _oasis_ring():
+			if not coverage.has(str(pan) + "/" + str(point)):
+				return _fail("Oasis bypass visibility fixture was never exercised at a portrait follow extreme")
+	for point in [Vector2.ZERO, Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(0, -1.5), Vector2(0, 1.5)]:
+		var ground := Vector3(point.x, float(meadow.surface_height(point.x, point.y)), point.y)
+		if not ground.is_finite():
+			return _fail("Oasis must retain finite underlying ground inside the rock")
+		if meadow.ground_at(meadow.camera.unproject_position(ground)).is_finite():
+			return _fail("Oasis rock footprint must reject terrain taps")
+	print("OASIS_VISIBILITY: %d clear portrait animal probes, radius %.3f, added height %.3f, rejected rock taps" % [checked, maximum_radius, maximum_height])
+	return true
 
 func _orchard_layout(meadow: Node) -> bool:
 	var forage: Variant = meadow.layout.get("forage")
@@ -247,6 +516,9 @@ func _picking_roundtrips(meadow: Node, biome: String) -> bool:
 	]
 	if biome == "orchard":
 		fixture_samples.append_array(ORCHARD_SURFACE_SAMPLES)
+	elif biome == "oasis":
+		fixture_samples = _oasis_ring()
+		fixture_samples.append_array([Vector2(0, -8), Vector2(0, 8), Vector2(6, -8), Vector2(6, 0), Vector2(6, 8), Vector2(-12, 0), Vector2(12, -7), Vector2(12, 6)])
 	samples.append_array(fixture_samples)
 	var checked_fixtures: Dictionary = {}
 	var viewport: Rect2 = root.get_visible_rect().grow(-4)
