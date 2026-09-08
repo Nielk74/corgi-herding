@@ -1,6 +1,6 @@
 class_name MeadowDiorama
 extends Node3D
-## All meshes are original procedural geometry; no downloaded art dependencies.
+## Original procedural geometry. V7 optionally uses attributed CC0 surface maps.
 
 const GRASS := Color("96ad78")
 const DARK := Color("293f36")
@@ -10,6 +10,14 @@ const SceneryBatch = preload("res://scripts/static_scenery_batch.gd")
 const CloudNavigation = preload("res://scripts/cloud_navigation.gd")
 const ShoreNavigation = preload("res://scripts/shore_navigation.gd")
 const ShoreScenery = preload("res://scripts/juniper_scenery.gd")
+const CommonsNavigation = preload("res://scripts/commons_navigation.gd")
+const CommonsScenery = preload("res://scripts/bellflower_scenery.gd")
+const RegionNavigationScript = preload("res://scripts/region_navigation.gd")
+const RegionPresentation = preload("res://scripts/region_presentation.gd")
+const RegionRecipe = preload("res://scripts/landscape_recipe.gd")
+const RegionSceneBuilder = preload("res://scripts/landscape_scene_builder.gd")
+const ValleyLife = preload("res://scripts/valley_life.gd")
+const ActorBatch = preload("res://scripts/actor_batch.gd")
 var camera: Camera3D
 var gate: Node3D
 var bridge: Node3D
@@ -29,6 +37,9 @@ var vertex_material: StandardMaterial3D
 var camera_focus := Vector3(-4.0, 1.8, -6.0)
 var desired_focus := Vector3(-4.0, 1.8, -6.0)
 const CAMERA_OFFSET := Vector3(8, 28, 38)
+const FOLLOW_QUIET_HALF_WIDTH := 3.0
+var player_follow_initialized := false
+var following_walk := false
 const TERRAIN_HORIZON_DEPTH := 22.0
 var profile: ValleyTerrainProfile
 var layout: Dictionary = {"version": 1, "bridge_y": 0.0, "gate_y": 0.0}
@@ -48,6 +59,15 @@ var shore: Dictionary = {}
 var shore_path: Array[Vector2] = []
 var shore_half_width := 3.6
 var shore_clearings: Array = []
+var commons: Dictionary = {}
+var region_profile: RefCounted
+var region_navigation: RefCounted
+var region_presentation: RefCounted
+var valley_life: Node3D
+var _legacy_camera_state: Dictionary = {}
+var _legacy_environment: Dictionary = {}
+var _lighting_rig: Node3D
+var _legacy_shafts: Dictionary = {}
 
 func _ready() -> void:
 	_build_light()
@@ -60,8 +80,13 @@ func _ready() -> void:
 	_build_preview()
 
 func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
-	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud", "juniper"] else "alpine"
-	var expected_version := 5 if next == "juniper" else (4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1)))
+	if id == "alpine_valley":
+		_set_region_landscape(incoming_layout)
+		return
+	if landscape == "alpine_valley":
+		_leave_region_landscape()
+	var next := id if id in ["alpine", "cactus", "larch", "orchard", "oasis", "cloud", "juniper", "bellflower"] else "alpine"
+	var expected_version := 6 if next == "bellflower" else (5 if next == "juniper" else (4 if next == "cloud" else (3 if next == "oasis" else (2 if next == "orchard" else 1))))
 	var next_layout := {"version": int(incoming_layout.get("version", expected_version)),
 		"bridge_y": float(incoming_layout.get("bridge_y", 3.0 if next == "orchard" else (-4.0 if next == "larch" else 0.0))),
 		"gate_y": float(incoming_layout.get("gate_y", 2.0 if next == "orchard" else (4.0 if next == "larch" else 0.0)))}
@@ -83,6 +108,8 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 		next_layout["ridge"] = incoming_layout.get("ridge", CloudNavigation.default_ridge()).duplicate(true)
 	elif next == "juniper":
 		next_layout["shore"] = incoming_layout.get("shore", ShoreNavigation.default_shore()).duplicate(true)
+	elif next == "bellflower":
+		next_layout["commons"] = incoming_layout.get("commons", CommonsNavigation.default_commons()).duplicate(true)
 	if next == landscape and next_layout == layout and is_instance_valid(terrain):
 		return
 	var previous_landscape := landscape
@@ -112,6 +139,8 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 			shore_path.append(Vector2(float(point.x), float(point.y)))
 		shore_half_width = float(shore.half_width)
 		shore_clearings = shore.clearings.duplicate(true)
+	elif next == "bellflower":
+		commons = next_layout.commons.duplicate(true)
 	profile = TerrainProfile.new(landscape, layout)
 	if is_instance_valid(terrain):
 		terrain.hide()
@@ -124,12 +153,12 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	add_child(terrain)
 	if world_environment != null:
 		world_environment.background_color = _color("bdcfd0", "d8c1a1", "c4ceca", "cbd8d1", "d8c7ac")
-		if next in ["cloud", "juniper"]:
+		if next in ["cloud", "juniper", "bellflower"]:
 			world_environment.background_color = Color("a9cbdc")
 	_build_land()
 	_build_backdrop()
 	_build_boundaries()
-	if landscape not in ["oasis", "cloud", "juniper"]:
+	if landscape not in ["oasis", "cloud", "juniper", "bellflower"]:
 		_build_bridge()
 		_build_fence()
 	_build_details()
@@ -138,15 +167,152 @@ func set_landscape(id: String, incoming_layout: Dictionary = {}) -> void:
 	if is_instance_valid(preview):
 		for i in preview.get_child_count():
 			var actor := preview.get_child(i) as Node3D
-			if landscape == "juniper":
+			if landscape == "bellflower":
+				actor.position.x = -6.7 + i % 3 if i < 10 else -8.2
+				actor.position.z = -0.4 + floorf(i / 3.0) * 1.05 if i < 10 else (-2.0 if i == 10 else 1.0)
+			elif landscape == "juniper":
 				actor.position.x = -10.7 + i % 3 if i < 10 else -12.2
 				actor.position.z = -0.4 + floorf(i / 3.0) * 1.05 if i < 10 else (-1.0 if i == 10 else 2.0)
-			elif previous_landscape == "juniper":
+			elif previous_landscape in ["juniper", "bellflower", "alpine_valley"]:
 				# Return the decorative welcome flock to its original arrangement
 				# when leaving the new shore; live actors are never repositioned here.
 				actor.position.x = -6.5 + sin(i * 2.3) * 2.9 if i < 10 else -10.0 + (i - 10) * 3.0
 				actor.position.z = -1.6 + cos(i * 1.6) * 2.7 if i < 10 else 3.3
 			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
+
+func _same_region(a: Dictionary, b: Dictionary) -> bool:
+	# Compare numeric fields, not int-vs-float dictionary storage or JSON ordering.
+	if a.recipe_id != b.recipe_id or a.anchors.size() != b.anchors.size() or a.corridors.size() != b.corridors.size() or a.clearings.size() != b.clearings.size():
+		return false
+	for side in ["min", "max"]:
+		if float(a.bounds[side].x) != float(b.bounds[side].x) or float(a.bounds[side].y) != float(b.bounds[side].y):
+			return false
+	for i in a.anchors.size():
+		if float(a.anchors[i].x) != float(b.anchors[i].x) or float(a.anchors[i].y) != float(b.anchors[i].y):
+			return false
+	for i in a.corridors.size():
+		for key in ["a", "b", "half_width"]:
+			if float(a.corridors[i][key]) != float(b.corridors[i][key]):
+				return false
+	for i in a.clearings.size():
+		if float(a.clearings[i].center.x) != float(b.clearings[i].center.x) or float(a.clearings[i].center.y) != float(b.clearings[i].center.y) or float(a.clearings[i].radius) != float(b.clearings[i].radius):
+			return false
+	return true
+
+func _set_region_landscape(incoming: Dictionary) -> void:
+	var canonical := RegionNavigationScript.default_region()
+	var wire: Variant = incoming.get("region", canonical)
+	if not RegionNavigationScript.validate_geometry(wire).is_empty() or not _same_region(wire, canonical):
+		return
+	if incoming.get("version", 7) != 7 or incoming.get("bridge_y", 0.0) != 0 or incoming.get("gate_y", 0.0) != 0:
+		return
+	if landscape == "alpine_valley" and is_instance_valid(terrain):
+		return
+	var recipe: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://worlds/long_valley.recipe.json"))
+	if not RegionRecipe.validate(recipe).is_empty():
+		return
+	_save_legacy_presentation()
+	landscape = "alpine_valley"
+	layout = {"version": 7, "bridge_y": 0.0, "gate_y": 0.0, "region": canonical.duplicate(true)}
+	bridge_y = 0
+	gate_y = 0
+	gate_open = false
+	region_profile = RegionRecipe.new(recipe)
+	region_navigation = RegionNavigationScript.new(canonical)
+	if is_instance_valid(terrain):
+		terrain.hide()
+		terrain.queue_free()
+	gate = null
+	bridge = null
+	water = null
+	terrain = RegionSceneBuilder.load_or_build(region_profile)
+	terrain.name = "Landscape_alpine_valley"
+	add_child(terrain)
+	region_presentation = RegionPresentation.new(terrain, region_profile, region_navigation)
+	valley_life = ValleyLife.new()
+	add_child(valley_life)
+	var minimum := Vector2(canonical.bounds.min.x, canonical.bounds.min.y)
+	var maximum := Vector2(canonical.bounds.max.x, canonical.bounds.max.y)
+	valley_life.configure(region_presentation, Rect2(minimum, maximum - minimum))
+	# Welcome framing is provisional. The first live idle herder still receives
+	# its own one-time placement, including on reconnect into a fresh scene.
+	region_presentation.follow(Vector3(-48, surface_height(-48, 74), 74), false)
+	region_presentation.reset()
+	_apply_region_environment()
+	if is_instance_valid(preview):
+		for i in preview.get_child_count():
+			var actor := preview.get_child(i) as Node3D
+			actor.position.x = -44.7 + i % 3 if i < 10 else (-47 if i == 10 else -44)
+			actor.position.z = 62.4 + floorf(i / 3.0) * 1.05 if i < 10 else 71.8
+			actor.position.y = surface_height(actor.position.x, actor.position.z) + 0.03
+	if is_instance_valid(camera):
+		region_presentation.apply_camera(camera, zoom)
+		camera_focus = region_presentation.camera_focus
+		desired_focus = region_presentation.desired_focus
+
+func _save_legacy_presentation() -> void:
+	if is_instance_valid(camera):
+		for property in ["projection", "keep_aspect", "fov", "near", "far", "size"]:
+			_legacy_camera_state[property] = camera.get(property)
+		_legacy_camera_state["focus"] = camera_focus
+		_legacy_camera_state["desired"] = desired_focus
+		_legacy_camera_state["initialized"] = player_follow_initialized
+		_legacy_camera_state["walking"] = following_walk
+		_legacy_camera_state["zoom"] = zoom
+	if world_environment != null:
+		for property in ["sky", "background_mode", "ambient_light_source", "ambient_light_sky_contribution", "fog_depth_begin", "fog_depth_end", "fog_depth_curve", "fog_light_color"]:
+			_legacy_environment[property] = world_environment.get(property)
+	if is_instance_valid(_lighting_rig):
+		for child in _lighting_rig.get_children():
+			if child is MeshInstance3D:
+				_legacy_shafts[child] = child.visible
+				child.visible = false
+
+func _apply_region_environment() -> void:
+	if world_environment == null:
+		return
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("648fac")
+	sky_material.sky_horizon_color = Color("c2d1d2")
+	sky_material.ground_horizon_color = Color("c2d1d2")
+	sky_material.ground_bottom_color = Color("778979")
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	world_environment.sky = sky
+	world_environment.background_mode = Environment.BG_SKY
+	world_environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world_environment.ambient_light_sky_contribution = 0.65
+	world_environment.fog_depth_begin = 105.0
+	world_environment.fog_depth_end = 480.0
+	world_environment.fog_depth_curve = 1.25
+	world_environment.fog_light_color = Color("a6bac5")
+
+func _leave_region_landscape() -> void:
+	if is_instance_valid(valley_life):
+		valley_life.set_active(false)
+		valley_life.queue_free()
+	valley_life = null
+	region_presentation = null
+	region_navigation = null
+	region_profile = null
+	for property in _legacy_environment:
+		world_environment.set(property, _legacy_environment[property])
+	_legacy_environment.clear()
+	for shaft in _legacy_shafts:
+		if is_instance_valid(shaft):
+			shaft.visible = _legacy_shafts[shaft]
+	_legacy_shafts.clear()
+	if not _legacy_camera_state.is_empty():
+		for property in ["projection", "keep_aspect", "fov", "near", "far", "size"]:
+			camera.set(property, _legacy_camera_state[property])
+		camera_focus = _legacy_camera_state.focus
+		desired_focus = _legacy_camera_state.desired
+		player_follow_initialized = _legacy_camera_state.initialized
+		following_walk = _legacy_camera_state.walking
+		zoom = _legacy_camera_state.zoom
+		camera.position = camera_focus + CAMERA_OFFSET
+		camera.look_at(camera_focus)
+	_legacy_camera_state.clear()
 
 func _color(alpine: String, cactus: String, larch := "", orchard := "", oasis := "") -> Color:
 	if landscape == "oasis":
@@ -201,6 +367,7 @@ func cylinder(parent: Node3D, pos: Vector3, top: float, bottom: float, height: f
 func _build_light() -> void:
 	var rig = load("res://scripts/valley_lighting.gd").new()
 	add_child(rig)
+	_lighting_rig = rig
 	world_environment = rig.environment
 
 func _build_camera() -> void:
@@ -216,18 +383,57 @@ func _build_camera() -> void:
 	get_viewport().size_changed.connect(fit_camera)
 
 func fit_camera() -> void:
+	if landscape == "alpine_valley" and region_presentation != null:
+		region_presentation.apply_camera(camera, zoom)
+		return
 	var size := get_viewport().get_visible_rect().size
 	var aspect := size.x / maxf(size.y, 1.0)
 	# Preserve animal readability on phones; gentle horizontal following reveals the valley.
 	camera.size = maxf(32.0, 25.5 / aspect) * zoom
 
-func follow_player(pos: Vector3) -> void:
-	# A broad quiet center means petting and short walks never move the camera.
-	var offset := pos.x - desired_focus.x
-	if absf(offset) > 5.8:
-		desired_focus.x = clampf(pos.x - signf(offset) * 5.8, -6.0, 6.0)
+func reset_player_follow() -> void:
+	if landscape == "alpine_valley" and region_presentation != null:
+		region_presentation.reset()
+		return
+	# A new herd gets one initial framing, not motion inherited from its predecessor.
+	player_follow_initialized = false
+	stop_player_follow()
+
+func stop_player_follow() -> void:
+	if landscape == "alpine_valley" and region_presentation != null:
+		region_presentation.stop()
+		return
+	following_walk = false
+	desired_focus = camera_focus
+
+func follow_player(pos: Vector3, walking: bool = true) -> void:
+	if landscape == "alpine_valley" and region_presentation != null:
+		region_presentation.follow(pos, walking)
+		return
+	if not pos.is_finite():
+		return
+	if not player_follow_initialized:
+		# Place an initially idle herder before displaying the first gameplay frame.
+		# Ordinary idle snapshots/reconciliation must never trigger this again.
+		player_follow_initialized = true
+		camera_focus.x = clampf(pos.x, -6.0, 6.0)
+		desired_focus = camera_focus
+	if not walking:
+		# No slow camera drift while the pair is resting or petting a dog.
+		stop_player_follow()
+		return
+	# Short walks inside the quiet center leave the view alone. Once a longer
+	# walk needs a pan, keep following through its reversal until the herder stops;
+	# otherwise the old wide deadzone strands the camera on the previous side.
+	if absf(pos.x - camera_focus.x) > FOLLOW_QUIET_HALF_WIDTH:
+		following_walk = true
+	if following_walk:
+		desired_focus.x = clampf(pos.x, -6.0, 6.0)
 
 func _build_land() -> void:
+	if landscape == "bellflower":
+		CommonsScenery.build_land(self)
+		return
 	if landscape == "juniper":
 		ShoreScenery.build_land(self)
 		return
@@ -753,9 +959,18 @@ func _terrain_height(x: float, z: float) -> float:
 	return profile.sample(x, z)
 
 func surface_height(x: float, z: float) -> float:
+	if landscape == "alpine_valley" and region_profile != null:
+		if region_presentation != null:
+			return region_presentation.surface_height(x, z)
+		# Explicit construction-only fallback before the prepared mesh is indexed.
+		return region_profile.surface_height(x, z)
 	return profile.surface_height(x, z)
 
 func surface_normal(x: float, z: float) -> Vector3:
+	if landscape == "alpine_valley" and region_profile != null:
+		if region_presentation != null:
+			return region_presentation.surface_normal(x, z)
+		return region_profile.normal(x, z)
 	if profile.bridge_at(x, z) or absf(x - profile.river_center(z)) < profile.river_width(z):
 		return Vector3.UP
 	var step := 0.06
@@ -832,7 +1047,7 @@ func _ground_horizon_gap(point: Vector3) -> float:
 	elif landscape == "oasis":
 		var across := point.x * 0.9785 - point.z * 0.2063
 		limit = _oasis_front_depth(across) + 0.10
-	elif landscape in ["cloud", "juniper"]:
+	elif landscape in ["cloud", "juniper", "bellflower"]:
 		limit = 49.0
 	return limit - depth
 
@@ -843,6 +1058,14 @@ func _terrain_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3)
 		c = previous_b
 	for point in [a, b, c]:
 		var normal := profile.normal_at(point.x, point.z)
+		if landscape == "bellflower":
+			var depth: float = -point.x * 0.2063 - point.z * 0.9785
+			if depth > 27.0:
+				normal = normal.lerp((c - a).cross(b - a).normalized(), smoothstep(27.0, 35.0, depth)).normalized()
+			surface.set_color(CommonsScenery.ground_color(self, point, normal))
+			surface.set_normal(normal)
+			surface.add_vertex(point)
+			continue
 		if landscape == "juniper":
 			var depth: float = -point.x * 0.2063 - point.z * 0.9785
 			if depth > 28.0:
@@ -924,6 +1147,8 @@ func _trail(points: Array, width: float) -> void:
 	_finish_surface(surface, "WanderingTrail")
 
 func _build_backdrop() -> void:
+	if landscape == "bellflower":
+		return # Its common, foothills and mountain folds are one continuous mesh.
 	if landscape == "juniper":
 		return # Continuous mesh already includes the bay, foothills and snow peaks.
 	if landscape == "cloud":
@@ -1205,7 +1430,7 @@ func _ridge_strip(front_depth: float, crest_depth: float, base_height: float, am
 	_finish_surface(surface, "DistantRidgeline" if hazy else ("GraniteFlank" if landscape == "larch" else ("AlpineCrags" if snow else "ErodedCanyon")))
 
 func _build_boundaries() -> void:
-	if landscape in ["oasis", "cloud", "juniper"]:
+	if landscape in ["oasis", "cloud", "juniper", "bellflower"]:
 		return # The canyon shoulders and planted outcrops are composed separately.
 	# Scattered outcrops follow the rising slopes. No rectangular necklace of shrubs.
 	var rng := RandomNumberGenerator.new()
@@ -1272,6 +1497,9 @@ func _build_fence() -> void:
 	diagonal.rotation.x = -0.16
 
 func _build_details() -> void:
+	if landscape == "bellflower":
+		CommonsScenery.build_details(self)
+		return
 	if landscape == "juniper":
 		ShoreScenery.build_details(self)
 		return
@@ -1448,6 +1676,8 @@ func make_actor(kind: String, identity: String, second_herder := false) -> Node3
 		"dog": _dog(body, identity == "maple")
 		"sheep": _sheep(body, identity)
 		"player": _herder(body, second_herder)
+	if landscape == "alpine_valley":
+		ActorBatch.optimize(actor)
 	return actor
 
 func _dog(parent: Node3D, maple: bool) -> void:
@@ -1528,6 +1758,8 @@ func mark_destination(pos: Vector3) -> void:
 	marker_age = 0.0
 
 func ground_at(screen_pos: Vector2) -> Vector3:
+	if landscape == "alpine_valley" and region_presentation != null:
+		return region_presentation.ground_at(camera, screen_pos)
 	var origin := camera.project_ray_origin(screen_pos)
 	var direction := camera.project_ray_normal(screen_pos)
 	if absf(direction.y) < 0.001:
@@ -1557,6 +1789,8 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 				return Vector3.INF
 			if landscape == "juniper" and not ShoreNavigation.contains(Vector2(result.x, result.z), shore):
 				return Vector3.INF
+			if landscape == "bellflower" and not CommonsNavigation.contains(Vector2(result.x, result.z), commons):
+				return Vector3.INF
 			result.y = surface_height(result.x, result.z)
 			return result
 		previous_t = t
@@ -1565,9 +1799,15 @@ func ground_at(screen_pos: Vector2) -> Vector3:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	camera_focus = camera_focus.lerp(desired_focus, 1.0 - exp(-delta * 1.5))
-	camera.position = camera_focus + CAMERA_OFFSET
-	camera.look_at(camera_focus)
+	if landscape == "alpine_valley" and region_presentation != null:
+		region_presentation.advance(delta)
+		region_presentation.apply_camera(camera, zoom)
+		camera_focus = region_presentation.camera_focus
+		desired_focus = region_presentation.desired_focus
+	else:
+		camera_focus = camera_focus.lerp(desired_focus, 1.0 - exp(-delta * 1.5))
+		camera.position = camera_focus + CAMERA_OFFSET
+		camera.look_at(camera_focus)
 	marker_age += delta
 	destination.visible = marker_age < 2.0
 	destination.scale = Vector3.ONE * (1.0 + sin(marker_age * 5) * 0.1)

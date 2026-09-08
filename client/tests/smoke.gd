@@ -14,6 +14,7 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 	game.preview_mode = true
+	game._select_landscape("alpine") # Keep this legacy bridge fixture explicit.
 	game._show_preview()
 	await process_frame
 	if int(ProjectSettings.get_setting("display/window/handheld/orientation")) != 1:

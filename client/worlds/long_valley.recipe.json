@@ -1,0 +1,13 @@
+{
+  "recipe_version": 1,
+  "id": "long_valley",
+  "seed": 681509,
+  "biome": "alpine",
+  "region_file": "res://worlds/regions/alpine_valley_01.json",
+  "bounds": [-72, -96, 72, 96],
+  "route": [[-42, 64, 0], [-25, 43, 4], [-32, 16, 7], [-8, -10, 12], [10, -40, 18], [30, -63, 23], [44, -78, 26]],
+  "half_width": 10,
+  "clearings": [[-42, 64, 18], [-32, 16, 22], [10, -40, 20], [44, -78, 18]],
+  "chunk_size": 16,
+  "cell_size": 1
+}

@@ -6,6 +6,7 @@ signal snapshot_received(snapshot: Dictionary)
 signal status_changed(text: String, connected: bool)
 signal herd_joined(code: String)
 signal request_failed(message: String)
+signal message_sent(message: Dictionary, connection_epoch: int)
 
 const DEFAULT_SERVER := "http://127.0.0.1:8790"
 const CONFIG_PATH := "user://herd.cfg"
@@ -30,6 +31,7 @@ var resume_after_background := false
 var update_required := false
 var auth_rejected := false
 var capability_retry_used := false
+var connection_epoch := 0
 
 func _ready() -> void:
 	_load_config()
@@ -76,6 +78,8 @@ func has_saved_herd() -> bool:
 func reconnect() -> void:
 	if not has_saved_herd():
 		return
+	connection_epoch += 1
+	connected = false
 	paused = false
 	update_required = false
 	auth_rejected = false
@@ -130,11 +134,11 @@ func _layout_capability(info: Dictionary) -> int:
 		for version: Variant in versions:
 			if typeof(version) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(version)) or float(version) < 0 or float(version) != floorf(float(version)):
 				return -1
-			if float(version) in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]:
+			if float(version) in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]:
 				selected = maxi(selected, int(version))
 		return selected
 	var version: Variant = info.get("layout_version", 0)
-	if typeof(version) in [TYPE_INT, TYPE_FLOAT] and float(version) in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]:
+	if typeof(version) in [TYPE_INT, TYPE_FLOAT] and float(version) in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]:
 		return int(version)
 	return -1
 
@@ -182,7 +186,13 @@ func interact(action: String, dog_id := "") -> void:
 
 func send(message: Dictionary) -> void:
 	if socket != null and socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		socket.send_text(JSON.stringify(message))
+		if _write_text(JSON.stringify(message)) == OK and message.get("type") in ["move", "command", "interact"]:
+			# Successful local emission, NOT a server acknowledgement. Auth tokens
+			# are deliberately excluded from this presentation-only signal.
+			message_sent.emit(message.duplicate(true), connection_epoch)
+
+func _write_text(text: String) -> Error:
+	return socket.send_text(text)
 
 func _request(path: String, extra: Dictionary = {}) -> void:
 	capability_retry_used = false

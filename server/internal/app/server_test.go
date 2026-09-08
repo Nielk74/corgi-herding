@@ -278,7 +278,7 @@ func TestHTTPValidationCapacityAndHealth(t *testing.T) {
 	if err = json.NewDecoder(resp.Body).Decode(&health); err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 || !reflect.DeepEqual(health.LayoutVersions, []int{1, 2, 3, 4, 5}) {
+	if resp.StatusCode != 200 || health.Status != "ok" || health.Version != "test-version" || health.Sessions != 1 || health.Protocol != 1 || health.LayoutVersion != 1 || !reflect.DeepEqual(health.LayoutVersions, []int{1, 2, 3, 4, 5, 6, 7}) {
 		t.Fatalf("invalid health: %+v", health)
 	}
 }
