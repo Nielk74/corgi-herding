@@ -169,6 +169,7 @@ func _main_integration(viewport_size: Vector2i) -> void:
 	game.network.set_process(false)
 	game.network.persist_config = false
 	game.preview_mode = true
+	game._select_landscape("alpine") # Legacy small-world camera fixture.
 	game._show_preview()
 	game._process(0.0)
 	game.meadow._process(0.0)

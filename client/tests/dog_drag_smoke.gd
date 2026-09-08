@@ -52,6 +52,7 @@ func _run() -> void:
 	game.network = recorder
 	game.dog_drag.gesture_event.connect(func(event_name: String, id: String, point: Vector2) -> void: gesture_events.append([event_name, id, point]))
 	game.preview_mode = true
+	game._select_landscape("alpine") # Preserve original river/fence negatives.
 	game._show_preview()
 	game.preview_mode = false
 	for size in [Vector2i(720, 1280), Vector2i(720, 1600)]:

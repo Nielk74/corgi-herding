@@ -31,6 +31,7 @@ func _run() -> void:
 	recorder.connected = true
 	game.network = recorder
 	game.preview_mode = true
+	game._select_landscape("alpine") # Preserve the original near-gate fixture.
 	game._show_preview()
 	await _layout()
 	for viewport_size in [Vector2i(720, 1280), Vector2i(720, 1600)]:

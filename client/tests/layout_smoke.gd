@@ -26,6 +26,7 @@ func _run() -> void:
 	game.network.persist_config = false
 	game.preview_mode = true
 	game._set_busy(true)
+	game._select_landscape("alpine") # Legacy fixtures do not use welcome defaults.
 	game._show_preview()
 	if game.request_busy or not game.menu_error.text.is_empty():
 		_fail("a successful join must not leave an Opening message in the menu")
@@ -115,10 +116,10 @@ func _run() -> void:
 		if game._pick_world_interaction(gate_screen) != "gate":
 			_fail("offset gate cannot be directly tapped")
 			return
-	# Seven choices keep large touch targets; no extra controls enter gameplay.
+	# Nine choices keep large touch targets; no extra controls enter gameplay.
 	game._open_settings()
 	await process_frame
-	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button]:
+	for button in [game.alpine_button, game.cactus_button, game.larch_button, game.orchard_button, game.oasis_button, game.cloud_button, game.juniper_button, game.bellflower_button, game.long_valley_button]:
 		if not root.get_visible_rect().encloses(button.get_global_rect()) or button.size.y < 58 or button.size.x < 230:
 			_fail("portrait landscape choices must fit with usable touch areas")
 			return
@@ -126,10 +127,13 @@ func _run() -> void:
 		_fail("the original landscape choices must retain their two portrait rows")
 		return
 	if game.oasis_button.position.y <= game.orchard_button.position.y or game.cloud_button.position.y != game.oasis_button.position.y:
-		_fail("Oasis and Cloud must share the third usable portrait row")
+		_fail("Oasis and Cloud must share the fourth usable portrait row")
 		return
 	if game.juniper_button.position.y <= game.cloud_button.position.y:
-		_fail("Juniper must retain a separate usable fourth portrait row")
+		_fail("Juniper must retain a separate usable fifth portrait row")
+		return
+	if game.bellflower_button.position.y != game.long_valley_button.position.y or game.bellflower_button.position.y >= game.alpine_button.position.y:
+		_fail("Practice meadow and Long Alpine valley must share the first portrait row")
 		return
 	# Canonical nested forage geometry accepts JSON numbers but no silent coercion.
 	var orchard: Dictionary = JSON.parse_string(JSON.stringify(game._default_layout("orchard")))
@@ -189,7 +193,9 @@ func _run() -> void:
 		[{"layout_version": 3.0}, 3], [{"layout_version": 1, "layout_versions": [1, 2, 3]}, 3],
 		[{"layout_version": 4.0}, 4], [{"layout_version": 1, "layout_versions": [1, 2, 3, 4]}, 4],
 		[{"layout_versions": [5, 4, 2]}, 5], [{"layout_version": 5}, 5],
-		[{"layout_versions": [6, 5, 4]}, 5], [{"layout_version": 6}, -1],
+		[{"layout_versions": [6, 5, 4]}, 6], [{"layout_version": 6}, 6],
+		[{"layout_versions": [7, 6, 5]}, 7], [{"layout_version": 7}, 7],
+		[{"layout_versions": [8, 7, 6]}, 7], [{"layout_version": 8}, -1],
 		[{"layout_version": 1, "layout_versions": [1.0, 2.0]}, 2],
 		[{"layout_version": 1, "layout_versions": [99, 1]}, 1],
 		[{"layout_versions": [99]}, -1], [{"layout_versions": []}, -1],
@@ -250,7 +256,7 @@ func _run() -> void:
 		return
 	if not await _test_cloud(game):
 		return
-	print("LAYOUT_SMOKE_OK: seven portrait choices, %d legacy two-way routes, Oasis bypasses, Cloud ridge and quiet resting, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
+	print("LAYOUT_SMOKE_OK: nine portrait choices, %d legacy two-way routes, Oasis bypasses, Cloud ridge and quiet resting, offset picking, nested JSON layouts, nibbling feedback, capability negotiation, update-safe credentials" % route_checks)
 	quit(0)
 
 func _test_oasis(game: Node) -> bool:

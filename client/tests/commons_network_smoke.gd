@@ -36,7 +36,7 @@ func _run() -> void:
 	var capability := capability_probe._layout_capability(info) if info is Dictionary else -1
 	capability_probe.free()
 	health.queue_free()
-	if not info is Dictionary or info.get("status") != "ok" or info.get("sessions", -1) != 0 or capability != 6:
+	if not info is Dictionary or info.get("status") != "ok" or info.get("sessions", -1) != 0 or capability not in [6, 7]:
 		_fail("test server must be healthy, support v6 and have exactly zero existing herds")
 		return
 	herd_digest = _digest("user://herd.cfg")
@@ -73,7 +73,7 @@ func _run() -> void:
 		return
 	if not _check(game.network.credentials.code == other.credentials.code and game.network.credentials.player_id != other.credentials.player_id, "both sockets share one herd with distinct real player identities"):
 		return
-	if not _check(game.network.advertised_layout_version == 6 and other.advertised_layout_version == 6 and game._supported_layout("bellflower", game.latest.layout) and game._supported_layout("bellflower", other_snapshot.layout), "both clients negotiated v6 and received the canonical explicit fork"):
+	if not _check(game.network.advertised_layout_version == capability and other.advertised_layout_version == capability and game._supported_layout("bellflower", game.latest.layout) and game._supported_layout("bellflower", other_snapshot.layout), "both clients negotiated a v6-capable server and received the canonical explicit fork"):
 		return
 	if not _check(game.meadow.gate == null and game.meadow.bridge == null and not game.latest.gate_open and game.latest.settled == 0, "Commons has no phantom crossing or completion objective"):
 		return

@@ -150,8 +150,8 @@ func _menu(game) -> void:
 	await process_frame
 	var viewport := Rect2(Vector2.ZERO, Vector2(720, 1280))
 	var card: Control = game.welcome.get_child(0).get_child(0)
-	_check(viewport.encloses(card.get_global_rect()), "Eight choices, Return, expanded server and Sound must fit short portrait")
-	for control in [game.juniper_button, game.bellflower_button, game.resume_button, game.endpoint_input, game.sound_button]:
+	_check(viewport.encloses(card.get_global_rect()), "Nine choices, Return, expanded server and Sound must fit short portrait")
+	for control in [game.juniper_button, game.bellflower_button, game.long_valley_button, game.resume_button, game.endpoint_input, game.sound_button]:
 		_check(control.is_visible_in_tree() and viewport.encloses(control.get_global_rect()), "Real menu control is clipped")
-	_check(game.bellflower_button.position.y == game.juniper_button.position.y, "New choice must share fourth row without growing the menu")
+	_check(game.bellflower_button.position.y == game.long_valley_button.position.y and game.bellflower_button.position.y < game.alpine_button.position.y, "Practice and large valley share the first row")
 	_check(game.bellflower_button.size.x >= 230 and game.bellflower_button.size.y >= 58, "Bellflower touch target too small")
